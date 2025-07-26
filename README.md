@@ -24,4 +24,4 @@ A web-based tool for analyzing and working with parasocial content and interacti
 
 ## License
 
-This project is open source and available under the MIT License. 
+This project is open source and available under the MIT License.
