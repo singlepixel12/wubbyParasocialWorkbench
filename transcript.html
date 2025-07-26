@@ -12,11 +12,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>Parasocial Template</h1>
+            <h1>Parasocial Workbench</h1>
             <nav>
                 <ul>
-                    <li><a href="index.html">Vod Diary</a></li>
+                    <li><a href="index.html">Transcription Details</a></li>
                     <li><a href="transcript.html" class="active">Get Transcript</a></li>
+                    <li><a href="vod-diary.html">Vod Diary</a></li>
                 </ul>
             </nav>
         </header>
@@ -54,7 +55,8 @@
                         >
                             <media-outlet>
                                 <track
-                                    src="https://files.vidstack.io/sprite-fight/subs/english.vtt"
+                                    id="subtitle-track"
+                                    src=""
                                     kind="subtitles"
                                     srclang="en"
                                     label="English"
@@ -74,7 +76,7 @@
                             <span class="tag">transcript</span>
                         </div>
                         <div class="summary-box">
-                            <p class="summary">This is a transcript testing page using Vidstack player with a YouTube video. The player includes full Vidstack features: play button, settings menu, and CC (closed captions) button where you can select between English, Spanish, and your Supabase VTT subtitles. Use the CC button to switch to "Supabase Test" to test your transcript extraction service. The Load and Clear buttons are present for formatting purposes but don't have any functionality yet.</p>
+                            <p class="summary">Transcript testing page using Vidstack player. Features play button, settings menu, and CC button for English subtitles and Supabase VTT. Use CC button to switch to "Supabase Test" for transcript extraction testing.</p>
                         </div>
                     </div>
                 </div>
@@ -105,5 +107,192 @@
         });
     </script>
     <script src="script.js"></script>
+    <script type="module">
+        /* ===========================================
+           Dynamic Subtitle Loader - Supabase (v1)
+           =========================================== */
+        console.log("=== SUBTITLE LOADER SCRIPT START ===");
+
+        // DOM references
+        const loadBtn = document.querySelector('.green-btn');
+        const videoInputEl = document.querySelector('.video-input');
+        const subtitleTrackEl = document.getElementById('subtitle-track');
+
+        if (!loadBtn) {
+            console.error('[SubtitleLoader] ❌ Load button not found.');
+        }
+        if (!videoInputEl) {
+            console.error('[SubtitleLoader] ❌ Video input element not found.');
+        }
+        if (!subtitleTrackEl) {
+            console.error('[SubtitleLoader] ❌ Subtitle <track> element not found.');
+        }
+
+        // Helper: compute SHA-256 hash, same logic as script.js
+        async function computeSHA256Hex(str) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        const SUPABASE_URL = 'https://sbvaclmypokafpxebusn.supabase.co'; // TODO: update if project URL changes
+
+        async function handleLoadClick() {
+            console.log('[SubtitleLoader] ▶️ Load button clicked');
+            const videoUrl = videoInputEl.value.trim();
+            if (!videoUrl) {
+                console.warn('[SubtitleLoader] ⚠️ No video URL entered, aborting subtitle load.');
+                return;
+            }
+
+            console.log('[SubtitleLoader] 📺 Video URL:', videoUrl);
+            console.log('[SubtitleLoader] 🔄 Computing SHA-256 hash …');
+            const videoHash = await computeSHA256Hex(videoUrl);
+            console.log('[SubtitleLoader] 🏷️ Computed hash:', videoHash);
+
+            // Construct Supabase storage path
+            const subtitleSrc = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${videoHash}/en/subtitle.vtt`;
+            console.log('[SubtitleLoader] 📄 Subtitle source URL:', subtitleSrc);
+
+            // Test if the subtitle file exists before setting it
+            console.log('[SubtitleLoader] 🔍 Testing subtitle URL accessibility...');
+            try {
+                const testResponse = await fetch(subtitleSrc, { method: 'HEAD' });
+                console.log('[SubtitleLoader] 📊 Subtitle URL test response:', {
+                    status: testResponse.status,
+                    statusText: testResponse.statusText,
+                    ok: testResponse.ok,
+                    url: testResponse.url
+                });
+                
+                if (!testResponse.ok) {
+                    console.error('[SubtitleLoader] ❌ Subtitle file not accessible:', {
+                        status: testResponse.status,
+                        message: testResponse.statusText
+                    });
+                    return;
+                }
+                
+                console.log('[SubtitleLoader] ✅ Subtitle file is accessible');
+            } catch (fetchError) {
+                console.error('[SubtitleLoader] ❌ Network error testing subtitle URL:', fetchError);
+                console.error('[SubtitleLoader] 🔄 Proceeding anyway - might be CORS-related...');
+            }
+
+            // Get reference to the media player
+            const playerEl = document.querySelector('media-player');
+            if (!playerEl) {
+                console.error('[SubtitleLoader] ❌ Media player not found');
+                return;
+            }
+
+            console.log('[SubtitleLoader] 🔄 Recreating media player with subtitle track...');
+            
+            // Get the video container
+            const videoContainer = playerEl.parentElement;
+            
+            // Store current video attributes
+            const currentSrc = playerEl.getAttribute('src');
+            const currentPoster = playerEl.getAttribute('poster');
+            const currentClass = playerEl.getAttribute('class');
+            
+            // Remove the old player
+            playerEl.remove();
+            
+            // Create new media player with embedded track
+            const newPlayer = document.createElement('media-player');
+            newPlayer.setAttribute('class', currentClass);
+            newPlayer.setAttribute('src', currentSrc);
+            newPlayer.setAttribute('poster', currentPoster);
+            newPlayer.setAttribute('playsinline', '');
+            
+            // Create media-outlet
+            const mediaOutlet = document.createElement('media-outlet');
+            
+            // Create and add the subtitle track
+            const trackEl = document.createElement('track');
+            trackEl.id = 'subtitle-track';
+            trackEl.src = subtitleSrc;
+            trackEl.kind = 'subtitles';
+            trackEl.srclang = 'en';
+            trackEl.label = 'English';
+            trackEl.default = true;
+            
+            // Add track to media-outlet
+            mediaOutlet.appendChild(trackEl);
+            
+            // Create the skin
+            const skin = document.createElement('media-community-skin');
+            
+            // Add outlet and skin to player
+            newPlayer.appendChild(mediaOutlet);
+            newPlayer.appendChild(skin);
+            
+            // Add new player to container
+            videoContainer.appendChild(newPlayer);
+            
+            console.log('[SubtitleLoader] ✅ Media player recreated with embedded subtitle track');
+            console.log('[SubtitleLoader] 🎬 Keeping original Sprite Fight video, only loading subtitles');
+            
+            // Wait for the new player to initialize
+            setTimeout(() => {
+                console.log('[SubtitleLoader] 🔄 Checking new player for text tracks...');
+                
+                // Get reference to the new player
+                const currentPlayer = document.querySelector('media-player');
+                if (!currentPlayer) {
+                    console.error('[SubtitleLoader] ❌ New player not found');
+                    return;
+                }
+                
+                // Check if text tracks are available
+                if (currentPlayer.textTracks && currentPlayer.textTracks.length > 0) {
+                    console.log('[SubtitleLoader] 📺 Found text tracks:', currentPlayer.textTracks.length);
+                    
+                    // Enable all English tracks
+                    for (let i = 0; i < currentPlayer.textTracks.length; i++) {
+                        const track = currentPlayer.textTracks[i];
+                        console.log(`[SubtitleLoader] 📋 Track ${i}:`, {
+                            kind: track.kind,
+                            language: track.language,
+                            label: track.label,
+                            mode: track.mode
+                        });
+                        
+                        if (track.language === 'en' || track.label === 'English') {
+                            track.mode = 'showing';
+                            console.log('[SubtitleLoader] ✅ Enabled English subtitle track');
+                        }
+                    }
+                } else {
+                    console.warn('[SubtitleLoader] ⚠️ No text tracks found on new player');
+                    
+                    // Try to manually enable the track element
+                    const trackElement = currentPlayer.querySelector('track');
+                    if (trackElement) {
+                        console.log('[SubtitleLoader] 🔧 Found track element, forcing load...');
+                        trackElement.track.mode = 'showing';
+                    }
+                }
+                
+                console.log('[SubtitleLoader] ✅ New player setup complete');
+            }, 1000);
+            
+            // Listen for track events
+            trackEl.addEventListener('load', () => {
+                console.log('[SubtitleLoader] 🎉 Subtitle track loaded successfully');
+            });
+            
+            trackEl.addEventListener('error', (e) => {
+                console.error('[SubtitleLoader] ❌ Subtitle track failed to load:', e);
+            });
+        }
+
+        if (loadBtn) {
+            loadBtn.addEventListener('click', handleLoadClick);
+        }
+    </script>
 </body>
 </html> 
