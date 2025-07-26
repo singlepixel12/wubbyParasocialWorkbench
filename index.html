@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Summary </title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Parasocial Template</h1>
+            <nav>
+                <ul>
+                    <li><a href="index.html" class="active">Vod Diary</a></li>
+                    <li><a href="transcript.html">Get Transcript</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="video-section">
+                <div class="video-selector">
+                    <div class="video-selector-row">
+                        <div class="video-input-container">
+                            <input type="text" class="video-input" list="video-options" placeholder="Enter arichive.wubby.tv URL or select from dropdown">
+                        </div>
+                        <datalist id="video-options">
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/2_LITTLE%20PEOPLE%20BIG%20DESSERT%20-%20POOKIE%20RESPONDS%20-%20JEWISH%20WEDDINGS%20-%20PENCIL%20SHARPENER%20GUY%20ON%20CALL%20-%20UNDER%20THE%20SEAT%20VIBES_1751499060_000.mp4">Little People Big Dessert</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/4_MAKING%20PASSIONATE%20LOVE%20TO%20OBJECTS%20AROUND%20MY%20HOUSE%20-%20GRAPHIC%20-%20NO%20PROTECTION%20-%20TURN%20A%20BAR%20STOOL%20UPSIDE%20DOWN%20ILL%20FIND%20A%20SEAT%20-%20LOOKING%20FOR%20TAN_1751671871_000.mp4">Making Passionate Love to Objects</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/5_kickapilol_1751754314_000.mp4">Kickapilol</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/6_WHICH%20WAIFU%20IS%20THE%20FASTEST%20-%20IVE%20BEEN%20KNOWN%20TO%20LAST%2012%20SECONDS%20-%20MAYBE%20DATING%20THE%20BED%20AFTER%20-%20THE%20WORLD%20IS%20MY%20OYSTER%20-%20SMASHING%20CLAM_1751844647_000.mp4">Which Waifu Is The Fastest</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/9_SHTS%20ON%20FIRE%20YO%20-%20UPDATE%20SOON_1752106523_000.mp4">Shits On Fire Yo</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/12_kickapilol_1752360305_000.mp4">Kickapilol 2</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/14_MARE%20MONDAY%20-%20HORSE%20GIRLS%20BUT%20THEY%20ARE%20CARDBOARD%20-%20BETA%20PACK%20AFTER%20%20I%20GUESS%20SO_1752531749_000.mp4">Mare Monday</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/16_THE%20JUICE%20-%20THE%20SQUEEZE%20-%20THE%20MAN%20-%20THE%20MERMAID%20TITTIES%20-%20MASTER%20CHIEF%20HOLDING%20BLUE%20BALLOONS%20-%20GAY%20BOWSER%20-%20GG_1752708670_000.mp4">The Juice</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/15_MARE%20MONDAY%20-%20HORSE%20GIRLS%20BUT%20THEY%20ARE%20CARDBOARD%20-%20BETA%20PACK%20AFTER%20%20I%20GUESS%20SO_1752597114_000.mp4">Progresive Show</option>
+                        </datalist>
+                        <button class="btn green-btn">Load</button>
+                        <button class="btn clear-btn">Clear</button>
+                    </div>
+                    <div class="hash-display">
+                        <code class="hash-value">Hash: <span id="current-hash">-</span></code>
+                        <code class="status-value">Status: <span id="current-status">-</span></code>
+                    </div>
+                </div>
+                
+                <div class="video-player">
+                    <div class="player-controls">
+                    </div>
+                    
+                    <div class="video-container">
+                        <div class="video-player-box">
+                            <div class="placeholder-note">Video player placeholder - structure only</div>
+                        </div>
+                    </div>
+                    
+                    <div class="video-info">
+                        <h4 class="video-title">Video Title for VOD</h4>
+                        <h3>Date of VOD</h3>
+                        <div class="tags-container"></div>
+                        <div class="summary-box">
+                            <p class="summary">- This vod has no summary -</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

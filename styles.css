@@ -1,0 +1,282 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #000;
+    color: #fff;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 20px;
+}
+
+header h1 {
+    font-size: 2rem;
+    font-weight: 300;
+    color: #fff;
+}
+
+nav ul {
+    display: flex;
+    list-style: none;
+    gap: 30px;
+}
+
+nav a {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+nav a:hover,
+nav a.active {
+    color: #fff;
+}
+
+.video-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.video-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.video-input-container {
+    position: relative;
+    flex: 1;
+    order: 1;
+}
+
+.video-input {
+    flex: 1;
+    padding: 12px 16px;
+    background-color: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    width: 100%;
+    order: 1;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.video-input:focus {
+    outline: none;
+    border-color: #007acc;
+}
+
+.video-input::placeholder {
+    color: #888;
+}
+
+/* Hide default arrow in Chrome/Blink & Safari */
+.video-input::-webkit-calendar-picker-indicator,
+.video-input::-webkit-list-button,
+.video-input::-webkit-input-list-button {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Custom dropdown arrow */
+.video-input-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #888;
+    pointer-events: none;
+}
+
+/* Buttons */
+.btn {
+    border: none;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+    white-space: nowrap;
+    width: 70px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.green-btn {
+    background-color: #28a745;
+    order: 2;
+}
+
+.green-btn:hover {
+    background-color: #218838;
+}
+
+.clear-btn {
+    background-color: #dc3545;
+    order: 3;
+}
+
+.clear-btn:hover {
+    background-color: #c82333;
+}
+
+.hash-display {
+    margin-top: 8px;
+    width: 100%;
+}
+
+.hash-value,
+.status-value {
+    color: #666;
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+    background-color: #111;
+    padding: 4px 8px;
+    border-radius: 3px;
+    border: 1px solid #333;
+    margin-right: 10px;
+}
+
+.status-value.success {
+    color: #28a745;
+}
+
+.status-value.error {
+    color: #dc3545;
+}
+
+.video-player {
+    background-color: #111;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 40px;
+}
+
+.player-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.video-container {
+    margin: 20px 0;
+}
+
+/* Minimal styling for the player container */
+.video-player-box {
+    width: 100%;
+    height: 400px;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    /* Vidstack player will be inserted here */
+}
+
+.placeholder-note {
+    color: #666;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px dashed #444;
+    border-radius: 4px;
+    max-width: 300px;
+}
+
+.video-info h3 {
+    font-size: 1.1rem;
+    font-weight: 400;
+    margin-bottom: 10px;
+}
+
+.video-title {
+    font-size: 1.3rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+/* Summary */
+.summary-box {
+    margin-top: 16px;
+}
+
+.summary {
+    white-space: pre-wrap;
+}
+
+/* Tags */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.tag {
+    display: inline-block;
+    background-color: #555;
+    color: #ccc;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.tag.kick {
+    background-color: #28a745;
+    color: #fff;
+    font-weight: 600;
+}
+
+.tag.twitch {
+    background-color: #6441A5;
+    color: #fff;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 10px;
+    }
+} 

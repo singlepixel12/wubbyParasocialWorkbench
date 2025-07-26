@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Transcript</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Vidstack Player CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack/styles/defaults.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack/styles/community-skin/video.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Parasocial Template</h1>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Vod Diary</a></li>
+                    <li><a href="transcript.html" class="active">Get Transcript</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <div class="video-section">
+                <div class="video-selector">
+                    <div class="video-selector-row">
+                        <div class="video-input-container">
+                            <input type="text" class="video-input" list="video-options" placeholder="Enter arichive.wubby.tv URL or select from dropdown">
+                        </div>
+                        <datalist id="video-options">
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/2_LITTLE%20PEOPLE%20BIG%20DESSERT%20-%20POOKIE%20RESPONDS%20-%20JEWISH%20WEDDINGS%20-%20PENCIL%20SHARPENER%20GUY%20ON%20CALL%20-%20UNDER%20THE%20SEAT%20VIBES_1751499060_000.mp4">Little People Big Dessert</option>
+                         </datalist>
+                        <button class="btn green-btn">Load</button>
+                        <button class="btn clear-btn">Clear</button>
+                    </div>
+                    <div class="hash-display">
+                        <code class="hash-value">Hash: <span id="current-hash">-</span></code>
+                        <code class="status-value">Status: <span id="current-status">-</span></code>
+                    </div>
+                </div>
+                
+                <div class="video-player">
+                    <div class="player-controls">
+                    </div>
+                    
+                    <div class="video-container">
+                        <!-- Vidstack Player -->
+                        <media-player
+                            class="video-player-box"
+                            src="https://files.vidstack.io/sprite-fight/720p.mp4"
+                            poster="https://files.vidstack.io/sprite-fight/poster.webp"
+                            playsinline
+                        >
+                            <media-outlet>
+                                <track
+                                    src="https://files.vidstack.io/sprite-fight/subs/english.vtt"
+                                    kind="subtitles"
+                                    srclang="en"
+                                    label="English"
+                                    default
+                                >
+                            </media-outlet>
+                            <media-community-skin></media-community-skin>
+                        </media-player>
+                    </div>
+                    
+                    <div class="video-info">
+                        <h4 class="video-title">Sprite Fight</h4>
+                        <h3>YouTube Video - Vidstack Player</h3>
+                        <div class="tags-container">
+                            <span class="tag">youtube</span>
+                            <span class="tag">vidstack</span>
+                            <span class="tag">transcript</span>
+                        </div>
+                        <div class="summary-box">
+                            <p class="summary">This is a transcript testing page using Vidstack player with a YouTube video. The player includes full Vidstack features: play button, settings menu, and CC (closed captions) button where you can select between English, Spanish, and your Supabase VTT subtitles. Use the CC button to switch to "Supabase Test" to test your transcript extraction service. The Load and Clear buttons are present for formatting purposes but don't have any functionality yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Vidstack Player JS -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/vidstack/dist/cdn/prod.js"></script>
+    <script type="module">
+        console.log('=== VIDSTACK ENHANCEMENT SCRIPT (v4) ===');
+        
+        customElements.whenDefined('media-player').then(() => {
+            console.log('✅ `media-player` element is defined.');
+            const player = document.querySelector('media-player');
+
+            if (player) {
+                console.log('✅ Player element found in DOM:', player);
+
+                player.addEventListener('error', (event) => {
+                    console.error('❌ Player error:', event.detail);
+                });
+            } else {
+                console.error('❌ Player element not found in DOM after definition.');
+            }
+        }).catch(err => {
+            console.error('❌ Error waiting for `media-player` definition:', err);
+        });
+    </script>
+    <script src="script.js"></script>
+</body>
+</html> 
