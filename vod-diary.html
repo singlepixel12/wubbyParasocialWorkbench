@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOD Diary</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Parasocial Workbench</h1>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Transcription Details</a></li>
+                    <li><a href="transcript.html">Get Transcript</a></li>
+                    <li><a href="vod-diary.html" class="active">Vod Diary</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Filter section (calendar + platform stub) -->
+            <div class="filters" style="margin-bottom: 20px; display:flex; gap:20px; flex-wrap:wrap; justify-content:flex-end;">
+                <input id="date-range" class="date-range-input" placeholder="Select date range" readonly>
+                <div id="platform-slider" class="platform-slider both" data-state="both">
+                    <span class="option-label opt-both">both</span>
+                    <span class="option-label opt-twitch">twitch</span>
+                    <span class="option-label opt-kick">kick</span>
+                    <div class="slider-thumb"><span class="thumb-label">both</span></div>
+                </div>
+            </div>
+
+            <!-- Video list will be injected here -->
+            <div class="video-list" id="video-list"></div>
+        </main>
+    </div>
+
+    <!-- Flatpickr -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script src="vod-diary.js"></script>
+</body>
+</html> 

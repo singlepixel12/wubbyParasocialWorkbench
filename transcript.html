@@ -129,6 +129,8 @@
         }
 
         // Helper: compute SHA-256 hash, same logic as script.js
+        // This function takes a string (the video URL) and returns its SHA-256 hash in hex format.
+        // We use this hash to uniquely identify each video and organize subtitle files in Supabase storage.
         async function computeSHA256Hex(str) {
             const encoder = new TextEncoder();
             const data = encoder.encode(str);
@@ -147,12 +149,17 @@
                 return;
             }
 
+            // --- DYNAMIC SUBTITLE URL CONSTRUCTION ---
+            // We compute the SHA-256 hash of the input video URL. This hash is used as a folder name in Supabase storage.
+            // The resulting subtitle file path is:
+            //   [bucket]/wubbytranscript/[SHA256_HASH_OF_VIDEO_URL]/en/subtitle.vtt
+            // This ensures each video URL maps to a unique subtitle file, and allows for scalable, organized storage.
             console.log('[SubtitleLoader] 📺 Video URL:', videoUrl);
             console.log('[SubtitleLoader] 🔄 Computing SHA-256 hash …');
             const videoHash = await computeSHA256Hex(videoUrl);
             console.log('[SubtitleLoader] 🏷️ Computed hash:', videoHash);
 
-            // Construct Supabase storage path
+            // Construct Supabase storage path for the subtitle file
             const subtitleSrc = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${videoHash}/en/subtitle.vtt`;
             console.log('[SubtitleLoader] 📄 Subtitle source URL:', subtitleSrc);
 
@@ -188,6 +195,10 @@
                 return;
             }
 
+            // --- DYNAMICALLY REPLACING THE PLAYER TO ADD SUBTITLE TRACK ---
+            // Vidstack's <media-player> does not support changing <track> elements on the fly.
+            // To update the subtitle track, we remove the old player and create a new one with the correct <track>.
+            // This ensures the new subtitle file is loaded and selectable in the player UI.
             console.log('[SubtitleLoader] 🔄 Recreating media player with subtitle track...');
             
             // Get the video container
@@ -212,6 +223,8 @@
             const mediaOutlet = document.createElement('media-outlet');
             
             // Create and add the subtitle track
+            // The <track> element is dynamically created and added to the new player, pointing to the computed subtitleSrc.
+            // This allows the player to load the correct subtitles for the selected video URL.
             const trackEl = document.createElement('track');
             trackEl.id = 'subtitle-track';
             trackEl.src = subtitleSrc;

@@ -248,6 +248,10 @@ nav a.active {
     margin-top: 8px;
 }
 
+.video-card:not(.expanded) .tags-container {
+    display: none;
+}
+
 .tag {
     display: inline-block;
     background-color: #555;
@@ -279,4 +283,329 @@ nav a.active {
         flex-direction: column;
         gap: 10px;
     }
+} 
+
+/* === VOD Weekly Card Styles === */
+.video-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.video-card {
+    display: flex;
+    gap: 16px;
+    background-color: #111;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px 16px 40px 16px; /* smaller bottom padding */
+    min-height: 180px;
+    height: auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.thumbnail {
+    min-width: 160px;
+    width: 160px;
+    height: 100%;
+    background-color: #000; /* black placeholder */
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.video-card .info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.video-card .summary {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #ccc;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* keep 3 lines */
+    -webkit-box-orient: vertical;
+}
+
+.video-card.expanded .summary {
+    -webkit-line-clamp: unset;
+}
+
+.video-card.expanded {
+    height: auto;
+    overflow: visible;
+}
+
+/* Platform tag absolute position */
+.platform-tag {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    pointer-events: none;
+}
+
+/* Light grey expand button with arrows */
+.expand-btn {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: transparent;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+    .video-card {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .thumbnail {
+        width: 100%;
+        min-width: 100%;
+        height: 180px;
+    }
+} 
+
+/* Right-align filter bar */
+.filters {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+} 
+
+.upload-date {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-top: 4px;
+} 
+
+.platform-select {
+    padding: 8px 12px;
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.platform-select option {
+    background-color: #111;
+} 
+
+/* === Platform Slider === */
+.platform-slider {
+    position: relative;
+    width: 180px;
+    height: 32px;
+    border-radius: 16px;
+    background-color: #000;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border: 1px solid #666;
+}
+/* Update thumb style */
+.platform-slider .slider-thumb {
+    position: absolute;
+    top: 0;
+    width: 60px;
+    height: 100%;
+    border-radius: 16px;
+    background-color: #fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.7rem;
+    font-weight:600;
+    color:#000;
+    transition: left 0.3s ease;
+}
+/* State colors */
+.platform-slider.both { background-color: #000; }
+.platform-slider.twitch { background-color: #6441A5; }
+.platform-slider.kick { background-color: #28a745; }
+/* adjust positions */
+.platform-slider.both .slider-thumb { left: 0; }
+.platform-slider.twitch .slider-thumb { left: calc(50% - 30px); }
+.platform-slider.kick .slider-thumb { left: calc(100% - 60px); } 
+
+.option-label {
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:0.65rem;
+    color:#888;
+    pointer-events:none;
+    transition:opacity 0.3s ease;
+}
+.opt-both { left:10px; }
+.opt-twitch { left:50%; transform:translate(-50%,-50%); }
+.opt-kick { right:10px; }
+/* Hide active label */
+.platform-slider.both .opt-both,
+.platform-slider.twitch .opt-twitch,
+.platform-slider.kick .opt-kick {
+    opacity:0;
+}
+
+/* Make other labels black when slider is on twitch/kick */
+.platform-slider.twitch .opt-both,
+.platform-slider.twitch .opt-kick,
+.platform-slider.kick .opt-both,
+.platform-slider.kick .opt-twitch {
+    color: #000 !important;
+}
+
+.date-range-input {
+    padding: 8px 12px;
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 190px;
+}
+
+/* Flatpickr overrides */
+.flatpickr-calendar {
+    background: #000;
+    color: #fff;
+    border: 1px solid #333;
+}
+.flatpickr-months .flatpickr-month {
+    background: #111;
+    color: #fff;
+}
+.flatpickr-weekday,
+.flatpickr-day {
+    color: #ccc;
+}
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.inRange {
+    background: #444;
+    color: #fff;
+}
+.flatpickr-day.today {
+    border-color:#007acc;
+} 
+
+/* Flatpickr forced dark overrides */
+.flatpickr-calendar {
+    background:#000 !important;
+    color:#fff !important;
+    border:1px solid #333 !important;
+}
+.flatpickr-months .flatpickr-month {
+    background:#111 !important;
+    color:#fff !important;
+}
+.flatpickr-weekday,
+.flatpickr-day {
+    color:#aaa !important;
+}
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.inRange {
+    background:#444 !important;
+    color:#fff !important;
+}
+.flatpickr-day.today {
+    border-color:#555 !important;
+} 
+
+.flatpickr-days,
+.flatpickr-days .dayContainer {
+    background: transparent !important;
+}
+.flatpickr-day {
+    border: none !important;
+    margin: 0 !important;
+} 
+
+.flatpickr-day.inRange,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    box-shadow: none !important;
+}
+.flatpickr-day.inRange:before,
+.flatpickr-day.inRange:after,
+.flatpickr-day.startRange:before,
+.flatpickr-day.endRange:after,
+.flatpickr-day.startRange:after,
+.flatpickr-day.endRange:before {
+    box-shadow: none !important;
+    background: #444 !important;
+} 
+
+.flatpickr-day.inRange {
+    position: relative;
+}
+.flatpickr-day.inRange::before,
+.flatpickr-day.inRange::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #444;
+}
+.flatpickr-day.inRange::before { left: -1px; }
+.flatpickr-day.inRange::after { right: -1px; } 
+
+/* Remove white gaps by eliminating borders on day containers and days */
+.flatpickr-day,
+.flatpickr-days .dayContainer {
+    border: none !important;
+}
+/* Square off range endpoints */
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    border-radius: 0 !important;
+} 
+
+/* Restore half-circle edges */
+.flatpickr-day.startRange {
+    border-radius: 50% 0 0 50% !important;
+}
+.flatpickr-day.endRange {
+    border-radius: 0 50% 50% 0 !important;
+}
+/* Extend background to fill gap between cells */
+.flatpickr-day.startRange::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -1px;
+    width: 1px;
+    background: #444;
+}
+.flatpickr-day.endRange::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -1px;
+    width: 1px;
+    background: #444;
+} 
+
+.flatpickr-day.startRange.endRange {
+    border-radius: 50% !important;
+}
+.flatpickr-day.startRange.endRange::before,
+.flatpickr-day.startRange.endRange::after {
+    display: none !important;
 } 
