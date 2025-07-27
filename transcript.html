@@ -205,7 +205,6 @@
             const videoContainer = playerEl.parentElement;
             
             // Store current video attributes
-            const currentSrc = playerEl.getAttribute('src');
             const currentPoster = playerEl.getAttribute('poster');
             const currentClass = playerEl.getAttribute('class');
             
@@ -215,7 +214,7 @@
             // Create new media player with embedded track
             const newPlayer = document.createElement('media-player');
             newPlayer.setAttribute('class', currentClass);
-            newPlayer.setAttribute('src', currentSrc);
+            newPlayer.setAttribute('src', videoUrl); // Use the actual video URL from input
             newPlayer.setAttribute('poster', currentPoster);
             newPlayer.setAttribute('playsinline', '');
             
@@ -247,7 +246,7 @@
             videoContainer.appendChild(newPlayer);
             
             console.log('[SubtitleLoader] ✅ Media player recreated with embedded subtitle track');
-            console.log('[SubtitleLoader] 🎬 Keeping original Sprite Fight video, only loading subtitles');
+            console.log('[SubtitleLoader] 🎬 Loading actual video URL with subtitles');
             
             // Wait for the new player to initialize
             setTimeout(() => {
