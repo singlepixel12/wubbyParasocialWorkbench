@@ -10,32 +10,39 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack/styles/community-skin/video.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="container">
+        <!-- Toast Notification Container -->
+        <div class="toast-container" id="toast-container" aria-live="polite" aria-label="Notifications"></div>
+        
         <header>
             <h1>Parasocial Workbench</h1>
-            <nav>
-                <ul>
-                    <li><a href="index.html">Transcription Details</a></li>
-                    <li><a href="transcript.html" class="active">Get Transcript</a></li>
-                    <li><a href="vod-diary.html">Vod Diary</a></li>
+            <nav aria-label="Main navigation">
+                <ul role="menubar">
+                    <li role="none"><a href="index.html" role="menuitem">Transcription Details</a></li>
+                    <li role="none"><a href="transcript.html" class="active" role="menuitem" aria-current="page">Get Transcript</a></li>
+                    <li role="none"><a href="vod-diary.html" role="menuitem">Vod Diary</a></li>
                 </ul>
             </nav>
         </header>
 
-        <main>
-            <div class="video-section">
+        <main id="main-content">
+            <section class="video-section" aria-labelledby="video-section-title">
+                <h2 id="video-section-title" class="sr-only">Video and Transcript Information</h2>
                 <div class="video-selector">
                     <div class="video-selector-row">
                         <div class="video-input-container">
-                            <input type="text" class="video-input" list="video-options" placeholder="Enter arichive.wubby.tv URL or select from dropdown">
+                            <label for="video-input-transcript" class="sr-only">Video URL</label>
+                            <input type="text" id="video-input-transcript" class="video-input" list="video-options" placeholder="Enter archive.wubby.tv URL or select from dropdown" aria-describedby="video-input-help-transcript">
+                            <div id="video-input-help-transcript" class="sr-only">Enter a video URL or select from the dropdown list of available videos</div>
                         </div>
                         <datalist id="video-options">
-                            <option value="https://archive.wubby.tv/vods/public/jul_2025/2_LITTLE%20PEOPLE%20BIG%20DESSERT%20-%20POOKIE%20RESPONDS%20-%20JEWISH%20WEDDINGS%20-%20PENCIL%20SHARPENER%20GUY%20ON%20CALL%20-%20UNDER%20THE%20SEAT%20VIBES_1751499060_000.mp4">Little People Big Dessert</option>
+                            <option value="https://archive.wubby.tv/vods/public/jul_2025/27_MEDIA%20SHARE%20NIGHT%20FINALLY%20-%20POUR%20A%20DRINK%20-%20TAKE%20YOUR%20SHOES%20OFF%20-%20MAKE%20SURE%20THE%20LIGHTING%20IS%20RIGHT%20-%20SNAP%20A%20PIC%20OF%20THOSE%20TOES%20-PLEASE%20MEDIA_1753659052_000.mp4">Media Share Night</option>
                          </datalist>
-                        <button class="btn green-btn">Load</button>
-                        <button class="btn clear-btn">Clear</button>
+                        <button class="btn green-btn" aria-label="Load video and subtitles">Load</button>
+                        <button class="btn clear-btn" aria-label="Clear video input and data">Clear</button>
                     </div>
-                    <div class="hash-display">
+                    <div class="hash-display" aria-live="polite" aria-atomic="true">
                         <code class="hash-value">Hash: <span id="current-hash">-</span></code>
                         <code class="status-value">Status: <span id="current-status">-</span></code>
                     </div>
@@ -86,225 +93,205 @@
 
     <!-- Vidstack Player JS -->
     <script type="module" src="https://cdn.jsdelivr.net/npm/vidstack/dist/cdn/prod.js"></script>
+    <!-- Vidstack enhancement helper -->
     <script type="module">
-        console.log('=== VIDSTACK ENHANCEMENT SCRIPT (v4) ===');
-        
-        customElements.whenDefined('media-player').then(() => {
-            console.log('✅ `media-player` element is defined.');
-            const player = document.querySelector('media-player');
-
-            if (player) {
-                console.log('✅ Player element found in DOM:', player);
-
-                player.addEventListener('error', (event) => {
-                    console.error('❌ Player error:', event.detail);
-                });
-            } else {
-                console.error('❌ Player element not found in DOM after definition.');
-            }
-        }).catch(err => {
-            console.error('❌ Error waiting for `media-player` definition:', err);
-        });
+      customElements.whenDefined('media-player').then(() => {
+        const player = document.querySelector('media-player');
+        if (player) {
+          player.addEventListener('error', e => console.error('❌ Player error:', e.detail));
+        } else {
+          console.error('❌ Player element not found in DOM after definition.');
+        }
+      }).catch(err => console.error('❌ Error waiting for `media-player` definition:', err));
     </script>
-    <script src="script.js"></script>
-    <script type="module">
-        /* ===========================================
-           Dynamic Subtitle Loader - Supabase (v1)
-           =========================================== */
-        console.log("=== SUBTITLE LOADER SCRIPT START ===");
+    <script src="src/toast.js"></script>
+    <script src="src/script.js"></script>
+    <!-- Dynamic Subtitle Loader -->
+    <script>
+      /* ===========================================
+         Dynamic Subtitle Loader - Supabase (v1)
+         =========================================== */
 
-        // DOM references
-        const loadBtn = document.querySelector('.green-btn');
-        const videoInputEl = document.querySelector('.video-input');
-        const subtitleTrackEl = document.getElementById('subtitle-track');
+      // DOM references
+      const loadBtn        = document.querySelector('.green-btn');
+      const videoInputEl   = document.querySelector('.video-input');
+      const subtitleTrackEl = document.getElementById('subtitle-track');
 
-        if (!loadBtn) {
-            console.error('[SubtitleLoader] ❌ Load button not found.');
-        }
-        if (!videoInputEl) {
-            console.error('[SubtitleLoader] ❌ Video input element not found.');
-        }
-        if (!subtitleTrackEl) {
-            console.error('[SubtitleLoader] ❌ Subtitle <track> element not found.');
-        }
+      if (!loadBtn) {
+          console.error('[SubtitleLoader] ❌ Load button not found.');
+          showError('Load button not found. Please refresh the page.');
+      }
+      if (!videoInputEl) {
+          console.error('[SubtitleLoader] ❌ Video input element not found.');
+          showError('Video input not found. Please refresh the page.');
+      }
+      if (!subtitleTrackEl) {
+          console.error('[SubtitleLoader] ❌ Subtitle <track> element not found.');
+          showWarning('Subtitle track element not found.');
+      }
 
-        // Helper: compute SHA-256 hash, same logic as script.js
-        // This function takes a string (the video URL) and returns its SHA-256 hash in hex format.
-        // We use this hash to uniquely identify each video and organize subtitle files in Supabase storage.
-        async function computeSHA256Hex(str) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(str);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
+      // Helper: compute SHA-256 hash, same logic as script.js
+      // This function takes a string (the video URL) and returns its SHA-256 hash in hex format.
+      // We use this hash to uniquely identify each video and organize subtitle files in Supabase storage.
+      async function computeSHA256Hex(str) {
+          const encoder = new TextEncoder();
+          const data = encoder.encode(str);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
 
-        const SUPABASE_URL = 'https://sbvaclmypokafpxebusn.supabase.co'; // TODO: update if project URL changes
+      const SUPABASE_URL = 'https://sbvaclmypokafpxebusn.supabase.co'; // TODO: update if project URL changes
 
-        async function handleLoadClick() {
-            console.log('[SubtitleLoader] ▶️ Load button clicked');
-            const videoUrl = videoInputEl.value.trim();
-            if (!videoUrl) {
-                console.warn('[SubtitleLoader] ⚠️ No video URL entered, aborting subtitle load.');
-                return;
-            }
+      async function handleLoadClick() {
+          const videoUrl = videoInputEl.value.trim();
+          if (!videoUrl) {
+              console.warn('[SubtitleLoader] ⚠️ No video URL entered, aborting subtitle load.');
+              showWarning('Please enter a video URL to load subtitles.');
+              return;
+          }
 
-            // --- DYNAMIC SUBTITLE URL CONSTRUCTION ---
-            // We compute the SHA-256 hash of the input video URL. This hash is used as a folder name in Supabase storage.
-            // The resulting subtitle file path is:
-            //   [bucket]/wubbytranscript/[SHA256_HASH_OF_VIDEO_URL]/en/subtitle.vtt
-            // This ensures each video URL maps to a unique subtitle file, and allows for scalable, organized storage.
-            console.log('[SubtitleLoader] 📺 Video URL:', videoUrl);
-            console.log('[SubtitleLoader] 🔄 Computing SHA-256 hash …');
-            const videoHash = await computeSHA256Hex(videoUrl);
-            console.log('[SubtitleLoader] 🏷️ Computed hash:', videoHash);
+          // --- DYNAMIC SUBTITLE URL CONSTRUCTION ---
+          // We compute the SHA-256 hash of the input video URL. This hash is used as a folder name in Supabase storage.
+          // The resulting subtitle file path is:
+          //   [bucket]/wubbytranscript/[SHA256_HASH_OF_VIDEO_URL]/en/subtitle.vtt
+          // This ensures each video URL maps to a unique subtitle file, and allows for scalable, organized storage.
+          const videoHash = await computeSHA256Hex(videoUrl);
 
-            // Construct Supabase storage path for the subtitle file
-            const subtitleSrc = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${videoHash}/en/subtitle.vtt`;
-            console.log('[SubtitleLoader] 📄 Subtitle source URL:', subtitleSrc);
+          // Construct Supabase storage path for the subtitle file
+          const subtitleSrc = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${videoHash}/en/subtitle.vtt`;
 
-            // Test if the subtitle file exists before setting it
-            console.log('[SubtitleLoader] 🔍 Testing subtitle URL accessibility...');
-            try {
-                const testResponse = await fetch(subtitleSrc, { method: 'HEAD' });
-                console.log('[SubtitleLoader] 📊 Subtitle URL test response:', {
-                    status: testResponse.status,
-                    statusText: testResponse.statusText,
-                    ok: testResponse.ok,
-                    url: testResponse.url
-                });
-                
-                if (!testResponse.ok) {
-                    console.error('[SubtitleLoader] ❌ Subtitle file not accessible:', {
-                        status: testResponse.status,
-                        message: testResponse.statusText
-                    });
-                    return;
-                }
-                
-                console.log('[SubtitleLoader] ✅ Subtitle file is accessible');
-            } catch (fetchError) {
-                console.error('[SubtitleLoader] ❌ Network error testing subtitle URL:', fetchError);
-                console.error('[SubtitleLoader] 🔄 Proceeding anyway - might be CORS-related...');
-            }
+          // Test if the subtitle file exists before setting it
+          try {
+              const testResponse = await fetch(subtitleSrc, { method: 'HEAD' });
+              
+              if (!testResponse.ok) {
+                  console.error('[SubtitleLoader] ❌ Subtitle file not accessible:', {
+                      status: testResponse.status,
+                      message: testResponse.statusText
+                  });
+                  showError(`Subtitle file not accessible: ${testResponse.status} - ${testResponse.statusText}`);
+                  return;
+              }
+              
+          } catch (fetchError) {
+              console.error('[SubtitleLoader] ❌ Network error testing subtitle URL:', fetchError);
+              console.error('[SubtitleLoader] 🔄 Proceeding anyway - might be CORS-related...');
+              showWarning('Network error testing subtitle URL. Proceeding anyway...');
+          }
 
-            // Get reference to the media player
-            const playerEl = document.querySelector('media-player');
-            if (!playerEl) {
-                console.error('[SubtitleLoader] ❌ Media player not found');
-                return;
-            }
+          // Get reference to the media player
+          const playerEl = document.querySelector('media-player');
+          if (!playerEl) {
+              console.error('[SubtitleLoader] ❌ Media player not found');
+              showError('Media player not found. Please refresh the page.');
+              return;
+          }
 
-            // --- DYNAMICALLY REPLACING THE PLAYER TO ADD SUBTITLE TRACK ---
-            // Vidstack's <media-player> does not support changing <track> elements on the fly.
-            // To update the subtitle track, we remove the old player and create a new one with the correct <track>.
-            // This ensures the new subtitle file is loaded and selectable in the player UI.
-            console.log('[SubtitleLoader] 🔄 Recreating media player with subtitle track...');
-            
-            // Get the video container
-            const videoContainer = playerEl.parentElement;
-            
-            // Store current video attributes
-            const currentPoster = playerEl.getAttribute('poster');
-            const currentClass = playerEl.getAttribute('class');
-            
-            // Remove the old player
-            playerEl.remove();
-            
-            // Create new media player with embedded track
-            const newPlayer = document.createElement('media-player');
-            newPlayer.setAttribute('class', currentClass);
-            newPlayer.setAttribute('src', videoUrl); // Use the actual video URL from input
-            newPlayer.setAttribute('poster', currentPoster);
-            newPlayer.setAttribute('playsinline', '');
-            
-            // Create media-outlet
-            const mediaOutlet = document.createElement('media-outlet');
-            
-            // Create and add the subtitle track
-            // The <track> element is dynamically created and added to the new player, pointing to the computed subtitleSrc.
-            // This allows the player to load the correct subtitles for the selected video URL.
-            const trackEl = document.createElement('track');
-            trackEl.id = 'subtitle-track';
-            trackEl.src = subtitleSrc;
-            trackEl.kind = 'subtitles';
-            trackEl.srclang = 'en';
-            trackEl.label = 'English';
-            trackEl.default = true;
-            
-            // Add track to media-outlet
-            mediaOutlet.appendChild(trackEl);
-            
-            // Create the skin
-            const skin = document.createElement('media-community-skin');
-            
-            // Add outlet and skin to player
-            newPlayer.appendChild(mediaOutlet);
-            newPlayer.appendChild(skin);
-            
-            // Add new player to container
-            videoContainer.appendChild(newPlayer);
-            
-            console.log('[SubtitleLoader] ✅ Media player recreated with embedded subtitle track');
-            console.log('[SubtitleLoader] 🎬 Loading actual video URL with subtitles');
-            
-            // Wait for the new player to initialize
-            setTimeout(() => {
-                console.log('[SubtitleLoader] 🔄 Checking new player for text tracks...');
-                
-                // Get reference to the new player
-                const currentPlayer = document.querySelector('media-player');
-                if (!currentPlayer) {
-                    console.error('[SubtitleLoader] ❌ New player not found');
-                    return;
-                }
-                
-                // Check if text tracks are available
-                if (currentPlayer.textTracks && currentPlayer.textTracks.length > 0) {
-                    console.log('[SubtitleLoader] 📺 Found text tracks:', currentPlayer.textTracks.length);
-                    
-                    // Enable all English tracks
-                    for (let i = 0; i < currentPlayer.textTracks.length; i++) {
-                        const track = currentPlayer.textTracks[i];
-                        console.log(`[SubtitleLoader] 📋 Track ${i}:`, {
-                            kind: track.kind,
-                            language: track.language,
-                            label: track.label,
-                            mode: track.mode
-                        });
-                        
-                        if (track.language === 'en' || track.label === 'English') {
-                            track.mode = 'showing';
-                            console.log('[SubtitleLoader] ✅ Enabled English subtitle track');
-                        }
-                    }
-                } else {
-                    console.warn('[SubtitleLoader] ⚠️ No text tracks found on new player');
-                    
-                    // Try to manually enable the track element
-                    const trackElement = currentPlayer.querySelector('track');
-                    if (trackElement) {
-                        console.log('[SubtitleLoader] 🔧 Found track element, forcing load...');
-                        trackElement.track.mode = 'showing';
-                    }
-                }
-                
-                console.log('[SubtitleLoader] ✅ New player setup complete');
-            }, 1000);
-            
-            // Listen for track events
-            trackEl.addEventListener('load', () => {
-                console.log('[SubtitleLoader] 🎉 Subtitle track loaded successfully');
-            });
-            
-            trackEl.addEventListener('error', (e) => {
-                console.error('[SubtitleLoader] ❌ Subtitle track failed to load:', e);
-            });
-        }
+          // CRITICAL: Vidstack doesn't support dynamic track changes after initialization
+          // SOLUTION: Remove old player and create new one with correct subtitle track
+          // This is the only reliable way to switch subtitle files for different videos
+          
+          // Get the video container
+          const videoContainer = playerEl.parentElement;
+          
+          // Store current video attributes
+          const currentPoster = playerEl.getAttribute('poster');
+          const currentClass = playerEl.getAttribute('class');
+          
+          // Remove the old player
+          playerEl.remove();
+          
+          // Create new media player with embedded track
+          const newPlayer = document.createElement('media-player');
+          newPlayer.setAttribute('class', currentClass);
+          newPlayer.setAttribute('src', videoUrl); // Use the actual video URL from input
+          newPlayer.setAttribute('poster', currentPoster);
+          newPlayer.setAttribute('playsinline', '');
+          
+          // Create media-outlet
+          const mediaOutlet = document.createElement('media-outlet');
+          
+          // Create and add the subtitle track
+          // The <track> element is dynamically created and added to the new player, pointing to the computed subtitleSrc.
+          // This allows the player to load the correct subtitles for the selected video URL.
+          const trackEl = document.createElement('track');
+          trackEl.id = 'subtitle-track';
+          trackEl.src = subtitleSrc;
+          trackEl.kind = 'subtitles';
+          trackEl.srclang = 'en';
+          trackEl.label = 'English';
+          trackEl.default = true;
+          
+          // Add track to media-outlet
+          mediaOutlet.appendChild(trackEl);
+          
+          // Create the skin
+          const skin = document.createElement('media-community-skin');
+          
+          // Add outlet and skin to player
+          newPlayer.appendChild(mediaOutlet);
+          newPlayer.appendChild(skin);
+          
+          // Add new player to container
+          videoContainer.appendChild(newPlayer);
+          
+          // Player needs time to initialize before tracks are available
+          // 1000ms timeout ensures tracks are loaded before we try to enable them
+          // Fallback: manually enable track if textTracks API isn't ready
+          
+          setTimeout(() => {
+              
+              // Get reference to the new player
+              const currentPlayer = document.querySelector('media-player');
+              if (!currentPlayer) {
+                  console.error('[SubtitleLoader] ❌ New player not found');
+                  showError('Failed to create new media player.');
+                  return;
+              }
+              
+              // Check if text tracks are available
+              if (currentPlayer.textTracks && currentPlayer.textTracks.length > 0) {
+                  
+                  // Enable all English tracks
+                  for (let i = 0; i < currentPlayer.textTracks.length; i++) {
+                      const track = currentPlayer.textTracks[i];
+                      
+                      if (track.language === 'en' || track.label === 'English') {
+                          track.mode = 'showing';
+                      }
+                  }
+                  
+                  showSuccess('Video player updated with subtitles!');
+              } else {
+                  console.warn('[SubtitleLoader] ⚠️ No text tracks found on new player');
+                  
+                  // Try to manually enable the track element
+                  const trackElement = currentPlayer.querySelector('track');
+                  if (trackElement) {
+                      trackElement.track.mode = 'showing';
+                  }
+                  
+                  showWarning('Video player updated, but no subtitle tracks found.');
+              }
+              
+          }, 1000);
+          
+          // Listen for track events
+          trackEl.addEventListener('load', () => {
+              // Subtitle track loaded successfully
+              showSuccess('Subtitles loaded successfully!');
+          });
+          
+          trackEl.addEventListener('error', (e) => {
+              console.error('[SubtitleLoader] ❌ Subtitle track failed to load:', e);
+              showError('Failed to load subtitle track.');
+          });
+      }
 
-        if (loadBtn) {
-            loadBtn.addEventListener('click', handleLoadClick);
-        }
+      if (loadBtn) {
+          loadBtn.addEventListener('click', handleLoadClick);
+      }
     </script>
 </body>
 </html> 

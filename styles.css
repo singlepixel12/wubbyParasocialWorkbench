@@ -4,6 +4,155 @@
     box-sizing: border-box;
 }
 
+/* Prevent horizontal scrolling */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
+/* Screen reader only class for accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip link for keyboard navigation */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    border-radius: 4px;
+    z-index: 1001;
+    transition: top 0.3s;
+}
+
+.skip-link:focus {
+    top: 6px;
+}
+
+/* Toast Notification System */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 0.9rem;
+    max-width: 350px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.error {
+    border-left: 4px solid #dc3545;
+    background-color: #2a1a1a;
+}
+
+.toast.warning {
+    border-left: 4px solid #ffc107;
+    background-color: #2a2a1a;
+}
+
+.toast.success {
+    border-left: 4px solid #28a745;
+    background-color: #1a2a1a;
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.toast-content {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.toast-close:hover {
+    color: #fff;
+}
+
+/* Mobile responsive for toasts */
+@media (max-width: 768px) {
+    .toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+    }
+
+    .toast {
+        max-width: none;
+        font-size: 0.85rem;
+        padding: 10px 12px;
+    }
+}
+
+@media (max-width: 375px) {
+    .toast-container {
+        top: 8px;
+        right: 8px;
+        left: 8px;
+    }
+
+    .toast {
+        font-size: 0.8rem;
+        padding: 8px 10px;
+    }
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: #000;
@@ -62,6 +211,7 @@ nav a.active {
     align-items: center;
     gap: 10px;
     width: 100%;
+    flex-wrap: wrap;
 }
 
 .video-input-container {
@@ -86,8 +236,20 @@ nav a.active {
 }
 
 .video-input:focus {
-    outline: none;
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
     border-color: #007acc;
+}
+
+.btn:focus {
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
+}
+
+nav a:focus {
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 .video-input::placeholder {
@@ -160,7 +322,7 @@ nav a.active {
 
 .hash-value,
 .status-value {
-    color: #666;
+    color: #888;
     font-size: 0.75rem;
     font-family: 'Courier New', monospace;
     background-color: #111;
@@ -171,11 +333,11 @@ nav a.active {
 }
 
 .status-value.success {
-    color: #28a745;
+    color: #2eb82e;
 }
 
 .status-value.error {
-    color: #dc3545;
+    color: #ff4444;
 }
 
 .video-player {
@@ -205,6 +367,7 @@ nav a.active {
     background: #000;
     border-radius: 8px;
     overflow: hidden;
+    position: relative;
     /* Vidstack player will be inserted here */
 }
 
@@ -219,6 +382,15 @@ nav a.active {
     max-width: 300px;
 }
 
+/* Center placeholder specifically on index.html page */
+.video-player-box .placeholder-note {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+}
+
 .video-info h3 {
     font-size: 1.1rem;
     font-weight: 400;
@@ -229,6 +401,14 @@ nav a.active {
     font-size: 1.3rem;
     font-weight: 500;
     margin-bottom: 6px;
+}
+
+.original-title {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: #888;
+    margin-bottom: 4px;
+    line-height: 1.3;
 }
 
 /* Summary */
@@ -254,23 +434,23 @@ nav a.active {
 
 .tag {
     display: inline-block;
-    background-color: #555;
-    color: #ccc;
+    background-color: #666;
+    color: #ffffff;
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.75rem;
-    font-weight: 400;
+    font-weight: 500;
 }
 
 .tag.kick {
-    background-color: #28a745;
-    color: #fff;
+    background-color: #1e7e34;
+    color: #ffffff;
     font-weight: 600;
 }
 
 .tag.twitch {
-    background-color: #6441A5;
-    color: #fff;
+    background-color: #5a2d91;
+    color: #ffffff;
     font-weight: 600;
 }
 
@@ -283,9 +463,171 @@ nav a.active {
         flex-direction: column;
         gap: 10px;
     }
+}
+
+/* Mobile-first responsive design for 375px and below */
+@media (max-width: 375px) {
+    .container {
+        padding: 8px;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    nav ul {
+        gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    nav a {
+        font-size: 0.8rem;
+    }
+
+    /* Video selector responsive layout */
+    .video-selector-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .video-input-container {
+        order: 1;
+        width: 100%;
+    }
+
+    .video-input {
+        font-size: 0.8rem;
+        padding: 10px 12px;
+    }
+
+    /* Button responsive sizing */
+    .btn {
+        width: 100%;
+        height: 40px;
+        font-size: 0.85rem;
+        padding: 8px 12px;
+    }
+
+    .green-btn {
+        order: 2;
+    }
+
+    .clear-btn {
+        order: 3;
+    }
+
+    /* Hash display responsive */
+    .hash-display {
+        margin-top: 6px;
+    }
+
+    .hash-value,
+    .status-value {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+        margin-right: 6px;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    /* Video player responsive */
+    .video-player {
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .video-player-box {
+        height: 250px;
+    }
+
+    .placeholder-note {
+        font-size: 0.8rem;
+        padding: 15px;
+    }
+
+    /* Video info responsive */
+    .video-title {
+        font-size: 1rem;
+    }
+
+    .video-info h3 {
+        font-size: 0.9rem;
+    }
+
+    .summary {
+        font-size: 0.85rem;
+    }
+
+    /* Tags responsive */
+    .tags-container {
+        gap: 6px;
+    }
+
+    .tag {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+    }
+
+    /* Filters responsive for mobile */
+    .filters {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+        margin-bottom: 15px;
+    }
+
+    .date-range-input {
+        width: 100%;
+        font-size: 0.8rem;
+        padding: 8px 10px;
+    }
+
+    .platform-slider {
+        width: 100%;
+        max-width: 180px;
+        align-self: center;
+        height: 28px;
+    }
+
+    .platform-slider .slider-thumb {
+        width: 50px;
+        font-size: 0.6rem;
+    }
+
+    .option-label {
+        font-size: 0.6rem;
+    }
+
+    /* Video cards responsive for mobile */
+    .video-card {
+        padding: 12px;
+        min-height: 150px;
+    }
+
+    .thumbnail {
+        height: 100px;
+    }
+
+    .video-card .summary {
+        font-size: 0.8rem;
+        /* Fallback for browsers that don't support line-clamp */
+        max-height: 2.4em; /* 2 lines * 1.2em line-height */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .expand-btn {
+        font-size: 0.7rem;
+        bottom: 6px;
+    }
 } 
 
-/* === VOD Weekly Card Styles === */
+/* === VOD Weekly Card Styles - Desktop Base === */
 .video-list {
     display: flex;
     flex-direction: column;
@@ -305,6 +647,7 @@ nav a.active {
     overflow: hidden;
 }
 
+/* Thumbnail - desktop base styles */
 .thumbnail {
     min-width: 160px;
     width: 160px;
@@ -327,11 +670,18 @@ nav a.active {
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 3; /* keep 3 lines */
+    line-clamp: 3;
     -webkit-box-orient: vertical;
+    /* Fallback for browsers that don't support line-clamp */
+    max-height: 3.6em; /* 3 lines * 1.2em line-height */
+    text-overflow: ellipsis;
 }
 
 .video-card.expanded .summary {
     -webkit-line-clamp: unset;
+    line-clamp: unset;
+    max-height: none; /* Remove height restriction when expanded */
+    overflow: visible; /* Show full content when expanded */
 }
 
 .video-card.expanded {
@@ -345,6 +695,20 @@ nav a.active {
     top: 12px;
     right: 12px;
     pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8) !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
+}
+
+/* Ensure platform tags have shadows even when they also have .tag class */
+.platform-tag.tag {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8) !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
+}
+
+.platform-tag.tag.kick,
+.platform-tag.tag.twitch {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8) !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
 }
 
 /* Light grey expand button with arrows */
@@ -361,7 +725,7 @@ nav a.active {
     text-transform: uppercase;
 }
 
-/* Responsive tweaks */
+/* Responsive tweaks for tablet and mobile */
 @media (max-width: 768px) {
     .video-card {
         flex-direction: column;
@@ -373,9 +737,31 @@ nav a.active {
         min-width: 100%;
         height: 180px;
     }
+
+    .original-title {
+        font-size: 0.8rem;
+        line-height: 1.2;
+    }
+
+    /* Filters responsive for tablet */
+    .filters {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .date-range-input {
+        width: 100%;
+    }
+
+    .platform-slider {
+        width: 100%;
+        max-width: 200px;
+        align-self: center;
+    }
 } 
 
-/* Right-align filter bar */
+/* Right-align filter bar - desktop only */
 .filters {
     display: flex;
     gap: 20px;
@@ -387,6 +773,11 @@ nav a.active {
     font-size: 0.8rem;
     color: #aaa;
     margin-top: 4px;
+    padding: 2px 8px;
+    border: 1px solid #444;
+    border-radius: 12px;
+    display: inline-block;
+    background-color: rgba(255, 255, 255, 0.05);
 } 
 
 .platform-select {
@@ -402,7 +793,7 @@ nav a.active {
     background-color: #111;
 } 
 
-/* === Platform Slider === */
+/* === Platform Slider - Desktop Base === */
 .platform-slider {
     position: relative;
     width: 180px;
@@ -465,6 +856,7 @@ nav a.active {
     color: #000 !important;
 }
 
+/* Date range input - desktop base styles */
 .date-range-input {
     padding: 8px 12px;
     background-color: #111;
@@ -475,32 +867,9 @@ nav a.active {
     width: 190px;
 }
 
-/* Flatpickr overrides */
-.flatpickr-calendar {
-    background: #000;
-    color: #fff;
-    border: 1px solid #333;
-}
-.flatpickr-months .flatpickr-month {
-    background: #111;
-    color: #fff;
-}
-.flatpickr-weekday,
-.flatpickr-day {
-    color: #ccc;
-}
-.flatpickr-day.selected,
-.flatpickr-day.startRange,
-.flatpickr-day.endRange,
-.flatpickr-day.inRange {
-    background: #444;
-    color: #fff;
-}
-.flatpickr-day.today {
-    border-color:#007acc;
-} 
+ 
 
-/* Flatpickr forced dark overrides */
+/* Flatpickr calendar dark mode overrides */
 .flatpickr-calendar {
     background:#000 !important;
     color:#fff !important;
@@ -569,13 +938,7 @@ nav a.active {
 .flatpickr-days .dayContainer {
     border: none !important;
 }
-/* Square off range endpoints */
-.flatpickr-day.startRange,
-.flatpickr-day.endRange {
-    border-radius: 0 !important;
-} 
-
-/* Restore half-circle edges */
+/* Half-circle edges for range endpoints */
 .flatpickr-day.startRange {
     border-radius: 50% 0 0 50% !important;
 }

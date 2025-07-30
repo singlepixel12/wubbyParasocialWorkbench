@@ -1,17 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== SCRIPT.JS DEBUG START ===');
-    console.log('DOM Content Loaded - script.js starting...');
     
     // Debug DOM elements
     const loadButton = document.querySelector('.green-btn');
     const clearButton = document.querySelector('.clear-btn');
     const videoInput = document.querySelector('.video-input');
-    
-    console.log('DOM elements found:', {
-        loadButton: !!loadButton,
-        clearButton: !!clearButton,
-        videoInput: !!videoInput
-    });
     
     // Cache frequently used DOM elements
     const currentHashElement = document.getElementById('current-hash');
@@ -22,18 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const videoSummaryElement = document.querySelector('.summary');
     const tagsContainerElement = document.querySelector('.tags-container');
 
-    console.log('Cached DOM elements:', {
-        currentHashElement: !!currentHashElement,
-        currentStatusElement: !!currentStatusElement,
-        statusValueElement: !!statusValueElement,
-        videoTitleElement: !!videoTitleElement,
-        videoDateElement: !!videoDateElement,
-        videoSummaryElement: !!videoSummaryElement,
-        tagsContainerElement: !!tagsContainerElement
-    });
-
-    console.log('=== SCRIPT.JS DEBUG END ===');
-    
     // Reusable function to update status
     function updateStatus(status, isSuccess = true) {
         currentStatusElement.textContent = status;
@@ -66,8 +46,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // This ensures reliable lookups even if URLs contain special characters or vary slightly
 
     async function computeVideoHash(videoUrl) {
-        // Create a TextEncoder to convert the URL string to UTF-8 bytes
-        // This is necessary because crypto.subtle.digest() works with binary data, not strings
+        // SHA-256 hash creates consistent database keys from video URLs
+        // TextEncoder preserves URL encoding exactly (crucial for Twitch URLs)
+        // Returns 64-character hex string for reliable Supabase lookups
         const encoder = new TextEncoder();
         
         // Encode the URL string to UTF-8 bytes, preserving all URL encodings like %20
@@ -121,6 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateStatus(`${response.status} - Success`, true);
         } else {
             updateStatus(`${response.status} - Error`, false);
+            showError(`Supabase request failed: ${response.status} - ${response.statusText}`);
             throw new Error(`Supabase request failed: ${response.status}`);
         }
 
@@ -130,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn("No summary found for video.");
             // Update status to show no data retrieved
             updateStatus(`${response.status} - Success - No Data Retrieved`, false);
+            showWarning("No summary found for this video.");
             return null;
         }
 
@@ -150,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const { summary, tags, upload_date, platform, created_at, pleb_title } = summaryData;
 
         videoTitleElement.textContent = pleb_title || 'Video Title';
+        videoTitleElement.setAttribute('aria-label', `Video title: ${pleb_title || 'Video Title'}`);
         videoSummaryElement.textContent = formatSummaryText(summary);
 
         const dateValue = upload_date || created_at;
@@ -194,18 +178,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const summary = await getWubbySummary(videoUrl);
                 updateVideoInfo(summary);
-                if (summary) {
-                    console.log("Video summary:", summary);
-                } else {
-                    console.log("No match found.");
-                }
+                
             } catch (err) {
-                console.error("Error:", err);
+                console.error('Error:', err);
+                showError(`Failed to load video: ${err.message}`);
             }
         } else {
-            console.log('No video URL entered.');
             currentHashElement.textContent = '-';
             updateStatus('No video URL entered.', false);
+            showWarning('Please enter a video URL to load.');
         }
     }
 
@@ -213,6 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // loadSelectedVideo();
 
     loadButton.addEventListener('click', loadSelectedVideo);
+    loadButton.setAttribute('aria-label', 'Load video data');
     
     // Clear button functionality
     clearButton.addEventListener('click', function() {
@@ -222,4 +204,5 @@ document.addEventListener('DOMContentLoaded', function() {
         statusValueElement.className = 'status-value';
         resetVideoInfo();
     });
+    clearButton.setAttribute('aria-label', 'Clear video input and data');
 }); 

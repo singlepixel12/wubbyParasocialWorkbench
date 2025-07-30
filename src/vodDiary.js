@@ -1,15 +1,12 @@
 // vod-diary.js
 // ----------------------------------------------
-// This script renders a list of the most recent VODs (stubbed with 5 items)
-// In the future, replace `fetchRecentVideos` with real Supabase queries.
+// This script renders a list of the most recent VODs
 
 (function () {
-    console.log('[VOD Diary] Initialising…');
-
     // Sample data (newest first)
     const sampleVideos = [
         {
-            url: '#',
+            url: 'https://archive.wubby.tv/vods/public/jul_2025/27_MEDIA%20SHARE%20NIGHT%20FINALLY%20-%20POUR%20A%20DRINK%20-%20TAKE%20YOUR%20SHOES%20OFF%20-%20MAKE%20SURE%20THE%20LIGHTING%20IS%20RIGHT%20-%20SNAP%20A%20PIC%20OF%20THOSE%20TOES%20-PLEASE%20MEDIA_1753659052_000.mp4',
             title: 'Kick Friday Madness',
             platform: 'kick',
             summary: 'A wild Friday stream with community games, random antics, and spicy takes that had chat popping off all night long. Clip this! Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum accumsan.',
@@ -74,6 +71,34 @@
         return getLocaleFormat()==='dmy' ? `${d}/${m}/${y}` : `${m}/${d}/${y}`;
     }
 
+    // Extract original title from video URL
+    // Removes timestamp suffix (_1753659052_000) and decodes URL encoding
+    // Returns clean title for display without technical artifacts
+    function extractOriginalTitle(videoUrl) {
+        if (!videoUrl || videoUrl === '#') return '';
+        
+        try {
+            // Get the filename from the URL
+            const url = new URL(videoUrl);
+            const pathParts = url.pathname.split('/');
+            const filename = pathParts[pathParts.length - 1];
+            
+            // Remove the file extension
+            const nameWithoutExt = filename.replace(/\.(mp4|webm|avi|mov)$/i, '');
+            
+            // Decode URL encoding and replace %20 with spaces
+            const decodedName = decodeURIComponent(nameWithoutExt);
+            
+            // Remove timestamp suffix (e.g., _1753659052_000)
+            const nameWithoutTimestamp = decodedName.replace(/_\d+_\d+$/, '');
+            
+            return nameWithoutTimestamp;
+        } catch (error) {
+            console.error('Error extracting original title:', error);
+            return '';
+        }
+    }
+
     // Helper to render list
     async function renderList() {
         if (!listEl) return;
@@ -103,7 +128,10 @@
                 }
             });
 
-            if (!resp.ok) throw new Error(`[Supabase] Request failed: ${resp.status}`);
+            if (!resp.ok) {
+                showError(`Failed to load videos: ${resp.status} - ${resp.statusText}`);
+                throw new Error(`[Supabase] Request failed: ${resp.status}`);
+            }
 
             const data = await resp.json();
             // Map to expected fields
@@ -117,6 +145,7 @@
             }));
         } catch (err) {
             console.error(err);
+            showWarning('Using sample data - could not load from server.');
             // Fallback to stub data if call fails
             return [...sampleVideos].slice(0, limit);
         }
@@ -145,6 +174,11 @@
         const title = document.createElement('h3');
         title.textContent = video.title;
 
+        // Add original title subheading
+        const originalTitle = document.createElement('h4');
+        originalTitle.className = 'original-title';
+        originalTitle.textContent = extractOriginalTitle(video.url);
+
         const dateSpan = document.createElement('span');
         dateSpan.className = 'upload-date';
         if (video.date) {
@@ -167,6 +201,7 @@
         summary.textContent = video.summary;
 
         info.appendChild(title);
+        info.appendChild(originalTitle);
         info.appendChild(dateSpan);
         info.appendChild(summary);
         info.appendChild(tagsContainer);

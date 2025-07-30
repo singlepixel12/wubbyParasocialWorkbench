@@ -7,24 +7,31 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="container">
+        <!-- Toast Notification Container -->
+        <div class="toast-container" id="toast-container" aria-live="polite" aria-label="Notifications"></div>
+        
         <header>
             <h1>Parasocial Workbench</h1>
-            <nav>
-                <ul>
-                    <li><a href="index.html" class="active">Transcription Details</a></li>
-                    <li><a href="transcript.html">Get Transcript</a></li>
-                    <li><a href="vod-diary.html">Vod Diary</a></li>
+            <nav aria-label="Main navigation">
+                <ul role="menubar">
+                    <li role="none"><a href="index.html" class="active" role="menuitem" aria-current="page">Transcription Details</a></li>
+                    <li role="none"><a href="transcript.html" role="menuitem">Get Transcript</a></li>
+                    <li role="none"><a href="vod-diary.html" role="menuitem">Vod Diary</a></li>
                 </ul>
             </nav>
         </header>
 
-        <main>
-            <div class="video-section">
+        <main id="main-content">
+            <section class="video-section" aria-labelledby="video-section-title">
+                <h2 id="video-section-title" class="sr-only">Video Information</h2>
                 <div class="video-selector">
                     <div class="video-selector-row">
                         <div class="video-input-container">
-                            <input type="text" class="video-input" list="video-options" placeholder="Enter arichive.wubby.tv URL or select from dropdown">
+                            <label for="video-input" class="sr-only">Video URL</label>
+                            <input type="text" id="video-input" class="video-input" list="video-options" placeholder="Enter archive.wubby.tv URL or select from dropdown" aria-describedby="video-input-help">
+                            <div id="video-input-help" class="sr-only">Enter a video URL or select from the dropdown list of available videos</div>
                         </div>
                         <datalist id="video-options">
                             <option value="https://archive.wubby.tv/vods/public/jul_2025/2_LITTLE%20PEOPLE%20BIG%20DESSERT%20-%20POOKIE%20RESPONDS%20-%20JEWISH%20WEDDINGS%20-%20PENCIL%20SHARPENER%20GUY%20ON%20CALL%20-%20UNDER%20THE%20SEAT%20VIBES_1751499060_000.mp4">Little People Big Dessert</option>
@@ -37,31 +44,31 @@
                             <option value="https://archive.wubby.tv/vods/public/jul_2025/16_THE%20JUICE%20-%20THE%20SQUEEZE%20-%20THE%20MAN%20-%20THE%20MERMAID%20TITTIES%20-%20MASTER%20CHIEF%20HOLDING%20BLUE%20BALLOONS%20-%20GAY%20BOWSER%20-%20GG_1752708670_000.mp4">The Juice</option>
                             <option value="https://archive.wubby.tv/vods/public/jul_2025/15_MARE%20MONDAY%20-%20HORSE%20GIRLS%20BUT%20THEY%20ARE%20CARDBOARD%20-%20BETA%20PACK%20AFTER%20%20I%20GUESS%20SO_1752597114_000.mp4">Progresive Show</option>
                         </datalist>
-                        <button class="btn green-btn">Load</button>
-                        <button class="btn clear-btn">Clear</button>
+                        <button class="btn green-btn" aria-label="Load video data">Load</button>
+                        <button class="btn clear-btn" aria-label="Clear video input and data">Clear</button>
                     </div>
-                    <div class="hash-display">
+                    <div class="hash-display" aria-live="polite" aria-atomic="true">
                         <code class="hash-value">Hash: <span id="current-hash">-</span></code>
                         <code class="status-value">Status: <span id="current-status">-</span></code>
                     </div>
                 </div>
                 
-                <div class="video-player">
-                    <div class="player-controls">
+                <div class="video-player" role="region" aria-labelledby="video-title">
+                    <div class="player-controls" aria-label="Video player controls">
                     </div>
                     
                     <div class="video-container">
-                        <div class="video-player-box">
+                        <div class="video-player-box" role="img" aria-label="Video player placeholder">
                             <div class="placeholder-note">Video player placeholder - structure only</div>
                         </div>
                     </div>
                     
                     <div class="video-info">
-                        <h4 class="video-title">Video Title for VOD</h4>
-                        <h3>Date of VOD</h3>
-                        <div class="tags-container"></div>
+                        <h4 class="video-title" id="video-title">Video Title for VOD</h4>
+                        <h3 id="video-date">Date of VOD</h3>
+                        <div class="tags-container" aria-labelledby="video-title" role="region" aria-label="Video tags"></div>
                         <div class="summary-box">
-                            <p class="summary">- This vod has no summary -</p>
+                            <p class="summary" id="video-summary">- This vod has no summary -</p>
                         </div>
                     </div>
                 </div>
@@ -69,6 +76,7 @@
         </main>
     </div>
 
-    <script src="script.js"></script>
+    <script src="src/toast.js"></script>
+    <script src="src/script.js"></script>
 </body>
 </html> 
