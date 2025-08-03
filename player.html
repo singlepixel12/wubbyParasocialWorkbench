@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Vidstack Player CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack/styles/defaults.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack/styles/community-skin/video.css">
+    <!-- Hide the manual video selector/hash section for this player-only page -->
+    <style>
+        /* Keep markup for script.js but hide from view */
+        .video-selector {
+            position: absolute !important;
+            left: -9999px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        
+        /* Ensure video info is visible and properly styled */
+        .video-info {
+            margin-top: 20px;
+        }
+        
+        .video-title {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .summary-box {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div class="container">
+        <!-- Toast Notification Container -->
+        <div class="toast-container" id="toast-container" aria-live="polite" aria-label="Notifications"></div>
+        
+        <header>
+            <h1>Parasocial Workbench</h1>
+            <nav aria-label="Main navigation">
+                <ul role="menubar">
+                    <li role="none"><a href="index.html" role="menuitem">Transcription Details</a></li>
+                    <li role="none"><a href="transcript.html" role="menuitem">Get Transcript</a></li>
+                    <li role="none"><a href="vod-diary.html" role="menuitem">Vod Diary</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main id="main-content">
+            <section class="video-section" aria-labelledby="video-section-title">
+                <h2 id="video-section-title" class="sr-only">Video and Transcript Information</h2>
+                <!-- Video selector (hidden on this page, kept for script.js compatibility) -->
+                <div class="video-selector">
+                    <div class="video-selector-row">
+                        <div class="video-input-container">
+                            <label for="video-input-transcript" class="sr-only">Video URL</label>
+                            <input type="text" id="video-input-transcript" class="video-input" list="video-options" placeholder="Enter archive.wubby.tv URL or select from dropdown" aria-describedby="video-input-help-transcript">
+                            <div id="video-input-help-transcript" class="sr-only">Enter a video URL or select from the dropdown list of available videos</div>
+                        </div>
+                        <!-- Empty datalist to satisfy list attribute; real options not needed here -->
+                        <datalist id="video-options"></datalist>
+                        <button class="btn green-btn" aria-label="Load video and subtitles">Load</button>
+                        <button class="btn clear-btn" aria-label="Clear video input and data">Clear</button>
+                    </div>
+                    <div class="hash-display" aria-live="polite" aria-atomic="true">
+                        <code class="hash-value">Hash: <span id="current-hash">-</span></code>
+                        <code class="status-value">Status: <span id="current-status">-</span></code>
+                    </div>
+                </div>
+                
+                <div class="video-player">
+                    <div class="player-controls">
+                    </div>
+                    
+                    <div class="video-container">
+                        <!-- Vidstack Player -->
+                        <media-player
+                             class="video-player-box"
+                             playsinline
+                         >
+                             <media-community-skin></media-community-skin>
+                         </media-player>
+                    </div>
+                    
+                    <div class="video-info">
+                        <h4 class="video-title">Video Title</h4>
+                        <h3>Date not available</h3>
+                        <div class="tags-container">
+                            <!-- Tags will be populated by script.js -->
+                        </div>
+                        <div class="summary-box">
+                            <p class="summary">Loading video information...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Vidstack Player JS -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/vidstack/dist/cdn/prod.js"></script>
+
+    <!-- Vidstack enhancement helper -->
+    <script type="module">
+      customElements.whenDefined('media-player').then(() => {
+        const player = document.querySelector('media-player');
+        if (player) {
+          player.addEventListener('error', e => console.error('❌ Player error:', e.detail));
+        } else {
+          console.error('❌ Player element not found in DOM after definition.');
+        }
+      }).catch(err => console.error('❌ Error waiting for `media-player` definition:', err));
+    </script>
+
+    <!-- Dynamic subtitle loader: copied from transcript.html to handle player generation with subtitles -->
+    <script>
+      /* ===========================================
+         Dynamic Subtitle Loader - Supabase (v1)
+         =========================================== */
+
+      // DOM references
+      const loadBtn        = document.querySelector('.green-btn');
+      const videoInputEl   = document.querySelector('.video-input');
+      const subtitleTrackEl = document.getElementById('subtitle-track');
+
+      if (!loadBtn) {
+          console.error('[SubtitleLoader] ❌ Load button not found.');
+          if (typeof showError === 'function') showError('Load button not found. Please refresh the page.');
+      }
+      if (!videoInputEl) {
+          console.error('[SubtitleLoader] ❌ Video input element not found.');
+          if (typeof showError === 'function') showError('Video input not found. Please refresh the page.');
+      }
+      if (!subtitleTrackEl) {
+          // Not critical on this page (we recreate player) – only warn.
+          console.warn('[SubtitleLoader] ⚠️ Subtitle <track> element not found (expected on first render).');
+      }
+
+      // Helper: compute SHA-256 hash, same logic as script.js
+      async function computeSHA256Hex(str) {
+          const encoder = new TextEncoder();
+          const data = encoder.encode(str);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      const SUPABASE_URL = 'https://sbvaclmypokafpxebusn.supabase.co';
+
+      async function handleLoadClick() {
+          const videoUrl = videoInputEl.value.trim();
+          if (!videoUrl) {
+              console.warn('[SubtitleLoader] ⚠️ No video URL entered, aborting subtitle load.');
+              if (typeof showWarning === 'function') showWarning('Please enter a video URL to load subtitles.');
+              return;
+          }
+
+          const videoHash = await computeSHA256Hex(videoUrl);
+          const subtitleSrc = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${videoHash}/en/subtitle.vtt`;
+
+          // Check if subtitle file exists before attempting to load
+          let subtitleExists = false;
+          try {
+              const testResponse = await fetch(subtitleSrc, { method: 'HEAD' });
+              subtitleExists = testResponse.ok;
+              if (!subtitleExists) {
+                  console.warn('[SubtitleLoader] Subtitle file not found for this video:', testResponse.status, testResponse.statusText);
+                  if (typeof showWarning === 'function') showWarning('No subtitles available for this video. Video will load without subtitles.');
+              }
+          } catch (err) {
+              console.warn('[SubtitleLoader] Network error testing subtitle URL:', err);
+              if (typeof showWarning === 'function') showWarning('Unable to check for subtitles. Video will load without subtitles.');
+          }
+
+          // Replace player to attach new video + subtitles
+          const playerEl = document.querySelector('media-player');
+          if (!playerEl) {
+              console.error('[SubtitleLoader] ❌ Media player not found');
+              if (typeof showError === 'function') showError('Media player not found. Please refresh the page.');
+              return;
+          }
+
+          const videoContainer = playerEl.parentElement;
+          const currentClass = playerEl.getAttribute('class');
+          const currentPoster = playerEl.getAttribute('poster');
+          playerEl.remove();
+
+          const newPlayer = document.createElement('media-player');
+          newPlayer.setAttribute('class', currentClass || 'video-player-box');
+          newPlayer.setAttribute('src', videoUrl);
+          if (currentPoster) newPlayer.setAttribute('poster', currentPoster);
+          newPlayer.setAttribute('playsinline', '');
+
+          // Only add subtitle track if file exists
+          if (subtitleExists) {
+              const outlet = document.createElement('media-outlet');
+              const trackEl = document.createElement('track');
+              trackEl.setAttribute('kind', 'subtitles');
+              trackEl.setAttribute('srclang', 'en');
+              trackEl.setAttribute('label', 'English');
+              trackEl.setAttribute('default', '');
+              trackEl.src = subtitleSrc;
+              outlet.appendChild(trackEl);
+              newPlayer.appendChild(outlet);
+          }
+
+          newPlayer.appendChild(document.createElement('media-community-skin'));
+          videoContainer.appendChild(newPlayer);
+
+          // Enable subtitles after short delay if they exist
+          if (subtitleExists) {
+              setTimeout(() => {
+                  const currentPlayer = document.querySelector('media-player');
+                  if (currentPlayer && currentPlayer.textTracks) {
+                      for (let i = 0; i < currentPlayer.textTracks.length; i++) {
+                          const track = currentPlayer.textTracks[i];
+                          if (track.language === 'en' || track.label === 'English') {
+                              track.mode = 'showing';
+                          }
+                      }
+                  }
+              }, 1000);
+          }
+      }
+
+      if (loadBtn) {
+          loadBtn.addEventListener('click', handleLoadClick);
+      }
+    </script>
+
+    <!-- Shared scripts -->
+    <script src="src/toast.js"></script>
+    <script src="src/script.js"></script>
+
+    <!-- Auto-loader for player page -->
+    <script>
+      // Automatically load video and subtitles when arriving via localStorage
+      document.addEventListener('DOMContentLoaded', function() {
+        const videoUrl = localStorage.getItem('selectedVideoUrl');
+
+        if (!videoUrl) {
+          console.warn('[Player Page] No video URL found in localStorage.');
+          return;
+        }
+
+        // Clear the localStorage to prevent reloading the same video
+        localStorage.removeItem('selectedVideoUrl');
+
+        // Fill hidden input for reuse by existing logic
+        const videoInput = document.querySelector('.video-input');
+        if (videoInput) {
+          videoInput.value = videoUrl;
+        }
+
+        // Trigger existing Load button logic after script.js has attached listeners
+        const triggerLoad = () => {
+          const loadBtn = document.querySelector('.green-btn');
+          if (loadBtn) {
+            // First trigger the main script.js load functionality to get video info
+            loadBtn.click();
+            
+            // Then trigger the subtitle loader after a short delay
+            setTimeout(() => {
+              const subtitleLoadBtn = document.querySelector('.green-btn');
+              if (subtitleLoadBtn) {
+                // The subtitle loader will handle the video player creation
+                // We need to call the subtitle loader's handleLoadClick function
+                if (typeof handleLoadClick === 'function') {
+                  handleLoadClick();
+                }
+              }
+            }, 500);
+          } else {
+            console.error('[Player Page] Load button not found.');
+          }
+        };
+
+        // Ensure we trigger after a minimal delay so listeners are attached
+        setTimeout(triggerLoad, 100);
+      });
+    </script>
+</body>
+</html>

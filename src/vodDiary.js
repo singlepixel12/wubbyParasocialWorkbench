@@ -162,10 +162,30 @@
         card.appendChild(platformTag);
 
         const thumbLink = document.createElement('a');
-        thumbLink.href = video.url;
+        // Store video URL in localStorage and redirect to player page
+        thumbLink.href = 'player.html';
         thumbLink.target = '_blank';
+        thumbLink.className = 'thumbnail-link';
+        thumbLink.addEventListener('click', (e) => {
+            // Store the video URL in localStorage before navigating
+            localStorage.setItem('selectedVideoUrl', video.url);
+        });
+        
         const thumb = document.createElement('div');
         thumb.className = 'thumbnail';
+        
+        // Add hover play button
+        const playButton = document.createElement('div');
+        playButton.className = 'play-button';
+        playButton.innerHTML = `
+            <div class="play-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+            </div>
+        `;
+        
+        thumb.appendChild(playButton);
         thumbLink.appendChild(thumb);
 
         const info = document.createElement('div');
