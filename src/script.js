@@ -437,6 +437,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const title = pleb_title || 'Video Title';
             videoTitleElement.textContent = title;
             videoTitleElement.setAttribute('aria-label', `Video title: ${title}`);
+            
+            // Update document title to use pleb_title
+            document.title = title;
 
             // Validate and format summary
             videoSummaryElement.textContent = formatSummaryText(summary);
