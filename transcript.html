@@ -262,7 +262,7 @@
                       }
                   }
                   
-                  showSuccess('Video player updated with subtitles!');
+                  // Subtitles are automatically visible in the player
               } else {
                   console.warn('[SubtitleLoader] ⚠️ No text tracks found on new player');
                   
@@ -280,7 +280,7 @@
           // Listen for track events
           trackEl.addEventListener('load', () => {
               // Subtitle track loaded successfully
-              showSuccess('Subtitles loaded successfully!');
+              // Subtitles will be visible in the player automatically
           });
           
           trackEl.addEventListener('error', (e) => {

@@ -741,11 +741,11 @@ nav a:focus {
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease, background-color 0.3s ease;
+    opacity: 0.8;
+    transition: opacity 0.3s ease, background-color 0.3s ease, transform 0.3s ease;
     pointer-events: none;
     backdrop-filter: blur(4px);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .thumbnail:hover .play-button {
@@ -754,8 +754,8 @@ nav a:focus {
 }
 
 .thumbnail:hover .play-button:hover {
-    background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.8));
-    border-color: rgba(255, 255, 255, 0.4);
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.95), rgba(40, 167, 69, 0.8));
+    border-color: rgba(255, 255, 255, 0.6);
     transform: translate(-50%, -50%) scale(1.1);
     animation: none;
 }
@@ -1050,6 +1050,82 @@ nav a:focus {
 .flatpickr-day.today {
     border-color:#555 !important;
 } 
+
+/* Month and Year dropdown dark mode styles */
+.flatpickr-current-month {
+    background: #111 !important;
+    color: #fff !important;
+}
+
+.flatpickr-monthDropdown-months,
+.flatpickr-current-month .numInputWrapper {
+    background: #111 !important;
+    color: #fff !important;
+    border: 1px solid #333 !important;
+}
+
+.flatpickr-monthDropdown-months option,
+.flatpickr-current-month .numInputWrapper input {
+    background: #111 !important;
+    color: #fff !important;
+}
+
+/* Month dropdown specific styling */
+.flatpickr-monthDropdown-months {
+    background-color: #111 !important;
+    color: #fff !important;
+    border: 1px solid #333 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    font-size: 0.9rem !important;
+}
+
+.flatpickr-monthDropdown-months option {
+    background-color: #111 !important;
+    color: #fff !important;
+    padding: 4px 8px !important;
+}
+
+.flatpickr-monthDropdown-months option:hover {
+    background-color: #333 !important;
+}
+
+/* Year input styling */
+.flatpickr-current-month .numInputWrapper input {
+    background-color: #111 !important;
+    color: #fff !important;
+    border: 1px solid #333 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    font-size: 0.9rem !important;
+}
+
+.flatpickr-current-month .numInputWrapper input:focus {
+    outline: 2px solid #007acc !important;
+    outline-offset: 2px !important;
+    border-color: #007acc !important;
+}
+
+/* Month navigation arrows */
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+    background: #111 !important;
+    color: #fff !important;
+    border: 1px solid #333 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+    background: #333 !important;
+    color: #fff !important;
+}
+
+.flatpickr-months .flatpickr-prev-month svg,
+.flatpickr-months .flatpickr-next-month svg {
+    fill: #fff !important;
+}
 
 .flatpickr-days,
 .flatpickr-days .dayContainer {

@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const summary = await getWubbySummary(videoUrl);
             updateVideoInfo(summary);
             
-            showSuccess('Video data loaded successfully!');
+            // Video will play automatically when ready
         } catch (err) {
             console.error('Error:', err);
             ErrorTracker.track(err, {
@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (currentStatusElement) currentStatusElement.textContent = '-';
                 if (statusValueElement) statusValueElement.className = 'status-value';
                 resetVideoInfo();
-                showSuccess('Input cleared');
+                // Input field is now empty
             } catch (error) {
                 console.error('Error clearing input:', error);
                 ErrorTracker.track(error, { type: 'clear_input_error' });

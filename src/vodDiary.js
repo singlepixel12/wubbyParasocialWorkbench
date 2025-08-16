@@ -20,30 +20,6 @@
             summary: 'Attempted to bake a 12-layer cake; only 8 survived. Fire alarm cameo. Chat redeemed too many hydrates. A masterpiece of disaster, but delicious nonetheless.',
             tags: ['twitch', 'cooking', 'irl'],
             date: '2025-07-17T18:00:00Z'
-        },
-        {
-            url: '#',
-            title: 'Retro Speed-run Marathon',
-            platform: 'kick',
-            summary: 'Blasted through classic retro titles at break-neck speed. New PB on level 3! Featuring guest appearances, controller cam, and inevitable rage resets.',
-            tags: ['speedrun', 'retro', 'kick'],
-            date: '2025-07-16T22:00:00Z'
-        },
-        {
-            url: '#',
-            title: 'Just Chatting – Q&A Extravaganza',
-            platform: 'twitch',
-            summary: 'Answered your most burning questions about life, streaming, and hot-sauce tier lists. Mods barely kept up with !commands. Long wholesome tangents included.',
-            tags: ['just chatting', 'twitch', 'q&a'],
-            date: '2025-07-15T19:00:00Z'
-        },
-        {
-            url: '#',
-            title: 'Horror VR – Heart-Rate Monitor Special',
-            platform: 'kick',
-            summary: 'Strapped on the headset for spooky VR thrills. Screamed, sweated, and possibly cried. Heart-rate monitor peaked at 174 bpm. Never again… until next week.',
-            tags: ['vr', 'horror', 'kick'],
-            date: '2025-07-14T21:00:00Z'
         }
     ];
 
