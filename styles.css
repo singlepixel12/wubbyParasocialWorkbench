@@ -475,6 +475,11 @@ nav a:focus {
     margin-top: 8px;
 }
 
+.expandable {
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
 .video-card:not(.expanded) .tags-container {
     display: none;
 }
@@ -1125,6 +1130,57 @@ nav a:focus {
 .flatpickr-months .flatpickr-prev-month svg,
 .flatpickr-months .flatpickr-next-month svg {
     fill: #fff !important;
+}
+
+/* Add space between the month selector and the calendar grid when open */
+.flatpickr-calendar.open .flatpickr-months {
+    margin-bottom: 10px !important;
+}
+
+/* Ensure inner container doesn't collapse/override the gap */
+.flatpickr-calendar.open .flatpickr-innerContainer {
+    margin-top: 0 !important;
+    padding-top: 10px !important;
+}
+
+/* Apply the gap unconditionally (covers initial render before any selection) */
+.flatpickr-calendar .flatpickr-innerContainer {
+    margin-top: 0 !important;
+    padding-top: 10px !important;
+}
+
+/* Avoid double-spacing by removing extra margin on header globally */
+.flatpickr-calendar .flatpickr-months {
+    margin-bottom: 0 !important;
+}
+
+/* Ensure weekdays row doesn't pull upward */
+.flatpickr-calendar .flatpickr-weekdays {
+    margin-top: 0 !important;
+}
+
+/* Make gap unconditional and visible on initial render */
+.flatpickr-calendar .flatpickr-months {
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid #333 !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+/* Neutralize any offsets that could overlap the header border */
+.flatpickr-calendar .flatpickr-innerContainer {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    top: 0 !important;
+}
+.flatpickr-calendar .flatpickr-rContainer {
+    position: relative !important;
+    top: 0 !important;
+    padding-top: 10px !important;
+    z-index: 1 !important;
+}
+.flatpickr-calendar .flatpickr-days {
+    margin-top: 0 !important;
 }
 
 .flatpickr-days,

@@ -196,23 +196,66 @@
         summary.className = 'summary';
         summary.textContent = video.summary;
 
+        // Expandable wrapper for smooth slide animation
+        const expandable = document.createElement('div');
+        expandable.className = 'expandable';
+        expandable.appendChild(summary);
+        expandable.appendChild(tagsContainer);
+
         info.appendChild(title);
         info.appendChild(originalTitle);
         info.appendChild(dateSpan);
-        info.appendChild(summary);
-        info.appendChild(tagsContainer);
+        info.appendChild(expandable);
 
         const expandBtn = document.createElement('button');
         expandBtn.className = 'expand-btn';
         expandBtn.textContent = 'Expand ▼';
         expandBtn.addEventListener('click', () => {
-            const expanded = card.classList.toggle('expanded');
-            expandBtn.textContent = expanded ? 'Collapse ▲' : 'Expand ▼';
+            const isExpanded = card.classList.contains('expanded');
+            const collapsedHeight = parseFloat(expandable.dataset.collapsedHeight || '0') || summary.offsetHeight || 0;
+
+            if (!isExpanded) {
+                // Expand: add class first so content (tags + unclamped summary) is measurable
+                card.classList.add('expanded');
+                // Next frame, animate to full height
+                requestAnimationFrame(() => {
+                    const targetHeight = expandable.scrollHeight;
+                    expandable.style.maxHeight = targetHeight + 'px';
+                });
+                expandBtn.textContent = 'Collapse ▲';
+            } else {
+                // Collapse: transition from current height to collapsed height
+                expandable.style.maxHeight = expandable.scrollHeight + 'px';
+                // Force reflow to apply the starting height before shrinking
+                void expandable.offsetHeight;
+                expandable.style.maxHeight = collapsedHeight + 'px';
+                // After transition ends, remove expanded class
+                const onEnd = (e) => {
+                    if (e.target !== expandable) return;
+                    card.classList.remove('expanded');
+                    expandable.removeEventListener('transitionend', onEnd);
+                };
+                expandable.addEventListener('transitionend', onEnd);
+                expandBtn.textContent = 'Expand ▼';
+            }
         });
 
         card.appendChild(thumbLink);
         card.appendChild(info);
         card.appendChild(expandBtn);
+
+        // Initialize collapsed height after element is in DOM
+        requestAnimationFrame(() => {
+            // Temporarily disable transition to avoid initial animation
+            const prevTransition = expandable.style.transition;
+            expandable.style.transition = 'none';
+            const collapsed = summary.offsetHeight || 0; // height with clamp applied
+            expandable.style.maxHeight = collapsed + 'px';
+            expandable.dataset.collapsedHeight = String(collapsed);
+            // Force reflow, then restore transition
+            void expandable.offsetHeight;
+            expandable.style.transition = prevTransition;
+        });
 
         return card;
     }
