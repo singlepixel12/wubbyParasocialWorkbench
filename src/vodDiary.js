@@ -31,6 +31,10 @@
     const thumbLabel = platformSlider ? platformSlider.querySelector('.thumb-label') : null;
     const dateInput = document.getElementById('date-range');
 
+    // Search-related variables
+    let isSearchMode = false;
+    let currentSearchTerm = '';
+
     // Determine date format based on locale/timezone
     function getLocaleFormat() {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -78,11 +82,29 @@
     // Helper to render list
     async function renderList() {
         if (!listEl) return;
-        const platform = platformSlider ? platformSlider.dataset.state || 'both' : 'both';
-        const {from, to} = getSelectedRange();
-        const videos = await fetchRecentVideos(50, platform, from, to);
+
+        let videos;
+        if (isSearchMode && currentSearchTerm) {
+            // Use search function when in search mode
+            videos = await searchVideos(currentSearchTerm);
+        } else {
+            // Use normal filter-based fetch
+            const platform = platformSlider ? platformSlider.dataset.state || 'both' : 'both';
+            const {from, to} = getSelectedRange();
+            videos = await fetchRecentVideos(50, platform, from, to);
+        }
+
         listEl.innerHTML = '';
-        videos.forEach(v => listEl.appendChild(createVideoCard(v)));
+        if (videos.length === 0) {
+            const noResults = document.createElement('p');
+            noResults.style.textAlign = 'center';
+            noResults.style.color = '#777';
+            noResults.style.marginTop = '40px';
+            noResults.textContent = isSearchMode ? 'No videos found matching your search.' : 'No videos found.';
+            listEl.appendChild(noResults);
+        } else {
+            videos.forEach(v => listEl.appendChild(createVideoCard(v)));
+        }
     }
 
     async function fetchRecentVideos(limit = 50, platformFilter = 'both', fromDate=null, toDate=null) {
@@ -124,6 +146,68 @@
             showWarning('Using sample data - could not load from server.');
             // Fallback to stub data if call fails
             return [...sampleVideos].slice(0, limit);
+        }
+    }
+
+    // Search function that queries heading, tags, and url
+    async function searchVideos(searchTerm) {
+        if (!searchTerm || searchTerm.trim() === '') {
+            return [];
+        }
+
+        const term = searchTerm.trim();
+
+        // URL-encode the search term to handle special characters
+        const encodedTerm = encodeURIComponent(`*${term}*`);
+
+        // Build query with OR conditions for heading and url
+        // Using ilike for case-insensitive pattern matching
+        // Note: We'll filter tags client-side since arrays need special handling
+        let queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?select=pleb_title,platform,tags,summary,upload_date,video_url&order=upload_date.desc.nullslast&limit=200`;
+
+        // Supabase PostgREST syntax for OR queries with ilike (case-insensitive LIKE)
+        queryUrl += `&or=(pleb_title.ilike.${encodedTerm},video_url.ilike.${encodedTerm})`;
+
+        try {
+            const resp = await fetch(queryUrl, {
+                headers: {
+                    apikey: SUPABASE_API_KEY,
+                    Authorization: `Bearer ${SUPABASE_API_KEY}`
+                }
+            });
+
+            if (!resp.ok) {
+                showError(`Search failed: ${resp.status} - ${resp.statusText}`);
+                throw new Error(`[Supabase] Search request failed: ${resp.status}`);
+            }
+
+            const data = await resp.json();
+
+            // Client-side filtering for tags array
+            // Since tags is an array, we need to check if any tag contains the search term
+            const termLower = term.toLowerCase();
+            const filteredData = data.filter(row => {
+                const titleMatch = (row.pleb_title || '').toLowerCase().includes(termLower);
+                const urlMatch = (row.video_url || '').toLowerCase().includes(termLower);
+                const tagsMatch = Array.isArray(row.tags) && row.tags.some(tag =>
+                    tag.toLowerCase().includes(termLower)
+                );
+                return titleMatch || urlMatch || tagsMatch;
+            });
+
+            // Map to expected fields
+            return filteredData.map(row => ({
+                url: row.video_url || '#',
+                title: row.pleb_title || 'Untitled',
+                platform: row.platform || 'unknown',
+                summary: row.summary || '-',
+                tags: Array.isArray(row.tags) ? row.tags : (row.tags ? row.tags : []),
+                date: row.upload_date || row.created_at
+            }));
+        } catch (err) {
+            console.error('Search error:', err);
+            showError('Search failed. Please try again.');
+            return [];
         }
     }
 
@@ -342,6 +426,79 @@
                 },
                 onClose: function(selectedDates){
                     if(selectedDates.length===2){
+                        renderList();
+                    }
+                }
+            });
+        }
+
+        // Search toggle functionality
+        const searchToggle = document.getElementById('search-toggle');
+        const searchContainer = document.getElementById('search-container');
+        const searchInput = document.getElementById('search-input');
+        const searchClear = document.getElementById('search-clear');
+
+        if (searchToggle && searchContainer && searchInput) {
+            // Toggle search input visibility
+            searchToggle.addEventListener('click', () => {
+                const isVisible = searchContainer.style.display !== 'none';
+                if (isVisible) {
+                    // Hide search
+                    searchContainer.style.display = 'none';
+                    searchToggle.classList.remove('active');
+                    // Exit search mode and show normal list
+                    isSearchMode = false;
+                    currentSearchTerm = '';
+                    searchInput.value = '';
+                    renderList();
+                } else {
+                    // Show search
+                    searchContainer.style.display = 'block';
+                    searchToggle.classList.add('active');
+                    searchInput.focus();
+                }
+            });
+
+            // Handle search input
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const term = e.target.value.trim();
+
+                // Debounce search by 300ms
+                searchTimeout = setTimeout(() => {
+                    if (term.length > 0) {
+                        isSearchMode = true;
+                        currentSearchTerm = term;
+                        renderList();
+                    } else {
+                        // If search is cleared, exit search mode
+                        isSearchMode = false;
+                        currentSearchTerm = '';
+                        renderList();
+                    }
+                }, 300);
+            });
+
+            // Handle search clear button
+            if (searchClear) {
+                searchClear.addEventListener('click', () => {
+                    searchInput.value = '';
+                    isSearchMode = false;
+                    currentSearchTerm = '';
+                    renderList();
+                    searchInput.focus();
+                });
+            }
+
+            // Handle Enter key to search immediately
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimeout);
+                    const term = e.target.value.trim();
+                    if (term.length > 0) {
+                        isSearchMode = true;
+                        currentSearchTerm = term;
                         renderList();
                     }
                 }

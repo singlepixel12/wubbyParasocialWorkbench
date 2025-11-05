@@ -1029,7 +1029,89 @@ nav a:focus {
     width: 190px;
 }
 
- 
+/* Search toggle button */
+.search-toggle {
+    padding: 8px 12px;
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.search-toggle:hover {
+    background-color: #222;
+    border-color: #555;
+}
+
+.search-toggle:focus {
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
+}
+
+.search-toggle.active {
+    background-color: #007acc;
+    border-color: #007acc;
+}
+
+/* Search container */
+.search-container {
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 40px 10px 12px;
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
+    border-color: #007acc;
+}
+
+.search-input::placeholder {
+    color: #777;
+}
+
+.search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.search-clear:hover {
+    color: #fff;
+}
+
+.search-clear:focus {
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+
 
 /* Flatpickr calendar dark mode overrides */
 .flatpickr-calendar {
