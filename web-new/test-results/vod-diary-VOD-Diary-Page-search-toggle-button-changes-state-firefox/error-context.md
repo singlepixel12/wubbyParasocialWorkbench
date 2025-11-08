@@ -1,0 +1,107 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Parasocial Workbench" [level=1] [ref=e5]
+      - navigation "Main navigation" [ref=e6]:
+        - menubar [ref=e7]:
+          - menuitem "Go to Transcription Details page" [ref=e8] [cursor=pointer]: Transcription Details
+          - menuitem "Go to Get Transcript page" [ref=e9] [cursor=pointer]: Get Transcript
+          - menuitem "Go to VOD Diary page" [ref=e10] [cursor=pointer]: VOD Diary
+          - menuitem "Go to Video Player page" [ref=e11] [cursor=pointer]: Player
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "VOD Diary" [level=2] [ref=e15]
+        - paragraph [ref=e16]: Browse and filter Wubby VODs by platform, date range, and search terms.
+      - generic [ref=e17]:
+        - button "01/11/2025 - 08/11/2025" [ref=e20]:
+          - img
+          - text: 01/11/2025 - 08/11/2025
+        - radiogroup "Platform filter" [ref=e21] [cursor=pointer]:
+          - generic: both
+          - generic: twitch
+          - generic: kick
+          - radio "both platform selected" [checked] [ref=e22]:
+            - generic [ref=e23]: both
+        - generic [ref=e24]:
+          - button "Toggle search" [ref=e25]:
+            - img
+          - textbox "Search videos" [active] [ref=e27]:
+            - /placeholder: Search by title, tags, or URL...
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]: kick
+          - link [ref=e31] [cursor=pointer]:
+            - /url: /player
+            - img [ref=e36]
+          - generic [ref=e38]:
+            - heading "Charcoal Roast & Escaping Crazy Puzzles" [level=3] [ref=e39]
+            - heading "6_kickapilol" [level=4] [ref=e40]
+            - generic [ref=e41]: 07/11/2025
+            - paragraph [ref=e43]: Wubby kicks off by freestyling some heartfelt lyrics before confessing his anxiety about collabing with FanFan, a former Chinese ice skating prodigy turned streamer. He awkwardly dives into a bizarre charcoal video debate, trying not to blow the vibe with FanFan, then shifts gears to the newly launched Escape Room Simulator 2. Chaos ensues as he and Alex struggle through puzzles involving goblets, family trees, and pirate tavern riddles. After cracking cryptic codes and nearly losing their minds on drink-mixing minigames, they finally escape! Tired but triumphant, Wubby jumps into gambling streams on Stake, ranting about rigged games, especially a broken FastPlay slot that showed a 50K max win but didn’t pay out. He ends nursing boba, debating the wild gambling odds, and teasing tomorrow’s collab with cautious excitement.
+          - button "Expand ▼" [ref=e44]
+        - generic [ref=e45]:
+          - generic [ref=e46]: kick
+          - link [ref=e47] [cursor=pointer]:
+            - /url: /player
+            - img [ref=e52]
+          - generic [ref=e54]:
+            - heading "Gorilla Dicks & $6 Song Chaos" [level=3] [ref=e55]
+            - heading "5_kickapilol" [level=4] [ref=e56]
+            - generic [ref=e57]: 06/11/2025
+            - paragraph [ref=e59]: "Wubby wrestles with a wild gorilla penis conspiracy, hunting for pics and debating if Maya Higa holds the key. Dinner plans force a hard cut-off, but before that, he dives into intense gambling rituals: 420 plink, blackjack, and the infamous monkey slots, all while chat bombs him with $6 song requests—some bangers, some brutal. He explores Chinese YouTube’s HTX Studio, marveling at the insane underground jewelry store build and his censored “Wubby in China” clip. Slot madness ensues with life-or-death stakes, ridiculous losses, and desperate attempts to hit six figures. The night’s soundtrack is chaos incarnate, as Wubby battles the cursed music queue, gnome hexes, and the endless $6 donations fueling the madness."
+          - button "Expand ▼" [ref=e60]
+        - generic [ref=e61]:
+          - generic [ref=e62]: twitch
+          - link [ref=e63] [cursor=pointer]:
+            - /url: /player
+            - img [ref=e68]
+          - generic [ref=e70]:
+            - heading "Wubby’s Wild LA Stream & Back Shots Debate" [level=3] [ref=e71]
+            - heading "5_CRINGING DRINKING YOU KNOW THE VIBES JUST AL IS HERE BAD CAM NICE FEET" [level=4] [ref=e72]
+            - generic [ref=e73]: 06/11/2025
+            - paragraph [ref=e75]: Wubby’s streaming from LA, wrestling with Wi-Fi, camera glitches, and single-monitor mayhem while teasing a massive December collab with a mystery multi-figure budget that’s not a dubathon or streamer awards rival. He teases Minecraft Hardcore with Fanfan this Friday (now dubbed Cancan), and a battle station review Sunday with a brand-new PC prize. Chaos erupts as he and Alex dive into the great ‘back shots’ debate—doggy style or cum on the back?—with Urban Dictionary and chat opinions flying. The duo battles tech woes to watch cringe TikTok clips, weird videos, and hilariously bad lip-syncs, all while Wubby rants about spam mail, Uber Eats disasters, gorilla penises, and the joys of streaming scuffed but free. The stream ends with heavy sips, bizarre memes, and plans for more madness on Kick.
+          - button "Expand ▼" [ref=e76]
+        - generic [ref=e77]:
+          - generic [ref=e78]: kick
+          - link [ref=e79] [cursor=pointer]:
+            - /url: /player
+            - img [ref=e84]
+          - generic [ref=e86]:
+            - heading "Paddle Chaos & Costume Contest Meltdown" [level=3] [ref=e87]
+            - heading "3_kickapilol" [level=4] [ref=e88]
+            - generic [ref=e89]: 04/11/2025
+            - paragraph [ref=e91]: Wubby opens by mocking a painfully bad Bioshock audiobook narration before calling Ham for some spontaneous co-op chaos in a game called Paddle Paddle Paddle, where teamwork means paddling a raft through ridiculous obstacles. They fumble hilariously through controls, shouting about boat angles, rhythms, and dodging spikes, hilariously spiraling into a frantic yet oddly satisfying partnership. Mid-game, Wubby dives into a wild Reddit saga about his costume contest drama—fans raging, conspiracy theories, and drunk keyboard warriors—blending salty internet drama and genuine concern. Then it’s back to paddle madness and a slow descent into pokey slot machines and gambling antics, sprinkled with deep Andor fandom and Wubby’s trademark sharp takes, ending with a thousand-dollar giveaway and a reminder to gamble responsibly.
+          - button "Expand ▼" [ref=e92]
+        - generic [ref=e93]:
+          - generic [ref=e94]: twitch
+          - link [ref=e95] [cursor=pointer]:
+            - /url: /player
+            - img [ref=e100]
+          - generic [ref=e102]:
+            - heading "Sipgate Scandal & Costume Chaos Madness" [level=3] [ref=e103]
+            - heading "2_WUBBY EXTENDED UNIVERSE COSTUME CONTEST - SIPGATE GG" [level=4] [ref=e104]
+            - generic [ref=e105]: 03/11/2025
+            - paragraph [ref=e107]: Wubby dives headfirst into suffocating cosplay hell with a Ripley-from-Aliens fishbowl helmet that fogs up and triggers panic attacks within five minutes. Between battling insomnia rants and hilariously brutal stream meme roasts, he plunges into Sipgate—the fake sips controversy—revealing his sponsor contract hilariously requires pretend drinking, sparking subreddit chaos with tildes and bot reports. Then, costume contest mayhem erupts! Booty joins live as they tear through 64 wild stream-themed submissions ranging from mustard beef homage to a walking pizza oven, green screen Wubby, creepy Wubby dad bird cosplay, and absurd Free Car Candy float. The bracket heats up with heated debates on effort vs. fun, culminating in a nail-biting final where the Free Car Candy wins over Zug Zug and Burger Fairy, leaving chat divided but entertained.
+          - button "Expand ▼" [ref=e108]
+        - generic [ref=e109]:
+          - generic [ref=e110]: kick
+          - link [ref=e111] [cursor=pointer]:
+            - /url: /player
+            - img [ref=e116]
+          - generic [ref=e118]:
+            - heading "Sipgate Saga & Pirate Plinko Chaos" [level=3] [ref=e119]
+            - heading "1_kickapilol" [level=4] [ref=e120]
+            - generic [ref=e121]: 02/11/2025
+            - paragraph [ref=e123]: "Wubby squeezes in a quick Saturday stream before a party, diving headfirst into the infamous 'fake sip' controversy from his subreddit—he hilariously confesses to a made-up Gamer Subs contract requiring hourly sips, sparking a wild gaslighting bait fest. Chat and subreddit explode with tildes and conspiracy theories as Wubby marvels at the hive mind gone schizo. He pivots to dissecting 90s suits, roasting Rob Lowe’s drowning-in-fabric style versus timeless Mad Men vibes. Then, it’s all-in on gambling: intense spins of pirate-themed Plinko and blackjack madness, hit-or-miss multipliers, and epic reactions to zero payouts. Between deep ball-punching rants and Lord of the Rings quips, Wubby’s manic energy rides through wins, losses, and chat chaos, ending with promise of tomorrow’s costume contest."
+          - button "Expand ▼" [ref=e124]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e130] [cursor=pointer]:
+    - img [ref=e131]
+  - alert [ref=e135]
+```
