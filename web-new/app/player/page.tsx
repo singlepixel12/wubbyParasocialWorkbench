@@ -17,8 +17,23 @@ import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { useToast } from '@/lib/hooks/useToast';
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { PlatformTag } from '@/components/ui/platform-tag';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { SUPABASE_URL } from '@/lib/constants';
+import { logger } from '@/lib/utils/logger';
+import { PlayCircle, ArrowRight } from 'lucide-react';
+
+/**
+ * Get solid Badge variant for platform/tag
+ * @param text - Platform or tag name
+ * @returns Solid badge variant name
+ */
+function getSolidBadgeVariant(text: string): 'kick-solid' | 'twitch-solid' | 'tag-solid' {
+  const normalized = text.toLowerCase();
+  if (normalized === 'kick') return 'kick-solid';
+  if (normalized === 'twitch') return 'twitch-solid';
+  return 'tag-solid';
+}
 
 export default function PlayerPage() {
   const [video, setVideo] = useState<Video | null>(null);
@@ -27,69 +42,86 @@ export default function PlayerPage() {
   const [subtitleUrl, setSubtitleUrl] = useState<string>('');
   const { showError, showWarning } = useToast();
 
-  useEffect(() => {
-    // Load video URL from localStorage
-    const loadVideoFromStorage = async () => {
+  // Load video URL from localStorage
+  const loadVideoFromStorage = async () => {
       const storedUrl = localStorage.getItem('selectedVideoUrl');
 
       if (!storedUrl) {
-        console.warn('[Player Page] No video URL found in localStorage.');
+        logger.warn('[Player Page] No video URL found in localStorage.');
         showWarning('No video selected. Please select a video from VOD Diary.');
         setLoading(false);
         return;
       }
 
-      console.log('[Player Page] Loading video:', storedUrl);
+      logger.log('[Player Page] Loading video:', storedUrl);
       setVideoUrl(storedUrl);
 
       try {
         // Compute hash for subtitle lookup
-        console.log('[Player Page] Computing hash...');
+        logger.log('[Player Page] Computing hash...');
         const hash = await computeVideoHash(storedUrl);
-        console.log('[Player Page] Hash:', hash);
+        logger.log('[Player Page] Hash:', hash);
 
         // Construct subtitle URL
         const subtitlePath = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt`;
-        console.log('[Player Page] Checking for subtitles:', subtitlePath);
+        logger.log('[Player Page] Checking for subtitles:', subtitlePath);
 
         // Test if subtitle exists
         try {
           const testResponse = await fetch(subtitlePath, { method: 'HEAD' });
 
           if (testResponse.ok) {
-            console.log('[Player Page] ✅ Subtitles found');
+            logger.log('[Player Page] ✅ Subtitles found');
             setSubtitleUrl(subtitlePath);
           } else {
-            console.warn('[Player Page] ⚠️ No subtitles available:', testResponse.status);
+            logger.warn('[Player Page] ⚠️ No subtitles available:', testResponse.status);
             setSubtitleUrl('');
           }
         } catch (fetchError) {
-          console.warn('[Player Page] Could not check for subtitles:', fetchError);
+          logger.warn('[Player Page] Could not check for subtitles:', fetchError);
           setSubtitleUrl('');
         }
 
         // Fetch video metadata from Supabase
-        console.log('[Player Page] Fetching metadata...');
+        logger.log('[Player Page] Fetching metadata...');
         const videoData = await getWubbySummary(storedUrl);
 
         if (!videoData) {
-          showError('Failed to load video information.');
+          showError('Failed to load video information.', {
+            action: {
+              label: 'Retry',
+              onClick: () => {
+                logger.log('[Player Page] Retrying metadata load...');
+                loadVideoFromStorage();
+              },
+            },
+          });
           setLoading(false);
           return;
         }
 
         setVideo(videoData);
-        console.log('[Player Page] ✅ Loaded video metadata:', videoData.title);
+        logger.log('[Player Page] ✅ Loaded video metadata:', videoData.title);
       } catch (error) {
-        console.error('[Player Page] Error loading video:', error);
-        showError('Failed to load video. Please try again.');
+        logger.error('[Player Page] Error loading video:', error);
+        showError('Failed to load video. Please try again.', {
+          action: {
+            label: 'Retry',
+            onClick: () => {
+              logger.log('[Player Page] Retrying video load...');
+              loadVideoFromStorage();
+            },
+          },
+        });
       } finally {
         setLoading(false);
       }
     };
 
+  useEffect(() => {
     loadVideoFromStorage();
-  }, [showError, showWarning]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -102,14 +134,21 @@ export default function PlayerPage() {
   if (!video || !videoUrl) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <p className="text-[#777] text-lg mb-4">No video selected</p>
-          <p className="text-[#555] text-sm">
-            Please select a video from the{' '}
-            <Link href="/vod-diary" className="text-[#28a745] hover:underline">
-              VOD Diary
-            </Link>
+        <div className="flex flex-col items-center text-center max-w-md px-4">
+          <div className="rounded-full bg-muted p-6 mb-4">
+            <PlayCircle className="w-16 h-16 text-muted-foreground" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">No video selected</h2>
+          <p className="text-muted-foreground mb-6">
+            Browse the VOD Diary to find and play Wubby stream content with subtitles and
+            metadata.
           </p>
+          <Button asChild size="lg" className="gap-2">
+            <Link href="/vod-diary">
+              Browse VOD Diary
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </Button>
         </div>
       </div>
     );
@@ -127,7 +166,7 @@ export default function PlayerPage() {
           subtitleUrl={subtitleUrl}
           enableSubtitles={true}
           onError={(error) => {
-            console.error('[Player Page] Video player error:', error);
+            logger.error('[Player Page] Video player error:', error);
             showError('Video player error occurred');
           }}
         />
@@ -145,31 +184,33 @@ export default function PlayerPage() {
       <div className="space-y-4">
         {/* Title */}
         <div>
-          <h2 className="text-2xl font-bold text-white mb-1">{video.title}</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-1">{video.title}</h2>
           {originalTitle && (
-            <h3 className="text-lg text-[#999]">{originalTitle}</h3>
+            <h3 className="text-lg text-muted-foreground">{originalTitle}</h3>
           )}
         </div>
 
         {/* Date */}
         {formattedDate && (
-          <p className="text-[#777]">{formattedDate}</p>
+          <p className="text-muted-foreground">{formattedDate}</p>
         )}
 
         {/* Tags */}
         {video.tags && video.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {video.tags.map((tag, index) => (
-              <PlatformTag key={index} platform={tag} variant="simple" />
+              <Badge key={index} variant={getSolidBadgeVariant(tag)}>
+                {tag}
+              </Badge>
             ))}
           </div>
         )}
 
         {/* Summary */}
         {video.summary && (
-          <div className="bg-[#111] border border-[#333] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-white mb-2">Summary</h3>
-            <p className="text-[#ccc] leading-relaxed">{video.summary}</p>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Summary</h3>
+            <p className="text-card-foreground leading-relaxed">{video.summary}</p>
           </div>
         )}
       </div>

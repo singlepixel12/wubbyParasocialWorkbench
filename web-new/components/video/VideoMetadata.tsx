@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * VideoMetadata Component
@@ -7,16 +8,28 @@
  */
 
 import { cn } from '@/lib/utils';
-import { formatDateLong, formatSummaryText } from '@/lib/utils/formatters';
-import { PlatformTag } from '@/components/ui/platform-tag';
+import { formatDateLong, formatSummaryText } from '@/lib/utils/video-helpers';
+import { Badge } from '@/components/ui/badge';
 import type { Video } from '@/types/video';
+
+/**
+ * Get Badge variant for platform or tag
+ * @param text - Platform or tag name
+ * @returns Badge variant name
+ */
+function getBadgeVariant(text: string): 'kick' | 'twitch' | 'tag' {
+  const normalized = text.toLowerCase();
+  if (normalized === 'kick') return 'kick';
+  if (normalized === 'twitch') return 'twitch';
+  return 'tag';
+}
 
 interface VideoMetadataProps {
   video: Video | null;
 }
 
 export function VideoMetadata({ video }: VideoMetadataProps) {
-  console.log('VideoMetadata render:', video ? { title: video.title, platform: video.platform, tagsCount: video.tags.length } : 'null');
+  logger.log('VideoMetadata render:', video ? { title: video.title, platform: video.platform, tagsCount: video.tags.length } : 'null');
 
   // Default state when no video is loaded
   if (!video) {
@@ -62,17 +75,16 @@ export function VideoMetadata({ video }: VideoMetadataProps) {
         >
           {/* Platform Tag */}
           {video.platform && video.platform !== 'unknown' && (
-            <PlatformTag platform={video.platform} variant="badge" />
+            <Badge variant={getBadgeVariant(video.platform)}>
+              {video.platform}
+            </Badge>
           )}
 
           {/* Content Tags */}
           {video.tags.map((tag, index) => (
-            <span
-              key={index}
-              className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/30"
-            >
+            <Badge key={index} variant={getBadgeVariant(tag)}>
               {tag}
-            </span>
+            </Badge>
           ))}
         </div>
       )}

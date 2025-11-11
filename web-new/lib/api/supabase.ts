@@ -12,10 +12,17 @@ import type {
 } from '@/types/supabase';
 import { computeVideoHash } from '@/lib/utils/hash';
 import { SUPABASE_URL } from '@/lib/constants';
+import { logger } from '@/lib/utils/logger';
 
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNidmFjbG15cG9rYWZweGVidXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1NDI3MTUsImV4cCI6MjA2MzExODcxNX0.7yr-OxNKpoeMstxyOG79ms4F_7eSADLBSROBgwtqTSE';
+// Supabase anon key - must be set in environment variables
+// This is a read-only key protected by Row Level Security (RLS)
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_ANON_KEY) {
+  throw new Error(
+    'Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable. Please check your .env.local file.'
+  );
+}
 
 /**
  * Initialize Supabase client
@@ -78,21 +85,21 @@ function mapRowToVideo(row: SupabaseVideoRow): Video {
 export async function getWubbySummary(
   videoUrl: string
 ): Promise<Video | null> {
-  console.group('📡 Fetching Video Summary from Supabase');
-  console.log('Video URL:', videoUrl);
-  console.log('Supabase URL:', SUPABASE_URL);
+  logger.group('📡 Fetching Video Summary from Supabase');
+  logger.log('Video URL:', videoUrl);
+  logger.log('Supabase URL:', SUPABASE_URL);
 
   try {
     // Validate input
     if (!videoUrl || typeof videoUrl !== 'string') {
-      console.error('❌ Invalid video URL:', typeof videoUrl);
+      logger.error('❌ Invalid video URL:', typeof videoUrl);
       throw new Error('Invalid video URL provided');
     }
 
     // Generate hash for lookup
-    console.log('Generating hash for database lookup...');
+    logger.log('Generating hash for database lookup...');
     const videoHash = await computeVideoHash(videoUrl);
-    console.log('Video hash:', videoHash);
+    logger.log('Video hash:', videoHash);
 
     // Create abort controller for timeout
     const controller = new AbortController();
@@ -100,8 +107,8 @@ export async function getWubbySummary(
 
     // Query Supabase using REST API directly for maximum control
     const queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?video_hash=eq.${videoHash}`;
-    console.log('Query URL:', queryUrl);
-    console.log('Making API request...');
+    logger.log('Query URL:', queryUrl);
+    logger.log('Making API request...');
 
     const response = await fetch(queryUrl, {
       method: 'GET',
@@ -115,7 +122,7 @@ export async function getWubbySummary(
 
     clearTimeout(timeoutId);
 
-    console.log('API Response Status:', response.status, response.statusText);
+    logger.log('API Response Status:', response.status, response.statusText);
 
     // Handle HTTP errors with specific messages
     if (!response.ok) {
@@ -150,37 +157,37 @@ export async function getWubbySummary(
           errorMessage = `Request failed: ${response.status} - ${response.statusText}`;
       }
 
-      console.error('❌ API Error:', errorMessage);
-      console.groupEnd();
+      logger.error('❌ API Error:', errorMessage);
+      logger.groupEnd();
       throw new Error(errorMessage);
     }
 
-    console.log('✅ API request successful');
+    logger.log('✅ API request successful');
     const data: SupabaseVideoRow[] = await response.json();
-    console.log('Response data:', data);
-    console.log('Number of results:', data.length);
+    logger.log('Response data:', data);
+    logger.log('Number of results:', data.length);
 
     // No results found
     if (data.length === 0) {
-      console.log(
+      logger.log(
         '⚠️ No summary found for video - this is normal for videos without metadata.'
       );
-      console.groupEnd();
+      logger.groupEnd();
       return null;
     }
 
     const video = mapRowToVideo(data[0]);
-    console.log('✅ Video metadata retrieved:', {
+    logger.log('✅ Video metadata retrieved:', {
       title: video.title,
       platform: video.platform,
       date: video.date,
       tagsCount: video.tags.length,
     });
-    console.groupEnd();
+    logger.groupEnd();
     return video;
   } catch (error) {
-    console.error('❌ Error fetching video summary:', error);
-    console.groupEnd();
+    logger.error('❌ Error fetching video summary:', error);
+    logger.groupEnd();
 
     // Handle specific error types
     if (error instanceof Error) {
@@ -255,7 +262,7 @@ export async function fetchRecentVideos(
 
     return data.map(mapRowToVideo);
   } catch (error) {
-    console.error('Error fetching recent videos:', error);
+    logger.error('Error fetching recent videos:', error);
     throw error;
   }
 }
@@ -318,7 +325,7 @@ export async function searchVideos(
 
     return filteredData.map(mapRowToVideo);
   } catch (error) {
-    console.error('Error searching videos:', error);
+    logger.error('Error searching videos:', error);
     throw error;
   }
 }

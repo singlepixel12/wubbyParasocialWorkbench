@@ -4,6 +4,9 @@
  * Ported from: src/vodDiary.js
  */
 
+import { format, parseISO } from 'date-fns';
+import { logger } from './logger';
+
 /**
  * Determine date format based on locale/timezone
  * Returns 'dmy' for Australian locale, 'mdy' for US/other
@@ -56,7 +59,7 @@ export function extractOriginalTitle(videoUrl: string): string {
 
     return nameWithoutTimestamp;
   } catch (error) {
-    console.error('Error extracting original title:', error);
+    logger.error('Error extracting original title:', error);
     return '';
   }
 }
@@ -78,4 +81,69 @@ export function getThisWeekRange(): { from: Date; to: Date } {
  */
 export function getDatePickerFormat(): string {
   return getLocaleFormat() === 'dmy' ? 'd/M/y' : 'M/d/y';
+}
+
+/**
+ * Formats a date for display in a long format
+ *
+ * @param dateString - ISO date string or Date object
+ * @returns Formatted date (e.g., "January 18, 2025")
+ *
+ * @example
+ * ```ts
+ * formatDateLong('2025-01-18T20:00:00Z'); // "January 18, 2025"
+ * formatDateLong(new Date()); // "November 8, 2025"
+ * ```
+ */
+export function formatDateLong(dateString: string | Date): string {
+  try {
+    const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
+    return format(date, 'MMMM d, yyyy');
+  } catch (error) {
+    logger.error('Error formatting date:', error);
+    return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+}
+
+/**
+ * Formats summary text for better readability
+ *
+ * Splits text by newlines and formats paragraphs with proper spacing
+ *
+ * @param summaryText - Raw summary text (may contain newlines)
+ * @returns Formatted summary text with proper paragraph spacing
+ *
+ * @example
+ * ```ts
+ * formatSummaryText('First paragraph\n\nSecond paragraph');
+ * // "First paragraph\n\nSecond paragraph"
+ *
+ * formatSummaryText(null);
+ * // "- This vod has no summary -"
+ * ```
+ */
+export function formatSummaryText(summaryText: string | null | undefined): string {
+  try {
+    if (!summaryText) return '- This vod has no summary -';
+
+    // Validate input type
+    if (typeof summaryText !== 'string') {
+      logger.warn('Summary text is not a string:', typeof summaryText);
+      return '- This vod has no summary -';
+    }
+
+    // Split by newlines, trim whitespace, and rejoin with double newlines
+    return summaryText
+      .split(/\n+/)
+      .map((paragraph) => paragraph.trim())
+      .filter((paragraph) => paragraph.length > 0)
+      .join('\n\n');
+  } catch (error) {
+    logger.error('Error formatting summary text:', error);
+    return '- This vod has no summary -';
+  }
 }

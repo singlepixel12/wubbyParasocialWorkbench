@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * HashDisplay Component
@@ -15,7 +16,7 @@ interface HashDisplayProps {
 }
 
 export function HashDisplay({ hash, status, isSuccess }: HashDisplayProps) {
-  console.log('HashDisplay render:', { hash, status, isSuccess });
+  logger.log('HashDisplay render:', { hash, status, isSuccess });
 
   return (
     <div

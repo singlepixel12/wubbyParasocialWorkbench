@@ -6,6 +6,7 @@
  * Supports dynamic video and subtitle loading
  * Ported from: player.html + transcript.html Vidstack implementation
  */
+import { logger } from '@/lib/utils/logger';
 
 import { useEffect, useRef } from 'react';
 import { useToast } from '@/lib/hooks/useToast';
@@ -42,7 +43,7 @@ export function VidstackPlayer({
   onError,
   enableSubtitles = true,
 }: VidstackPlayerProps) {
-  console.log('VidstackPlayer render:', {
+  logger.log('VidstackPlayer render:', {
     hasVideoUrl: !!videoUrl,
     hasSubtitleUrl: !!subtitleUrl,
     enableSubtitles,
@@ -52,49 +53,49 @@ export function VidstackPlayer({
   const { showError, showWarning } = useToast();
 
   useEffect(() => {
-    console.group('🎬 VidstackPlayer Initialization');
-    console.log('Video URL:', videoUrl);
-    console.log('Subtitle URL:', subtitleUrl);
+    logger.group('🎬 VidstackPlayer Initialization');
+    logger.log('Video URL:', videoUrl);
+    logger.log('Subtitle URL:', subtitleUrl);
 
     // Wait for Vidstack custom elements to be defined
     if (typeof window !== 'undefined' && customElements) {
       customElements.whenDefined('media-player').then(() => {
-        console.log('✅ media-player custom element defined');
+        logger.log('✅ media-player custom element defined');
 
         // Add error listener to player after it's defined
         const player = document.querySelector('media-player');
         if (player) {
           player.addEventListener('error', (e: any) => {
-            console.error('❌ Player error:', e.detail);
+            logger.error('❌ Player error:', e.detail);
             const error = new Error(e.detail?.message || 'Player error occurred');
             onError?.(error);
             showError('Video player error occurred');
           });
         }
       }).catch(err => {
-        console.error('❌ Error waiting for media-player definition:', err);
+        logger.error('❌ Error waiting for media-player definition:', err);
       });
     }
 
-    console.groupEnd();
+    logger.groupEnd();
   }, [onError, showError]);
 
   // Handle subtitle changes by recreating player
   useEffect(() => {
     if (!videoUrl || !containerRef.current) {
-      console.log('⏭️ Skipping player recreation - no video URL or container');
+      logger.log('⏭️ Skipping player recreation - no video URL or container');
       return;
     }
 
-    console.group('🔄 Recreating Player for Subtitle Change');
-    console.log('Video URL:', videoUrl);
-    console.log('Subtitle URL:', subtitleUrl);
+    logger.group('🔄 Recreating Player for Subtitle Change');
+    logger.log('Video URL:', videoUrl);
+    logger.log('Subtitle URL:', subtitleUrl);
 
     // Find existing player in container
     const existingPlayer = containerRef.current.querySelector('media-player');
 
     if (existingPlayer) {
-      console.log('Removing existing player');
+      logger.log('Removing existing player');
       existingPlayer.remove();
     }
 
@@ -110,7 +111,7 @@ export function VidstackPlayer({
 
     // Add subtitle track if URL provided (track goes INSIDE media-outlet)
     if (subtitleUrl && enableSubtitles) {
-      console.log('Adding subtitle track:', subtitleUrl);
+      logger.log('Adding subtitle track:', subtitleUrl);
 
       const trackEl = document.createElement('track');
       trackEl.id = 'subtitle-track';
@@ -122,18 +123,18 @@ export function VidstackPlayer({
 
       // Track load/error events
       trackEl.addEventListener('load', () => {
-        console.log('✅ Subtitle track loaded successfully');
+        logger.log('✅ Subtitle track loaded successfully');
       });
 
       trackEl.addEventListener('error', (e) => {
-        console.error('❌ Subtitle track failed to load:', e);
+        logger.error('❌ Subtitle track failed to load:', e);
         showWarning('Subtitles may not be available for this video');
       });
 
       // IMPORTANT: Track must be INSIDE media-outlet, not before it!
       mediaOutlet.appendChild(trackEl);
     } else {
-      console.log('No subtitles - creating player without tracks');
+      logger.log('No subtitles - creating player without tracks');
     }
 
     // Create the community skin
@@ -145,7 +146,7 @@ export function VidstackPlayer({
 
     // Add to container
     containerRef.current.appendChild(newPlayer);
-    console.log('✅ New player created and added to DOM');
+    logger.log('✅ New player created and added to DOM');
 
     // Enable subtitles when player is ready (use event listener instead of setTimeout)
     if (subtitleUrl && enableSubtitles) {
@@ -153,14 +154,14 @@ export function VidstackPlayer({
 
       // Listen for the 'can-play' event which indicates player is ready
       const enableSubtitlesOnReady = () => {
-        console.log('🎬 Player ready, attempting to enable subtitles...');
+        logger.log('🎬 Player ready, attempting to enable subtitles...');
 
         if (playerElement.textTracks && playerElement.textTracks.length > 0) {
-          console.log(`Found ${playerElement.textTracks.length} text tracks`);
+          logger.log(`Found ${playerElement.textTracks.length} text tracks`);
 
           for (let i = 0; i < playerElement.textTracks.length; i++) {
             const track = playerElement.textTracks[i];
-            console.log(`Track ${i}:`, {
+            logger.log(`Track ${i}:`, {
               language: track.language,
               label: track.label,
               mode: track.mode,
@@ -170,11 +171,11 @@ export function VidstackPlayer({
             // Enable the English subtitle track
             if (track.kind === 'subtitles' && (track.language === 'en' || track.label === 'English')) {
               track.mode = 'showing';
-              console.log(`✅ Enabled track ${i} (${track.label})`);
+              logger.log(`✅ Enabled track ${i} (${track.label})`);
             }
           }
         } else {
-          console.warn('⚠️ No text tracks found on player');
+          logger.warn('⚠️ No text tracks found on player');
         }
       };
 
@@ -190,23 +191,24 @@ export function VidstackPlayer({
       }, 2000);
     }
 
-    console.groupEnd();
+    logger.groupEnd();
 
     // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up player');
+      logger.log('🧹 Cleaning up player');
       const player = containerRef.current?.querySelector('media-player');
       if (player) {
         player.remove();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoUrl, subtitleUrl, poster, className, enableSubtitles, showWarning]);
 
   // Load Vidstack CSS and JS from CDN
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    console.log('📦 Loading Vidstack assets from CDN');
+    logger.log('📦 Loading Vidstack assets from CDN');
 
     // Check if already loaded
     const existingDefaultsCSS = document.querySelector('link[href*="vidstack/styles/defaults.css"]');
@@ -219,7 +221,7 @@ export function VidstackPlayer({
       defaultsLink.rel = 'stylesheet';
       defaultsLink.href = 'https://cdn.jsdelivr.net/npm/vidstack/styles/defaults.css';
       document.head.appendChild(defaultsLink);
-      console.log('✅ Loaded Vidstack defaults.css');
+      logger.log('✅ Loaded Vidstack defaults.css');
     }
 
     // Load CSS - community skin
@@ -228,7 +230,7 @@ export function VidstackPlayer({
       skinLink.rel = 'stylesheet';
       skinLink.href = 'https://cdn.jsdelivr.net/npm/vidstack/styles/community-skin/video.css';
       document.head.appendChild(skinLink);
-      console.log('✅ Loaded Vidstack community-skin CSS');
+      logger.log('✅ Loaded Vidstack community-skin CSS');
     }
 
     // Load JS
@@ -237,10 +239,10 @@ export function VidstackPlayer({
       script.type = 'module';
       script.src = 'https://cdn.jsdelivr.net/npm/vidstack/dist/cdn/prod.js';
       script.onload = () => {
-        console.log('✅ Vidstack JS loaded from CDN');
+        logger.log('✅ Vidstack JS loaded from CDN');
       };
       script.onerror = (err) => {
-        console.error('❌ Failed to load Vidstack JS:', err);
+        logger.error('❌ Failed to load Vidstack JS:', err);
         showError('Failed to load video player. Please refresh the page.');
       };
       document.head.appendChild(script);

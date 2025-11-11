@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { computeVideoHash } from '@/lib/utils/hash';
 import { SUPABASE_URL } from '@/lib/constants';
+import { logger } from '@/lib/utils/logger';
 
 const TEST_VIDEOS = [
   {
@@ -26,15 +27,15 @@ const TEST_VIDEOS = [
 ];
 
 export default function PlayerTestPage() {
-  console.log('===== PlayerTestPage Render =====');
+  logger.log('===== PlayerTestPage Render =====');
 
   const [videoUrl, setVideoUrl] = useState('');
   const [subtitleUrl, setSubtitleUrl] = useState('');
   const [poster, setPoster] = useState('');
 
   const handleLoadVideo = async (testVideoUrl: string, testPoster?: string) => {
-    console.group('🎥 Loading Test Video');
-    console.log('Video URL:', testVideoUrl);
+    logger.group('🎥 Loading Test Video');
+    logger.log('Video URL:', testVideoUrl);
 
     setVideoUrl(testVideoUrl);
     setPoster(testPoster || '');
@@ -44,24 +45,24 @@ export default function PlayerTestPage() {
       const hash = await computeVideoHash(testVideoUrl);
       const subtitlePath = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt`;
 
-      console.log('Computed hash:', hash);
-      console.log('Subtitle path:', subtitlePath);
+      logger.log('Computed hash:', hash);
+      logger.log('Subtitle path:', subtitlePath);
 
       // Test if subtitle exists
       const response = await fetch(subtitlePath, { method: 'HEAD' });
       if (response.ok) {
-        console.log('✅ Subtitles found');
+        logger.log('✅ Subtitles found');
         setSubtitleUrl(subtitlePath);
       } else {
-        console.log('⚠️ No subtitles available');
+        logger.log('⚠️ No subtitles available');
         setSubtitleUrl('');
       }
     } catch (err) {
-      console.error('Error checking subtitles:', err);
+      logger.error('Error checking subtitles:', err);
       setSubtitleUrl('');
     }
 
-    console.groupEnd();
+    logger.groupEnd();
   };
 
   const handleCustomUrl = async () => {
@@ -72,7 +73,7 @@ export default function PlayerTestPage() {
   };
 
   const handleClear = () => {
-    console.log('🧹 Clearing player');
+    logger.log('🧹 Clearing player');
     setVideoUrl('');
     setSubtitleUrl('');
     setPoster('');
@@ -157,7 +158,7 @@ export default function PlayerTestPage() {
           poster={poster}
           enableSubtitles={true}
           onError={(error) => {
-            console.error('Player error callback:', error);
+            logger.error('Player error callback:', error);
           }}
         />
       </section>

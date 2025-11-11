@@ -8,6 +8,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { logger } from '@/lib/utils/logger';
 
 interface VideoSelectorProps {
   videoUrl: string;
@@ -64,7 +65,7 @@ export function VideoSelector({
   onClear,
   isLoading,
 }: VideoSelectorProps) {
-  console.log('VideoSelector render:', { videoUrl, isLoading });
+  logger.debug('VideoSelector render:', { videoUrl, isLoading });
 
   return (
     <div className="space-y-4">
@@ -75,7 +76,7 @@ export function VideoSelector({
             type="text"
             value={videoUrl}
             onChange={(e) => {
-              console.log('URL input changed:', e.target.value);
+              logger.debug('URL input changed:', e.target.value);
               onVideoUrlChange(e.target.value);
             }}
             placeholder="Enter archive.wubby.tv URL or select from dropdown"
@@ -100,7 +101,7 @@ export function VideoSelector({
         {/* Load Button */}
         <Button
           onClick={() => {
-            console.log('Load button clicked');
+            logger.log('Load button clicked');
             onLoad();
           }}
           disabled={isLoading || !videoUrl.trim()}
@@ -113,7 +114,7 @@ export function VideoSelector({
         {/* Clear Button */}
         <Button
           onClick={() => {
-            console.log('Clear button clicked');
+            logger.log('Clear button clicked');
             onClear();
           }}
           disabled={isLoading}

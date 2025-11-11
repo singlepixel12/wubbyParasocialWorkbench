@@ -3,81 +3,40 @@
 /**
  * VideoCard Component
  * Expandable video card with thumbnail, metadata, and tags
- * Features smooth max-height animation using requestAnimationFrame
+ * Uses shadcn Collapsible for accessible expand/collapse
+ * Optimized with React.memo to prevent unnecessary re-renders
  * Ported from: src/vodDiary.js createVideoCard()
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, memo } from 'react';
 import Link from 'next/link';
 import { Play } from 'lucide-react';
 import { Video } from '@/types/video';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
 import { Button } from '@/components/ui/button';
-import { PlatformTag } from '@/components/ui/platform-tag';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+
+/**
+ * Get solid Badge variant for platform
+ * @param platform - Platform name
+ * @returns Solid badge variant name
+ */
+function getSolidBadgeVariant(platform: string): 'kick-solid' | 'twitch-solid' | 'tag-solid' {
+  const normalized = platform.toLowerCase();
+  if (normalized === 'kick') return 'kick-solid';
+  if (normalized === 'twitch') return 'twitch-solid';
+  return 'tag-solid';
+}
 
 interface VideoCardProps {
   video: Video;
   onCardClick?: (video: Video) => void;
 }
 
-export function VideoCard({ video, onCardClick }: VideoCardProps) {
+export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const expandableRef = useRef<HTMLDivElement>(null);
-  const summaryRef = useRef<HTMLParagraphElement>(null);
-  const [collapsedHeight, setCollapsedHeight] = useState(0);
-
-  // Initialize collapsed height after component mounts
-  useEffect(() => {
-    if (expandableRef.current && summaryRef.current) {
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        if (!expandableRef.current || !summaryRef.current) return;
-
-        // Disable transition temporarily for initial measurement
-        expandableRef.current.style.transition = 'none';
-        const collapsed = summaryRef.current.offsetHeight || 0;
-        expandableRef.current.style.maxHeight = `${collapsed}px`;
-        setCollapsedHeight(collapsed);
-
-        // Force reflow then restore transition
-        void expandableRef.current.offsetHeight;
-        expandableRef.current.style.transition = 'max-height 0.3s ease-in-out';
-      });
-    }
-  }, []);
-
-  const handleExpand = () => {
-    if (!expandableRef.current) return;
-
-    if (!isExpanded) {
-      // Expand: add class first so content is measurable
-      setIsExpanded(true);
-      // Next frame, animate to full height
-      requestAnimationFrame(() => {
-        if (expandableRef.current) {
-          const targetHeight = expandableRef.current.scrollHeight;
-          expandableRef.current.style.maxHeight = `${targetHeight}px`;
-        }
-      });
-    } else {
-      // Collapse: transition from current height to collapsed height
-      if (expandableRef.current) {
-        expandableRef.current.style.maxHeight = `${expandableRef.current.scrollHeight}px`;
-        // Force reflow
-        void expandableRef.current.offsetHeight;
-        expandableRef.current.style.maxHeight = `${collapsedHeight}px`;
-      }
-
-      // After transition ends, remove expanded class
-      const onEnd = (e: TransitionEvent) => {
-        if (e.target !== expandableRef.current) return;
-        setIsExpanded(false);
-        expandableRef.current?.removeEventListener('transitionend', onEnd as EventListener);
-      };
-      expandableRef.current?.addEventListener('transitionend', onEnd as EventListener);
-    }
-  };
 
   const handleThumbnailClick = (e: React.MouseEvent) => {
     // Prevent card expansion when clicking thumbnail
@@ -91,26 +50,28 @@ export function VideoCard({ video, onCardClick }: VideoCardProps) {
   };
 
   const handleCardClick = () => {
-    handleExpand();
+    setIsExpanded(!isExpanded);
   };
 
   const formattedDate = video.date ? formatDateDisplay(new Date(video.date)) : '';
   const originalTitle = extractOriginalTitle(video.url);
 
   return (
-    <div
-      onClick={handleCardClick}
-      className={cn(
-        'flex gap-4 bg-[#111] border border-[#333] rounded-lg p-4 pb-10 min-h-[180px] relative overflow-hidden cursor-pointer',
-        isExpanded && 'expanded'
-      )}
-    >
+    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      <div
+        onClick={handleCardClick}
+        className={cn(
+          'flex gap-4 bg-[#111] border border-[#333] rounded-lg p-4 pb-10 min-h-[180px] relative overflow-hidden cursor-pointer',
+          isExpanded && 'expanded'
+        )}
+      >
       {/* Platform tag (top right) */}
-      <PlatformTag
-        platform={video.platform}
-        variant="simple"
-        className="absolute top-3 right-3 font-semibold z-10"
-      />
+      <Badge
+        variant={getSolidBadgeVariant(video.platform)}
+        className="absolute top-3 right-3 font-semibold z-10 px-3 py-1"
+      >
+        {video.platform}
+      </Badge>
 
       {/* Thumbnail with play button */}
       <Link
@@ -158,59 +119,54 @@ export function VideoCard({ video, onCardClick }: VideoCardProps) {
           <span className="text-sm text-[#777] mb-2">{formattedDate}</span>
         )}
 
-        {/* Expandable content (summary + tags) */}
-        <div
-          ref={expandableRef}
-          className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
-        >
-          {/* Summary - clamped to 2 lines when collapsed */}
-          <p
-            ref={summaryRef}
-            className={cn(
-              'mt-2 text-sm text-[#ccc]',
-              !isExpanded && 'line-clamp-2'
-            )}
-          >
-            {video.summary}
-          </p>
-
-          {/* Tags - only shown when expanded */}
-          {isExpanded && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {video.tags
-                .filter((tag) => tag !== video.platform) // Don't duplicate platform tag
-                .map((tag, index) => (
-                  <span
-                    key={index}
-                    className={cn(
-                      'inline-block px-3 py-1 rounded-full text-xs font-medium',
-                      tag === 'kick'
-                        ? 'bg-[#1e7e34] text-white'
-                        : tag === 'twitch'
-                        ? 'bg-[#6441A5] text-white'
-                        : 'bg-[#666] text-white'
-                    )}
-                  >
-                    {tag}
-                  </span>
-                ))}
-            </div>
+        {/* Summary - clamped to 2 lines when collapsed */}
+        <p
+          className={cn(
+            'mt-2 text-sm text-[#ccc]',
+            !isExpanded && 'line-clamp-2'
           )}
-        </div>
+        >
+          {video.summary}
+        </p>
+
+        {/* Tags - shown in collapsible section when expanded */}
+        <CollapsibleContent className="CollapsibleContent">
+          <div className="flex flex-wrap gap-2 mt-3">
+            {video.tags
+              .filter((tag) => tag !== video.platform) // Don't duplicate platform tag
+              .map((tag, index) => (
+                <span
+                  key={index}
+                  className={cn(
+                    'inline-block px-3 py-1 rounded-full text-xs font-medium',
+                    tag === 'kick'
+                      ? 'bg-[#1e7e34] text-white'
+                      : tag === 'twitch'
+                      ? 'bg-[#6441A5] text-white'
+                      : 'bg-[#666] text-white'
+                  )}
+                >
+                  {tag}
+                </span>
+              ))}
+          </div>
+        </CollapsibleContent>
       </div>
 
       {/* Expand/Collapse button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleExpand();
-        }}
-        className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-[#888] hover:text-[#aaa] hover:bg-[#222]"
-      >
-        {isExpanded ? 'Collapse ▲' : 'Expand ▼'}
-      </Button>
-    </div>
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-[#888] hover:text-[#aaa] hover:bg-[#222]"
+        >
+          {isExpanded ? 'Collapse ▲' : 'Expand ▼'}
+        </Button>
+      </CollapsibleTrigger>
+      </div>
+    </Collapsible>
   );
-}
+});

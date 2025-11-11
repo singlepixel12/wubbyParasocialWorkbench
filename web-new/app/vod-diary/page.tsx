@@ -19,6 +19,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { fetchRecentVideos, searchVideos } from '@/lib/api/supabase';
 import { getThisWeekRange } from '@/lib/utils/video-helpers';
 import { useToast } from '@/lib/hooks/useToast';
+import { logger } from '@/lib/utils/logger';
 
 export default function VodDiaryPage() {
   // Filter states
@@ -45,11 +46,11 @@ export default function VodDiaryPage() {
 
       if (isSearchMode && searchTerm) {
         // Search mode
-        console.log('Searching videos:', searchTerm);
+        logger.log('Searching videos:', searchTerm);
         results = await searchVideos({ searchTerm, limit: 200 });
       } else {
         // Normal filter mode
-        console.log('Fetching recent videos:', {
+        logger.log('Fetching recent videos:', {
           platform,
           dateRange,
         });
@@ -63,15 +64,24 @@ export default function VodDiaryPage() {
       }
 
       setVideos(results);
-      console.log(`✅ Loaded ${results.length} videos`);
+      logger.log(`✅ Loaded ${results.length} videos`);
     } catch (error) {
-      console.error('Error loading videos:', error);
-      showError('Failed to load videos. Please try again.');
+      logger.error('Error loading videos:', error);
+      showError('Failed to load videos. Please try again.', {
+        action: {
+          label: 'Retry',
+          onClick: () => {
+            logger.log('Retrying video load...');
+            loadVideos();
+          },
+        },
+      });
       // Don't clear videos on error - keep showing previous results
     } finally {
       setLoading(false);
     }
-  }, [platform, dateRange, searchTerm, isSearchMode, showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform, dateRange, searchTerm, isSearchMode]);
 
   // Load videos on mount and when filters change
   useEffect(() => {

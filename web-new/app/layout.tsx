@@ -22,6 +22,25 @@ export const metadata: Metadata = {
   description:
     "A web-based tool for analyzing and working with parasocial content from Wubby's streams. Video transcription, VOD diary management, and content analysis.",
   keywords: ["wubby", "vod", "transcript", "archive", "twitch", "kick"],
+  openGraph: {
+    title: "Wubby Parasocial Workbench",
+    description:
+      "Analyze Wubby stream content with video transcription, VOD diary, and content analysis tools.",
+    url: "https://your-domain.com",
+    siteName: "Wubby Parasocial Workbench",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "Wubby Parasocial Workbench",
+    description:
+      "Analyze Wubby stream content with video transcription, VOD diary, and content analysis tools.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
@@ -51,20 +70,8 @@ export default function RootLayout({
           {children}
         </main>
 
-        {/* Toast notifications - Mobile-optimized with Sonner */}
-        <Toaster
-          position="top-center"
-          expand={true}
-          richColors
-          closeButton
-          toastOptions={{
-            style: {
-              // Mobile-friendly sizing
-              minWidth: '280px',
-              maxWidth: '90vw',
-            },
-          }}
-        />
+        {/* Toast notifications */}
+        <Toaster />
       </body>
     </html>
   );

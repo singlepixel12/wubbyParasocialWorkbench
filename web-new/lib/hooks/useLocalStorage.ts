@@ -4,6 +4,7 @@
  */
 
 'use client';
+import { logger } from '@/lib/utils/logger';
 
 import { useState, useEffect } from 'react';
 
@@ -56,7 +57,7 @@ export function useLocalStorage<T>(
       return item ? (JSON.parse(item) as T) : initialValue;
     } catch (error) {
       // If error (e.g., JSON parse error), return initial value
-      console.warn(`Error reading localStorage key "${key}":`, error);
+      logger.warn(`Error reading localStorage key "${key}":`, error);
       return initialValue;
     }
   });
@@ -80,11 +81,11 @@ export function useLocalStorage<T>(
       // Handle storage quota exceeded errors
       if (error instanceof Error) {
         if (error.name === 'QuotaExceededError') {
-          console.error(
+          logger.error(
             `localStorage quota exceeded for key "${key}". Please clear some storage.`
           );
         } else {
-          console.error(`Error setting localStorage key "${key}":`, error);
+          logger.error(`Error setting localStorage key "${key}":`, error);
         }
       }
     }
@@ -99,7 +100,7 @@ export function useLocalStorage<T>(
         try {
           setStoredValue(JSON.parse(e.newValue) as T);
         } catch (error) {
-          console.warn(`Error parsing storage event for key "${key}":`, error);
+          logger.warn(`Error parsing storage event for key "${key}":`, error);
         }
       }
     };
@@ -133,7 +134,7 @@ export function useLocalStorageValue<T>(key: string, defaultValue: T): T {
     const item = window.localStorage.getItem(key);
     return item ? (JSON.parse(item) as T) : defaultValue;
   } catch (error) {
-    console.warn(`Error reading localStorage key "${key}":`, error);
+    logger.warn(`Error reading localStorage key "${key}":`, error);
     return defaultValue;
   }
 }
@@ -154,7 +155,7 @@ export function removeFromLocalStorage(key: string): void {
   try {
     window.localStorage.removeItem(key);
   } catch (error) {
-    console.error(`Error removing localStorage key "${key}":`, error);
+    logger.error(`Error removing localStorage key "${key}":`, error);
   }
 }
 
@@ -173,6 +174,6 @@ export function clearLocalStorage(): void {
   try {
     window.localStorage.clear();
   } catch (error) {
-    console.error('Error clearing localStorage:', error);
+    logger.error('Error clearing localStorage:', error);
   }
 }

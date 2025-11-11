@@ -3,6 +3,8 @@
  * Generates SHA-256 hashes for consistent database lookups
  */
 
+import { logger } from './logger';
+
 /**
  * Computes a SHA-256 hash of a video URL
  *
@@ -26,14 +28,14 @@
  * ```
  */
 export async function computeVideoHash(videoUrl: string): Promise<string> {
-  console.group('🔐 Computing Video Hash');
-  console.log('Input URL:', videoUrl);
-  console.log('URL length:', videoUrl.length);
+  logger.group('🔐 Computing Video Hash');
+  logger.log('Input URL:', videoUrl);
+  logger.log('URL length:', videoUrl.length);
 
   try {
     // Validate input
     if (!videoUrl || typeof videoUrl !== 'string') {
-      console.error('❌ Invalid video URL:', typeof videoUrl);
+      logger.error('❌ Invalid video URL:', typeof videoUrl);
       throw new Error('Invalid video URL provided');
     }
 
@@ -49,55 +51,55 @@ export async function computeVideoHash(videoUrl: string): Promise<string> {
 
     // Check if Web Crypto API is available
     if (!cryptoApi || !cryptoApi.subtle) {
-      console.error('❌ Web Crypto API not available');
-      console.log('globalThis.crypto available:', typeof globalThis?.crypto !== 'undefined');
-      console.log('crypto available:', typeof crypto !== 'undefined');
-      console.log('crypto.subtle available:', cryptoApi && !!cryptoApi.subtle);
+      logger.error('❌ Web Crypto API not available');
+      logger.log('globalThis.crypto available:', typeof globalThis?.crypto !== 'undefined');
+      logger.log('crypto available:', typeof crypto !== 'undefined');
+      logger.log('crypto.subtle available:', cryptoApi && !!cryptoApi.subtle);
       throw new Error('Web Crypto API is not available in this environment');
     }
 
-    console.log('✅ Web Crypto API available');
+    logger.log('✅ Web Crypto API available');
 
     // TextEncoder converts the string to UTF-8 bytes
     // This preserves URL encoding exactly (crucial for URLs with special characters)
     const encoder = new TextEncoder();
     const data = encoder.encode(videoUrl);
-    console.log('Encoded data length:', data.length, 'bytes');
+    logger.log('Encoded data length:', data.length, 'bytes');
 
     // Generate SHA-256 hash using Web Crypto API
     // Returns a 256-bit (32-byte) ArrayBuffer
-    console.log('Computing SHA-256 hash...');
+    logger.log('Computing SHA-256 hash...');
     const hashBuffer = await cryptoApi.subtle.digest('SHA-256', data);
-    console.log('Hash buffer size:', hashBuffer.byteLength, 'bytes');
+    logger.log('Hash buffer size:', hashBuffer.byteLength, 'bytes');
 
     // Convert ArrayBuffer to Uint8Array for easier manipulation
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    console.log('Hash array length:', hashArray.length, 'bytes');
+    logger.log('Hash array length:', hashArray.length, 'bytes');
 
     // Convert each byte to a 2-digit hexadecimal string
     // padStart(2, '0') ensures consistent formatting (e.g., '0A' not 'A')
     const hashHex = hashArray
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
-    console.log('Hash hex length:', hashHex.length, 'characters');
-    console.log('Hash result:', hashHex);
+    logger.log('Hash hex length:', hashHex.length, 'characters');
+    logger.log('Hash result:', hashHex);
 
     // Validate output - SHA-256 should always produce 64 hex characters
     if (!hashHex || hashHex.length !== 64) {
-      console.error('❌ Invalid hash output:', {
+      logger.error('❌ Invalid hash output:', {
         length: hashHex.length,
         expected: 64,
       });
       throw new Error('Hash computation failed - invalid output length');
     }
 
-    console.log('✅ Hash computed successfully');
-    console.groupEnd();
+    logger.log('✅ Hash computed successfully');
+    logger.groupEnd();
     return hashHex;
   } catch (error) {
     // Log error for debugging
-    console.error('❌ Hash computation error:', error);
-    console.groupEnd();
+    logger.error('❌ Hash computation error:', error);
+    logger.groupEnd();
 
     // Provide user-friendly error messages based on error type
     if (error instanceof Error) {

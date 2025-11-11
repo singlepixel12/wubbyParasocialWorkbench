@@ -14,10 +14,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { useToast } from '@/lib/hooks/useToast';
 import { computeVideoHash } from '@/lib/utils/hash';
 import { getWubbySummary } from '@/lib/api/supabase';
+import { logger } from '@/lib/utils/logger';
 import type { Video } from '@/types/video';
 
 export default function HomePage() {
-  console.log('===== HomePage Render =====');
+  logger.debug('===== HomePage Render =====');
 
   const { showError, showWarning } = useToast();
 
@@ -29,7 +30,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [video, setVideo] = useState<Video | null>(null);
 
-  console.log('Current state:', {
+  logger.debug('Current state:', {
     videoUrl: videoUrl.substring(0, 50) + '...',
     videoHash: videoHash.substring(0, 16) + '...',
     status,
@@ -41,29 +42,29 @@ export default function HomePage() {
   // Update page title when video changes
   useEffect(() => {
     if (video) {
-      console.log('Updating document title:', video.title);
+      logger.log('Updating document title:', video.title);
       document.title = `${video.title} | Wubby Parasocial Workbench`;
     }
   }, [video]);
 
   // Update status helper
   const updateStatus = (newStatus: string, success: boolean = true) => {
-    console.log('Updating status:', { newStatus, success });
+    logger.debug('Updating status:', { newStatus, success });
     setStatus(newStatus);
     setIsSuccess(success);
   };
 
   // Load video handler - main business logic
   const handleLoadVideo = async () => {
-    console.group('🚀 Loading Video');
-    console.log('Video URL:', videoUrl);
+    logger.group('🚀 Loading Video');
+    logger.log('Video URL:', videoUrl);
 
     const trimmedUrl = videoUrl.trim();
 
     // Validate URL format
     if (!trimmedUrl) {
-      console.error('❌ Empty URL');
-      console.groupEnd();
+      logger.error('❌ Empty URL');
+      logger.groupEnd();
       setVideoHash('');
       updateStatus('No video URL entered.', false);
       showWarning('Please enter a video URL to load.');
@@ -73,10 +74,10 @@ export default function HomePage() {
     // Basic URL validation
     try {
       new URL(trimmedUrl);
-      console.log('✅ Valid URL format');
+      logger.log('✅ Valid URL format');
     } catch (error) {
-      console.error('❌ Invalid URL format:', error);
-      console.groupEnd();
+      logger.error('❌ Invalid URL format:', error);
+      logger.groupEnd();
       showError('Please enter a valid URL format.');
       updateStatus('Invalid URL format', false);
       return;
@@ -84,7 +85,7 @@ export default function HomePage() {
 
     // Check if it's a wubby.tv URL
     if (!trimmedUrl.includes('archive.wubby.tv')) {
-      console.warn('⚠️ Not a wubby.tv URL:', trimmedUrl);
+      logger.warn('⚠️ Not a wubby.tv URL:', trimmedUrl);
       showWarning(
         'This tool is designed for archive.wubby.tv URLs. Other URLs may not work as expected.'
       );
@@ -95,33 +96,41 @@ export default function HomePage() {
       updateStatus('Computing hash...', true);
 
       // Compute hash
-      console.log('Computing hash...');
+      logger.log('Computing hash...');
       const hash = await computeVideoHash(trimmedUrl);
       setVideoHash(hash);
-      console.log('Hash computed:', hash);
+      logger.log('Hash computed:', hash);
 
       // Fetch video data
       updateStatus('Fetching video data...', true);
-      console.log('Fetching video data from Supabase...');
+      logger.log('Fetching video data from Supabase...');
       const summary = await getWubbySummary(trimmedUrl);
 
       if (summary) {
-        console.log('✅ Video data retrieved');
+        logger.log('✅ Video data retrieved');
         setVideo(summary);
         updateStatus('Success - Video loaded', true);
       } else {
-        console.log('⚠️ No metadata found');
+        logger.log('⚠️ No metadata found');
         setVideo(null);
         updateStatus('Success - No Metadata Available', true);
       }
 
-      console.groupEnd();
+      logger.groupEnd();
     } catch (err) {
-      console.error('❌ Error loading video:', err);
-      console.groupEnd();
+      logger.error('❌ Error loading video:', err);
+      logger.groupEnd();
 
       const error = err as Error;
-      showError(`Failed to load video: ${error.message}`);
+      showError(`Failed to load video: ${error.message}`, {
+        action: {
+          label: 'Retry',
+          onClick: () => {
+            logger.log('Retrying video load...');
+            handleLoadVideo();
+          },
+        },
+      });
       updateStatus('Error occurred', false);
     } finally {
       setIsLoading(false);
@@ -130,7 +139,7 @@ export default function HomePage() {
 
   // Clear handler
   const handleClear = () => {
-    console.log('🧹 Clearing all data');
+    logger.log('🧹 Clearing all data');
     setVideoUrl('');
     setVideoHash('');
     setStatus('');
