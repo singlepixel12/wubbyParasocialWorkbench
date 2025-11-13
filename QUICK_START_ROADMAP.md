@@ -33,32 +33,46 @@ LOW       │ 13. Advanced Features                  │ WEEK 7+
 
 ## Week-by-Week Breakdown
 
-### Week 0-1: Highlight Differentiators (🎯 HERO!)
+### Week 0-1: Two-Tier UX + Differentiators (🎯 HERO!)
 
-**Goal:** Make your unique features (AI summaries, tags, title renaming) the star of the show
-**Success Criteria:** Users immediately see what makes you different from parasoci.al
+**Goal:** Scannable browse → Detailed watch page (Progressive disclosure of AI features)
+**Success Criteria:** Browse page scannable, detail page shows full AI context
+**Design Principle:** "Scan first, read later" (from designer feedback)
 
 | Task | Priority | Effort | Files |
 |------|----------|--------|-------|
-| 0.1 Add AI Summary badge & accent | 🎯 HERO | 2-4h | VideoCard.tsx |
-| 0.2 Show 6 tags by default (not hidden) | 🎯 HERO | 1-2h | VideoCard.tsx |
-| 0.3 Show both AI & original titles | 🎯 HERO | 2-3h | VideoCard.tsx |
-| 0.4 Make search always visible | 🎯 HERO | 3-4h | vod-diary/page.tsx |
+| 0.1 Extract hook function (1-2 lines) | 🎯 HERO | 1-2h | video-helpers.ts |
+| 0.2 Update VideoCard to show hook | 🎯 HERO | 2-3h | VideoCard.tsx |
+| 0.3 Create /watch/[id] route | 🎯 HERO | 3-4h | app/watch/[id]/page.tsx |
+| 0.4 Create VideoDetailView component | 🎯 HERO | 4-6h | VideoDetailView.tsx |
+| 0.5 Add Framer Motion transitions | 🟡 MEDIUM | 2-3h | Layout, VideoCard |
+| 0.6 Create home page Rails (optional) | 🟢 LOW | 4-6h | app/page.tsx |
 
 **Deliverables:**
-- ✅ AI Summary has green accent bar, shows 3-4 lines
-- ✅ Tags always visible (6 shown), clickable for instant search
-- ✅ Both AI title and original filename displayed
-- ✅ Search bar sticky at top, always accessible
-- ✅ Tag count badge visible
+- ✅ Browse cards show 1-2 line hook (scannable!)
+- ✅ AI badges visible on browse cards
+- ✅ 3 tag preview on browse cards
+- ✅ "Read more →" CTA on each card
+- ✅ /watch/[id] route with full player
+- ✅ Full 200-word AI summary on detail page
+- ✅ All tags clickable on detail page
+- ✅ Chapters section (if available)
+- ✅ Related videos section
+- ✅ Smooth Framer Motion transitions
 
-**Impact:** **HUGE** - Users instantly understand your value prop
+**Why Two-Tier:**
+- Browse: Scan 50+ videos quickly (1-2 line hooks)
+- Detail: Full AI summary feels like a REWARD
+- Impact: "Other sites: nothing. You: 200 words" contrast is MORE impressive
 
 **Testing:**
-- [ ] AI badges clearly visible
-- [ ] Tags clickable and search works
-- [ ] Both titles show correctly
-- [ ] Search never hidden
+- [ ] Browse page: Can scan 50+ cards without fatigue
+- [ ] Hook is compelling (1-2 sentences)
+- [ ] Click card → smooth transition to watch page
+- [ ] Detail page: Full summary visible in green accent card
+- [ ] All tags clickable, search works
+- [ ] Related videos show up
+- [ ] Back button returns to same scroll position
 
 ---
 

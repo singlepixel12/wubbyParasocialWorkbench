@@ -736,36 +736,65 @@ function FeatureCard({ icon, title, description, color }) {
 
 ## Summary: What Makes You Different
 
-### Before (Generic VOD Browser)
-```
-┌─────────────────────────┐
-│ [Thumbnail] Title       │
-│             Date        │
-│             Summary...  │
-└─────────────────────────┘
-```
+### Two-Tier Approach (Scan First, Read Later)
 
-### After (AI-Powered Discovery Tool)
+**⚠️ IMPORTANT UPDATE:** Based on designer feedback, we use progressive disclosure:
+
+**Browse Page (Scannable):**
 ```
 ┌─────────────────────────────┐
-│ ✨ AI Summary  🏷️ 12 tags  │
+│ ✨ AI Summary  🏷️ 12 tags  │ ← Badges show it's AI
 │                             │
-│ ✨ Wubby Reacts to Reddit  │
-│ 📄 PayMoneyWubby_123456    │
+│ Wubby Reacts to Reddit      │ ← Title
 │                             │
-│ 💚 Summary: Hilarious...   │
-│    [3 lines of context]    │
+│ Hilarious reactions to...  │ ← 1-2 line HOOK (not full!)
 │                             │
-│ 🏷️ reddit react alluux ... │
+│ 🏷️ reddit react alluux     │ ← 3 tag preview
+│                [Read more →]│ ← CTA to detail
 └─────────────────────────────┘
 ```
 
-**Visual Hierarchy:**
-1. **AI badges** - First thing you see
-2. **Summary with accent** - Core value prop
-3. **Tags** - Immediate action (click to search)
-4. **Titles** - Both AI and original
-5. **Metadata** - Supporting info
+**Watch/Detail Page (Full Context):**
+```
+┌─────────────────────────────┐
+│      VIDEO PLAYER           │
+│     [=====●=====]           │
+│                             │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━  │
+│                             │
+│ 💚 AI SUMMARY (200 words)  │ ← Full summary with accent
+│    [Full detailed context] │
+│    [Multiple paragraphs]   │
+│                             │
+│ 🏷️ All tags (clickable)    │ ← All tags shown
+│                             │
+│ 📊 CHAPTERS                 │ ← Bonus: chapters
+│    00:00 Intro              │
+│    05:23 Reddit             │
+│                             │
+│ 🎬 MORE FROM THIS SERIES   │ ← Related videos
+└─────────────────────────────┘
+```
+
+**Why This Works Better:**
+1. ✅ **Scannable:** Browse 50+ videos quickly (1-2 line hooks)
+2. ✅ **Impactful:** Full summary feels like a reward when clicked
+3. ✅ **Contrast:** "Other sites: nothing. You: 200 words of gold" is MORE impressive
+4. ✅ **Mobile-friendly:** Less scroll fatigue on browse page
+
+**Visual Hierarchy (Browse):**
+1. **AI badges** - Shows it's AI-powered
+2. **Title** - Clear and scannable
+3. **Hook** - 1-2 line teaser (not full summary)
+4. **Tags** - 3 tag preview + count
+5. **Read more →** - Clear CTA
+
+**Visual Hierarchy (Detail):**
+1. **Video player** - Watch immediately
+2. **Full AI summary** - The payoff! (green accent card)
+3. **All tags** - Clickable for discovery
+4. **Chapters** - Navigate within video
+5. **Related** - Keep watching
 
 ---
 
