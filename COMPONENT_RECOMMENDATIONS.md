@@ -37,6 +37,9 @@ This document provides detailed before/after examples for each major component i
 - Platform badge not interactive
 
 ### Design Goals
+- **🎯 HERO: AI Summary prominently displayed** (Your key differentiator!)
+- **🎯 HERO: Tags always visible and clickable** (Fast search superpower!)
+- **🎯 HERO: Both AI and original title shown** (Title renaming feature!)
 - Mobile-first vertical layout
 - Larger thumbnails on mobile
 - Platform-specific glow effects
@@ -162,56 +165,98 @@ This document provides detailed before/after examples for each major component i
       </div>
     </Link>
 
-    {/* Content section */}
+    {/* Content section - DIFFERENTIATOR FOCUSED */}
     <div className="flex-1 flex flex-col min-w-0">
-      {/* Title - 2 lines max when collapsed */}
-      <h3 className={cn(
-        'font-semibold text-white mb-1',
-        'text-base md:text-lg',
-        'line-clamp-2'
-      )}>
-        {video.title}
-      </h3>
-
-      {/* Metadata inline - save vertical space */}
-      <div className="flex items-center gap-2 text-sm text-[#999] mb-2 flex-wrap">
-        {formattedDate && (
-          <>
-            <span>{formattedDate}</span>
-            <span>•</span>
-          </>
+      {/* 🎯 DIFFERENTIATOR 1: AI-Generated badges (Top) */}
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant="outline" className="border-[#28a745] text-[#28a745] text-xs">
+          <Sparkles className="w-3 h-3 mr-1" />
+          AI Summary
+        </Badge>
+        {video.tags.length > 0 && (
+          <Badge variant="outline" className="border-[#6441A5] text-[#6441A5] text-xs">
+            <Tag className="w-3 h-3 mr-1" />
+            {video.tags.length} tags
+          </Badge>
         )}
-        <span>{formatViews(video.views)} views</span>
       </div>
 
-      {/* Summary - expandable */}
-      <p className={cn(
-        'text-sm text-[#ccc] leading-relaxed',
-        !isExpanded && 'line-clamp-2 md:line-clamp-3'
-      )}>
-        {video.summary}
-      </p>
-
-      {/* Tags - shown when expanded */}
-      <CollapsibleContent>
-        <div className="flex flex-wrap gap-2 mt-3">
-          {video.tags
-            .filter((tag) => tag !== video.platform)
-            .map((tag, index) => (
-              <Badge
-                key={index}
-                variant="tag"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSearchTag?.(tag);
-                }}
-                className="cursor-pointer hover:opacity-80"
-              >
-                {tag}
-              </Badge>
-            ))}
+      {/* 🎯 DIFFERENTIATOR 2: Title Renaming - Show BOTH titles */}
+      <div className="space-y-1.5 mb-3">
+        {/* AI-Renamed Title (PRIMARY) */}
+        <div className="flex items-start gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-[#28a745] flex-shrink-0 mt-0.5" />
+          <h3 className="text-base md:text-lg font-semibold text-white line-clamp-2 flex-1">
+            {video.title}
+          </h3>
         </div>
-      </CollapsibleContent>
+
+        {/* Original Title from URL (SECONDARY) */}
+        {originalTitle && (
+          <div className="flex items-start gap-1.5">
+            <FileText className="w-3 h-3 text-[#666] flex-shrink-0 mt-0.5" />
+            <h4 className="text-xs text-[#888] font-mono line-clamp-1 flex-1">
+              {originalTitle}
+            </h4>
+          </div>
+        )}
+      </div>
+
+      {/* Metadata inline */}
+      <div className="flex items-center gap-2 text-xs text-[#888] mb-3 flex-wrap">
+        {formattedDate && <span>{formattedDate}</span>}
+        {formattedDate && <span>•</span>}
+        <span>{formatViews(video.views)} views</span>
+        <span>•</span>
+        <span>{formatDuration(video.duration)}</span>
+      </div>
+
+      {/* 🎯 DIFFERENTIATOR 3: AI Summary as HERO (not buried) */}
+      <div className={cn(
+        'mb-3 p-2.5 rounded',
+        'bg-gradient-to-r from-[#28a745]/10 to-transparent',
+        'border-l-2 border-[#28a745]'
+      )}>
+        <p className={cn(
+          'text-sm leading-relaxed text-[#ccc]',
+          // Show MORE lines on mobile (3-4 instead of 2)
+          !isExpanded && 'line-clamp-3 md:line-clamp-4'
+        )}>
+          <span className="text-[#28a745] font-medium text-xs uppercase tracking-wide">
+            Summary:
+          </span>{' '}
+          {video.summary}
+        </p>
+      </div>
+
+      {/* 🎯 DIFFERENTIATOR 4: Tags ALWAYS visible (not hidden) */}
+      <div className="flex flex-wrap gap-1.5">
+        {video.tags
+          .filter((tag) => tag !== video.platform)
+          .slice(0, isExpanded ? undefined : 6)
+          .map((tag, index) => (
+            <Badge
+              key={index}
+              variant="tag"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSearchTag?.(tag);
+              }}
+              className={cn(
+                "cursor-pointer text-xs",
+                "hover:bg-[#28a745] hover:text-white hover:border-[#28a745]",
+                "transition-colors"
+              )}
+            >
+              {tag}
+            </Badge>
+          ))}
+        {!isExpanded && video.tags.length > 6 && (
+          <Badge variant="outline" className="text-xs text-[#666]">
+            +{video.tags.length - 6} more
+          </Badge>
+        )}
+      </div>
     </div>
 
     {/* Expand button - larger touch target */}
@@ -240,15 +285,17 @@ This document provides detailed before/after examples for each major component i
 </Collapsible>
 ```
 
-### Key Changes
-1. **Mobile-first layout** - Vertical on mobile, horizontal on desktop
-2. **Larger thumbnails** - 16:9 aspect ratio, full width on mobile
-3. **Touch-optimized** - Expand button 44px height, larger badges
-4. **Interactive badges** - Click to filter by platform/tag
-5. **Platform glow** - Hover effect with platform colors
-6. **Duration badge** - Shows video length on thumbnail
-7. **Better hierarchy** - Title limited to 2 lines, metadata inline
-8. **Gradient overlay** - Improves text readability on hover
+### Key Changes (Differentiator-Focused!)
+1. **🎯 AI Summary as HERO** - Green accent bar, shows 3-4 lines (not 2), never buried
+2. **🎯 Tags always visible** - 6 tags shown immediately, clickable for instant search
+3. **🎯 Dual titles** - AI-renamed title + original filename both shown with icons
+4. **🎯 AI badges** - "AI Summary" and tag count badges at top
+5. **Mobile-first layout** - Vertical on mobile, horizontal on desktop
+6. **Larger thumbnails** - 16:9 aspect ratio, full width on mobile
+7. **Touch-optimized** - Expand button 44px height, larger badges
+8. **Interactive tags** - Hover shows green, clicking searches instantly
+9. **Platform glow** - Hover effect with platform colors
+10. **Duration badge** - Shows video length on thumbnail
 
 ### New Utilities Needed
 ```ts

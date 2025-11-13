@@ -12,6 +12,9 @@
 
 ```
           ┌────────────────────────────────────────┐
+🎯 HERO!  │ 0. DIFFERENTIATORS (AI, Tags, Titles!) │ WEEK 0-1
+          │    Make unique features visible!       │
+          ├────────────────────────────────────────┤
 CRITICAL  │ 1. Breakpoints   2. Touch Targets      │ WEEK 1-2
           │ 3. Bottom Nav    4. Pull-to-Refresh   │
           ├────────────────────────────────────────┤
@@ -29,6 +32,35 @@ LOW       │ 13. Advanced Features                  │ WEEK 7+
 ---
 
 ## Week-by-Week Breakdown
+
+### Week 0-1: Highlight Differentiators (🎯 HERO!)
+
+**Goal:** Make your unique features (AI summaries, tags, title renaming) the star of the show
+**Success Criteria:** Users immediately see what makes you different from parasoci.al
+
+| Task | Priority | Effort | Files |
+|------|----------|--------|-------|
+| 0.1 Add AI Summary badge & accent | 🎯 HERO | 2-4h | VideoCard.tsx |
+| 0.2 Show 6 tags by default (not hidden) | 🎯 HERO | 1-2h | VideoCard.tsx |
+| 0.3 Show both AI & original titles | 🎯 HERO | 2-3h | VideoCard.tsx |
+| 0.4 Make search always visible | 🎯 HERO | 3-4h | vod-diary/page.tsx |
+
+**Deliverables:**
+- ✅ AI Summary has green accent bar, shows 3-4 lines
+- ✅ Tags always visible (6 shown), clickable for instant search
+- ✅ Both AI title and original filename displayed
+- ✅ Search bar sticky at top, always accessible
+- ✅ Tag count badge visible
+
+**Impact:** **HUGE** - Users instantly understand your value prop
+
+**Testing:**
+- [ ] AI badges clearly visible
+- [ ] Tags clickable and search works
+- [ ] Both titles show correctly
+- [ ] Search never hidden
+
+---
 
 ### Week 1-2: Foundation (CRITICAL)
 
