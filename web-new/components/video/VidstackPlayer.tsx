@@ -8,7 +8,7 @@
  */
 import { logger } from '@/lib/utils/logger';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/lib/hooks/useToast';
 
 // TypeScript declarations for Vidstack custom elements
@@ -33,6 +33,12 @@ interface VidstackPlayerProps {
   className?: string;
   onError?: (error: Error) => void;
   enableSubtitles?: boolean;
+  /** Storage key for Vidstack position tracking (usually video hash) */
+  storageKey?: string;
+  /** Video title for Media Session API (lock screen controls) */
+  title?: string;
+  /** Artist/Channel name for Media Session API */
+  artist?: string;
 }
 
 export function VidstackPlayer({
@@ -42,15 +48,24 @@ export function VidstackPlayer({
   className = 'video-player-box',
   onError,
   enableSubtitles = true,
+  storageKey,
+  title,
+  artist = 'PayMoneyWubby',
 }: VidstackPlayerProps) {
   logger.log('VidstackPlayer render:', {
     hasVideoUrl: !!videoUrl,
     hasSubtitleUrl: !!subtitleUrl,
     enableSubtitles,
+    hasStorageKey: !!storageKey,
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const { showError, showWarning } = useToast();
+
+  // Track watch time for 30-second threshold before enabling storage
+  const [hasWatched30Seconds, setHasWatched30Seconds] = useState(false);
+  const watchTimeRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
     logger.group('🎬 VidstackPlayer Initialization');
@@ -148,10 +163,46 @@ export function VidstackPlayer({
     containerRef.current.appendChild(newPlayer);
     logger.log('✅ New player created and added to DOM');
 
+    // Restore saved position after player is ready (do this AFTER subtitles are set up)
+    const playerElement = newPlayer as any;
+    const restoreSavedPosition = () => {
+      if (!storageKey) return;
+
+      try {
+        const saved = localStorage.getItem(`vds-${storageKey}`);
+        if (saved) {
+          const position = JSON.parse(saved);
+          const age = Date.now() - position.timestamp;
+
+          // Only restore if position was saved within last 60 days
+          if (age < 60 * 24 * 60 * 60 * 1000) {
+            logger.log(`🔄 Restoring position: ${Math.floor(position.currentTime)}s`);
+
+            // Wait for duration to be available (Vidstack uses state.duration, not duration directly)
+            const attemptRestore = () => {
+              const duration = playerElement.state?.duration || playerElement.duration;
+              if (duration && duration > 0) {
+                playerElement.currentTime = position.currentTime;
+                logger.log(`✅ Position restored to ${Math.floor(position.currentTime)}s`);
+              }
+            };
+
+            const duration = playerElement.state?.duration || playerElement.duration;
+            if (duration && duration > 0) {
+              attemptRestore();
+            } else {
+              playerElement.addEventListener('loaded-metadata', attemptRestore, { once: true });
+              playerElement.addEventListener('duration-change', attemptRestore, { once: true });
+            }
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to restore playback position', error);
+      }
+    };
+
     // Enable subtitles when player is ready (use event listener instead of setTimeout)
     if (subtitleUrl && enableSubtitles) {
-      const playerElement = newPlayer as any;
-
       // Listen for the 'can-play' event which indicates player is ready
       const enableSubtitlesOnReady = () => {
         logger.log('🎬 Player ready, attempting to enable subtitles...');
@@ -177,6 +228,9 @@ export function VidstackPlayer({
         } else {
           logger.warn('⚠️ No text tracks found on player');
         }
+
+        // Restore position AFTER subtitles are enabled
+        restoreSavedPosition();
       };
 
       // Try multiple events to ensure we catch when the player is ready
@@ -189,6 +243,71 @@ export function VidstackPlayer({
           enableSubtitlesOnReady();
         }
       }, 2000);
+    } else {
+      // No subtitles, restore position directly when player is ready
+      playerElement.addEventListener('loaded-metadata', restoreSavedPosition, { once: true });
+      playerElement.addEventListener('can-play', restoreSavedPosition, { once: true });
+    }
+
+    // Set up Media Session API for background playback and lock screen controls
+    if ('mediaSession' in navigator) {
+      playerElement.addEventListener('loaded-metadata', () => {
+        try {
+          // Set metadata for lock screen display
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: title || 'Wubby Stream',
+            artist: artist || 'PayMoneyWubby',
+            artwork: poster ? [
+              { src: poster, sizes: '512x512', type: 'image/jpeg' }
+            ] : undefined,
+          });
+
+          logger.log('📱 Media Session metadata set for background playback');
+
+          // Set up action handlers for lock screen controls
+          navigator.mediaSession.setActionHandler('play', () => {
+            playerElement.play?.();
+            logger.debug('Media Session: play');
+          });
+
+          navigator.mediaSession.setActionHandler('pause', () => {
+            playerElement.pause?.();
+            logger.debug('Media Session: pause');
+          });
+
+          navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+            const skipTime = details.seekOffset || 10;
+            playerElement.currentTime = Math.max(0, playerElement.currentTime - skipTime);
+            logger.debug(`Media Session: seek backward ${skipTime}s`);
+          });
+
+          navigator.mediaSession.setActionHandler('seekforward', (details) => {
+            const skipTime = details.seekOffset || 10;
+            const duration = playerElement.state?.duration || playerElement.duration;
+            playerElement.currentTime = Math.min(duration, playerElement.currentTime + skipTime);
+            logger.debug(`Media Session: seek forward ${skipTime}s`);
+          });
+
+          // Update playback position for lock screen scrubber
+          const updatePositionState = () => {
+            const duration = playerElement.state?.duration || playerElement.duration;
+            if (duration && navigator.mediaSession.setPositionState) {
+              navigator.mediaSession.setPositionState({
+                duration,
+                playbackRate: playerElement.playbackRate || 1,
+                position: playerElement.currentTime || 0,
+              });
+            }
+          };
+
+          playerElement.addEventListener('time-update', updatePositionState);
+          playerElement.addEventListener('play', updatePositionState);
+          playerElement.addEventListener('pause', updatePositionState);
+
+        } catch (error) {
+          logger.warn('Failed to set up Media Session API', error);
+        }
+      }, { once: true });
     }
 
     logger.groupEnd();
@@ -203,6 +322,103 @@ export function VidstackPlayer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoUrl, subtitleUrl, poster, className, enableSubtitles, showWarning]);
+
+  // Track watch time and enable manual position saving after 30 seconds
+  useEffect(() => {
+    if (!storageKey || !containerRef.current) {
+      return;
+    }
+
+    const player = containerRef.current.querySelector('media-player') as any;
+    if (!player) {
+      return;
+    }
+
+    logger.log('⏱️ Starting watch time tracking for storage (30s threshold)');
+
+    const savePosition = () => {
+      if (!player.currentTime || !hasWatched30Seconds) return;
+
+      const position = {
+        currentTime: player.currentTime,
+        duration: player.duration || 0,
+        timestamp: Date.now(),
+      };
+
+      try {
+        localStorage.setItem(`vds-${storageKey}`, JSON.stringify(position));
+        logger.debug(`💾 Saved position: ${Math.floor(position.currentTime)}s`);
+      } catch (error) {
+        logger.warn('Failed to save playback position', error);
+      }
+    };
+
+    const handleTimeUpdate = () => {
+      if (!player.currentTime) return;
+
+      // Track actual watch time (not just playback position)
+      const currentTime = player.currentTime;
+      const timeDiff = currentTime - lastTimeRef.current;
+
+      // Only count forward playback (prevent seeking backward from adding time)
+      if (timeDiff > 0 && timeDiff < 2) {
+        watchTimeRef.current += timeDiff;
+      }
+
+      lastTimeRef.current = currentTime;
+
+      // Check if 30 seconds watched (first time)
+      if (watchTimeRef.current >= 30 && !hasWatched30Seconds) {
+        logger.log(`✅ 30 seconds watched! Enabling position saving with key: vds-${storageKey}`);
+        setHasWatched30Seconds(true);
+      }
+
+      // Save position every 10 seconds after threshold crossed
+      if (hasWatched30Seconds && Math.floor(currentTime) % 10 === 0) {
+        savePosition();
+      }
+    };
+
+    const handlePlay = () => {
+      if (!lastTimeRef.current && player.currentTime) {
+        lastTimeRef.current = player.currentTime;
+      }
+    };
+
+    const handlePause = () => {
+      savePosition();
+    };
+
+    const handleSeeked = () => {
+      // Update lastTimeRef to current position after seeking
+      lastTimeRef.current = player.currentTime;
+    };
+
+    // Add event listeners
+    player.addEventListener('time-update', handleTimeUpdate);
+    player.addEventListener('play', handlePlay);
+    player.addEventListener('pause', handlePause);
+    player.addEventListener('seeked', handleSeeked);
+
+    // Note: Position restoration is handled in the player recreation effect (lines 162-242)
+    // after subtitle setup completes, to avoid conflicts with player recreation
+
+    return () => {
+      savePosition(); // Save one last time on cleanup
+      player.removeEventListener('time-update', handleTimeUpdate);
+      player.removeEventListener('play', handlePlay);
+      player.removeEventListener('pause', handlePause);
+      player.removeEventListener('seeked', handleSeeked);
+    };
+  }, [storageKey, hasWatched30Seconds]);
+
+  // Reset watch time tracking when video changes
+  useEffect(() => {
+    watchTimeRef.current = 0;
+    lastTimeRef.current = 0;
+    setHasWatched30Seconds(false);
+    logger.log('🔄 Reset watch time tracking for new video');
+  }, [videoUrl]);
 
   // Load Vidstack CSS and JS from CDN
   useEffect(() => {

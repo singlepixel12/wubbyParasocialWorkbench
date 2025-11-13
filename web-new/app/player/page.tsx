@@ -15,13 +15,13 @@ import { computeVideoHash } from '@/lib/utils/hash';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
 import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { useToast } from '@/lib/hooks/useToast';
-import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SUPABASE_URL } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
 import { PlayCircle, ArrowRight } from 'lucide-react';
+import { cleanupOldPlaybackPositions } from '@/lib/utils/storage-cleanup';
 
 /**
  * Get solid Badge variant for platform/tag
@@ -40,6 +40,7 @@ export default function PlayerPage() {
   const [loading, setLoading] = useState(true);
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [subtitleUrl, setSubtitleUrl] = useState<string>('');
+  const [videoHash, setVideoHash] = useState<string>('');
   const { showError, showWarning } = useToast();
 
   // Load video URL from localStorage
@@ -57,10 +58,11 @@ export default function PlayerPage() {
       setVideoUrl(storedUrl);
 
       try {
-        // Compute hash for subtitle lookup
+        // Compute hash for subtitle lookup and playback position tracking
         logger.log('[Player Page] Computing hash...');
         const hash = await computeVideoHash(storedUrl);
         logger.log('[Player Page] Hash:', hash);
+        setVideoHash(hash);
 
         // Construct subtitle URL
         const subtitlePath = `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt`;
@@ -118,6 +120,13 @@ export default function PlayerPage() {
       }
     };
 
+  // Run cleanup on mount to remove old playback positions
+  useEffect(() => {
+    logger.log('[Player Page] Running playback position cleanup...');
+    const stats = cleanupOldPlaybackPositions();
+    logger.log('[Player Page] Cleanup stats:', stats);
+  }, []);
+
   useEffect(() => {
     loadVideoFromStorage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,6 +174,9 @@ export default function PlayerPage() {
           videoUrl={videoUrl}
           subtitleUrl={subtitleUrl}
           enableSubtitles={true}
+          storageKey={videoHash}
+          title={video.title}
+          artist="PayMoneyWubby"
           onError={(error) => {
             logger.error('[Player Page] Video player error:', error);
             showError('Video player error occurred');
