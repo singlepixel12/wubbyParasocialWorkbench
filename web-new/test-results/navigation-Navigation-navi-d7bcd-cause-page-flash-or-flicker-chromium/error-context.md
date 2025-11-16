@@ -1,0 +1,182 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - link "Wubby Parasocial Workbench" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - button "Open menu" [ref=e7]:
+        - img
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "Wubby VOD Diary" [level=2] [ref=e11]
+        - paragraph [ref=e12]: Browse and discover Wubby VODs with AI-powered summaries and smart tagging.
+      - generic [ref=e13]:
+        - button "09/11/2025 - 16/11/2025" [ref=e16]:
+          - img
+          - text: 09/11/2025 - 16/11/2025
+        - radiogroup "Platform filter" [ref=e17] [cursor=pointer]:
+          - generic: both
+          - generic: twitch
+          - generic: kick
+          - radio "both platform selected" [checked] [ref=e18]:
+            - generic [ref=e19]: both
+        - button "Toggle search" [ref=e21]:
+          - img
+      - generic [ref=e22]:
+        - link "kick Play Dispatch Drama & Arc Raiders PvP Mayhem Dispatch Drama & Arc Raiders PvP Mayhem 11_kickapilol 12/11/2025 • Click to watch Wubby kicks off with a heartfelt Veterans Day shoutout packed with military humor and chow critiques, then spirals... Veterans Day AI chaos ChatGPT meltdown +7 Read more →" [ref=e23] [cursor=pointer]:
+          - /url: /watch/8cc0eeeafb8d55f97531588f67c2671a0e645c4923655ad07f9801fac4b422a9
+          - generic [ref=e24]:
+            - generic [ref=e25]: kick
+            - generic "Play Dispatch Drama & Arc Raiders PvP Mayhem" [ref=e26]:
+              - img [ref=e31]
+            - generic [ref=e33]:
+              - heading "Dispatch Drama & Arc Raiders PvP Mayhem" [level=3] [ref=e34]
+              - heading "11_kickapilol" [level=4] [ref=e35]
+              - generic [ref=e36]:
+                - generic [ref=e37]: 12/11/2025
+                - generic [ref=e38]: •
+                - generic [ref=e39]: Click to watch
+              - paragraph [ref=e40]: Wubby kicks off with a heartfelt Veterans Day shoutout packed with military humor and chow critiques, then spirals...
+              - generic [ref=e41]:
+                - generic [ref=e42]:
+                  - generic [ref=e43]: Veterans Day
+                  - generic [ref=e44]: AI chaos
+                  - generic [ref=e45]: ChatGPT meltdown
+                  - generic [ref=e46]: "+7"
+                - generic [ref=e47]: Read more →
+        - link "twitch Play Minecraft Diamonds, Nether Chaos & Fan Fan Feels Minecraft Diamonds, Nether Chaos & Fan Fan Feels 10_MINECRAFT HARDCORE CHAINED TOGETHER ROUND TWO WITH SHREK AND MULAN PANDA EXPRESS NI HAO IT COME WIT EGGWUH IT COME WIT EGGWUH_1762830071_combined-twitch-kick 11/11/2025 • Click to watch Wubby kicks off with Wu Tang vibes and a $115 Denny's feast confession that’s more stress-binge than glory meal. Minecraft Hardcore Mandela Effect Chick-fil-A spelling +7 Read more →" [ref=e48] [cursor=pointer]:
+          - /url: /watch/05cd6b7a6de1720f7c1c44a39507831e078529464b1615cf113b87306cd062f1
+          - generic [ref=e49]:
+            - generic [ref=e50]: twitch
+            - generic "Play Minecraft Diamonds, Nether Chaos & Fan Fan Feels" [ref=e51]:
+              - img [ref=e56]
+            - generic [ref=e58]:
+              - heading "Minecraft Diamonds, Nether Chaos & Fan Fan Feels" [level=3] [ref=e59]
+              - heading "10_MINECRAFT HARDCORE CHAINED TOGETHER ROUND TWO WITH SHREK AND MULAN PANDA EXPRESS NI HAO IT COME WIT EGGWUH IT COME WIT EGGWUH_1762830071_combined-twitch-kick" [level=4] [ref=e60]
+              - generic [ref=e61]:
+                - generic [ref=e62]: 11/11/2025
+                - generic [ref=e63]: •
+                - generic [ref=e64]: Click to watch
+              - paragraph [ref=e65]: Wubby kicks off with Wu Tang vibes and a $115 Denny's feast confession that’s more stress-binge than glory meal.
+              - generic [ref=e66]:
+                - generic [ref=e67]:
+                  - generic [ref=e68]: Minecraft Hardcore
+                  - generic [ref=e69]: Mandela Effect
+                  - generic [ref=e70]: Chick-fil-A spelling
+                  - generic [ref=e71]: "+7"
+                - generic [ref=e72]: Read more →
+        - link "kick Play Minecraft Near-Death & Wild Gambling Spins Minecraft Near-Death & Wild Gambling Spins 10_kickapilol 11/11/2025 • Click to watch Wubby barely survives a heart-stopping Minecraft fortress run with Fan Fan, lava and black skeletons making it feel... Minecraft fortress run Fan Fan emotional clips Reddit scam drama +7 Read more →" [ref=e73] [cursor=pointer]:
+          - /url: /watch/d12b23344f208099895fcdcead838673c208773b10dd37502b118c62747a8cdb
+          - generic [ref=e74]:
+            - generic [ref=e75]: kick
+            - generic "Play Minecraft Near-Death & Wild Gambling Spins" [ref=e76]:
+              - img [ref=e81]
+            - generic [ref=e83]:
+              - heading "Minecraft Near-Death & Wild Gambling Spins" [level=3] [ref=e84]
+              - heading "10_kickapilol" [level=4] [ref=e85]
+              - generic [ref=e86]:
+                - generic [ref=e87]: 11/11/2025
+                - generic [ref=e88]: •
+                - generic [ref=e89]: Click to watch
+              - paragraph [ref=e90]: Wubby barely survives a heart-stopping Minecraft fortress run with Fan Fan, lava and black skeletons making it feel...
+              - generic [ref=e91]:
+                - generic [ref=e92]:
+                  - generic [ref=e93]: Minecraft fortress run
+                  - generic [ref=e94]: Fan Fan emotional clips
+                  - generic [ref=e95]: Reddit scam drama
+                  - generic [ref=e96]: "+7"
+                - generic [ref=e97]: Read more →
+        - link "twitch Play Dog Breeding Chaos & Nether Blaze Madness Dog Breeding Chaos & Nether Blaze Madness 10_MINECRAFT HARDCORE CHAINED TOGETHER ROUND TWO WITH SHREK AND MULAN PANDA EXPRESS NI HAO IT COME WIT EGGWUH IT COME WIT EGGWUH 11/11/2025 • Click to watch Things get wild when accidental dog breeding spawns a tiny puppy army, sparking panic and devotion as they narrowly... Minecraft dog breeding Nether fortress +7 Read more →" [ref=e98] [cursor=pointer]:
+          - /url: /watch/95e2e0c1024c3856d82949523f6bf55e8e9e86ddee3838c1dc2dd9bd3f3b7e5c
+          - generic [ref=e99]:
+            - generic [ref=e100]: twitch
+            - generic "Play Dog Breeding Chaos & Nether Blaze Madness" [ref=e101]:
+              - img [ref=e106]
+            - generic [ref=e108]:
+              - heading "Dog Breeding Chaos & Nether Blaze Madness" [level=3] [ref=e109]
+              - heading "10_MINECRAFT HARDCORE CHAINED TOGETHER ROUND TWO WITH SHREK AND MULAN PANDA EXPRESS NI HAO IT COME WIT EGGWUH IT COME WIT EGGWUH" [level=4] [ref=e110]
+              - generic [ref=e111]:
+                - generic [ref=e112]: 11/11/2025
+                - generic [ref=e113]: •
+                - generic [ref=e114]: Click to watch
+              - paragraph [ref=e115]: Things get wild when accidental dog breeding spawns a tiny puppy army, sparking panic and devotion as they narrowly...
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: Minecraft
+                  - generic [ref=e119]: dog breeding
+                  - generic [ref=e120]: Nether fortress
+                  - generic [ref=e121]: "+7"
+                - generic [ref=e122]: Read more →
+        - link "twitch Play Dog Army Breeds Chaos & Nether Blaze Panic Dog Army Breeds Chaos & Nether Blaze Panic 10_twitch-record-fail 11/11/2025 • Click to watch Accidental dog breeding sparks a frantic puppy parenting saga, complete with meat-fueled growth spurts and a quirky... Minecraft Hardcore dog breeding village raid +7 Read more →" [ref=e123] [cursor=pointer]:
+          - /url: /watch/9651f6d1228206d0926bac1cf91c1aee02b4f5d2fd51ccec0a6b3882d32894ba
+          - generic [ref=e124]:
+            - generic [ref=e125]: twitch
+            - generic "Play Dog Army Breeds Chaos & Nether Blaze Panic" [ref=e126]:
+              - img [ref=e131]
+            - generic [ref=e133]:
+              - heading "Dog Army Breeds Chaos & Nether Blaze Panic" [level=3] [ref=e134]
+              - heading "10_twitch-record-fail" [level=4] [ref=e135]
+              - generic [ref=e136]:
+                - generic [ref=e137]: 11/11/2025
+                - generic [ref=e138]: •
+                - generic [ref=e139]: Click to watch
+              - paragraph [ref=e140]: Accidental dog breeding sparks a frantic puppy parenting saga, complete with meat-fueled growth spurts and a quirky...
+              - generic [ref=e141]:
+                - generic [ref=e142]:
+                  - generic [ref=e143]: Minecraft Hardcore
+                  - generic [ref=e144]: dog breeding
+                  - generic [ref=e145]: village raid
+                  - generic [ref=e146]: "+7"
+                - generic [ref=e147]: Read more →
+        - link "kick Play Battle Stations, AI Chaos & Casino Carnage Battle Stations, AI Chaos & Casino Carnage 9_kickapilol 10/11/2025 • Click to watch Wubby kicks off by cooking up a wild plan to slap a moving Sora AI watermark on stream for ‘unhinged’ moments,... Battle Stations Sora AI watermark Slot machine gambling +7 Read more →" [ref=e148] [cursor=pointer]:
+          - /url: /watch/f532d4b6bb7d38129c3d6766cb59bd58386ee1730909bb2e9817dac46f8ce3c3
+          - generic [ref=e149]:
+            - generic [ref=e150]: kick
+            - generic "Play Battle Stations, AI Chaos & Casino Carnage" [ref=e151]:
+              - img [ref=e156]
+            - generic [ref=e158]:
+              - heading "Battle Stations, AI Chaos & Casino Carnage" [level=3] [ref=e159]
+              - heading "9_kickapilol" [level=4] [ref=e160]
+              - generic [ref=e161]:
+                - generic [ref=e162]: 10/11/2025
+                - generic [ref=e163]: •
+                - generic [ref=e164]: Click to watch
+              - paragraph [ref=e165]: Wubby kicks off by cooking up a wild plan to slap a moving Sora AI watermark on stream for ‘unhinged’ moments,...
+              - generic [ref=e166]:
+                - generic [ref=e167]:
+                  - generic [ref=e168]: Battle Stations
+                  - generic [ref=e169]: Sora AI watermark
+                  - generic [ref=e170]: Slot machine gambling
+                  - generic [ref=e171]: "+7"
+                - generic [ref=e172]: Read more →
+        - link "twitch Play Panda Express Flop & Brutal Battlestation Roast Panda Express Flop & Brutal Battlestation Roast 9_GAMERSUPPS CANS ARE HERE - GG - CAN CAN WITH FAN FAN MINECRAFT CHAINED TOGETHER WORLDS COLLIDE RACISM WINS 10/11/2025 • Click to watch Wubby kicks off with some savage takes on Panda Express's orange chicken—burnt batter, no flavor, and a full-on rant... Panda Express rant pizza chains suck Gamer Subs can drama +7 Read more →" [ref=e173] [cursor=pointer]:
+          - /url: /watch/57b047b749dfaa8db90d76838a10d5f56e7a8cfdac6e67a86a5052b2f2d94aa3
+          - generic [ref=e174]:
+            - generic [ref=e175]: twitch
+            - generic "Play Panda Express Flop & Brutal Battlestation Roast" [ref=e176]:
+              - img [ref=e181]
+            - generic [ref=e183]:
+              - heading "Panda Express Flop & Brutal Battlestation Roast" [level=3] [ref=e184]
+              - heading "9_GAMERSUPPS CANS ARE HERE - GG - CAN CAN WITH FAN FAN MINECRAFT CHAINED TOGETHER WORLDS COLLIDE RACISM WINS" [level=4] [ref=e185]
+              - generic [ref=e186]:
+                - generic [ref=e187]: 10/11/2025
+                - generic [ref=e188]: •
+                - generic [ref=e189]: Click to watch
+              - paragraph [ref=e190]: Wubby kicks off with some savage takes on Panda Express's orange chicken—burnt batter, no flavor, and a full-on rant...
+              - generic [ref=e191]:
+                - generic [ref=e192]:
+                  - generic [ref=e193]: Panda Express rant
+                  - generic [ref=e194]: pizza chains suck
+                  - generic [ref=e195]: Gamer Subs can drama
+                  - generic [ref=e196]: "+7"
+                - generic [ref=e197]: Read more →
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e203] [cursor=pointer]:
+    - img [ref=e204]
+  - alert [ref=e207]
+```

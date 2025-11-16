@@ -1,184 +1,136 @@
 'use client';
 
 /**
- * Home Page (Transcription Details)
- * Main entry point - displays video metadata and hash information
- * Ported from: index.html + src/script.js
+ * Landing Page - VOD Diary
+ * Main entry point - displays scannable browse cards with Two-Tier UX
+ * Click cards to see full detail view at /watch/[id]
+ * Updated: Week 0-1 Two-Tier UX implementation
  */
 
-import { useState, useEffect } from 'react';
-import { VideoSelector } from '@/components/video/VideoSelector';
-import { HashDisplay } from '@/components/video/HashDisplay';
-import { VideoMetadata } from '@/components/video/VideoMetadata';
+import { useState, useEffect, useCallback } from 'react';
+import { DateRange } from 'react-day-picker';
+import { Video } from '@/types/video';
+import { Platform } from '@/components/vod-diary/PlatformSlider';
+import { DateRangePicker } from '@/components/vod-diary/DateRangePicker';
+import { PlatformSlider } from '@/components/vod-diary/PlatformSlider';
+import { SearchInput } from '@/components/vod-diary/SearchInput';
+import { VideoList } from '@/components/vod-diary/VideoList';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { fetchRecentVideos, searchVideos } from '@/lib/api/supabase';
+import { getThisWeekRange } from '@/lib/utils/video-helpers';
 import { useToast } from '@/lib/hooks/useToast';
-import { computeVideoHash } from '@/lib/utils/hash';
-import { getWubbySummary } from '@/lib/api/supabase';
 import { logger } from '@/lib/utils/logger';
-import type { Video } from '@/types/video';
 
 export default function HomePage() {
-  logger.debug('===== HomePage Render =====');
-
-  const { showError, showWarning } = useToast();
-
-  // State management
-  const [videoUrl, setVideoUrl] = useState('');
-  const [videoHash, setVideoHash] = useState('');
-  const [status, setStatus] = useState('');
-  const [isSuccess, setIsSuccess] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [video, setVideo] = useState<Video | null>(null);
-
-  logger.debug('Current state:', {
-    videoUrl: videoUrl.substring(0, 50) + '...',
-    videoHash: videoHash.substring(0, 16) + '...',
-    status,
-    isSuccess,
-    isLoading,
-    hasVideo: !!video,
+  // Filter states
+  const [platform, setPlatform] = useState<Platform>('both');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const { from, to } = getThisWeekRange();
+    return { from, to };
   });
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Update page title when video changes
-  useEffect(() => {
-    if (video) {
-      logger.log('Updating document title:', video.title);
-      document.title = `${video.title} | Wubby Parasocial Workbench`;
-    }
-  }, [video]);
+  // Data states
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
 
-  // Update status helper
-  const updateStatus = (newStatus: string, success: boolean = true) => {
-    logger.debug('Updating status:', { newStatus, success });
-    setStatus(newStatus);
-    setIsSuccess(success);
-  };
+  const { showError } = useToast();
 
-  // Load video handler - main business logic
-  const handleLoadVideo = async () => {
-    logger.group('🚀 Loading Video');
-    logger.log('Video URL:', videoUrl);
-
-    const trimmedUrl = videoUrl.trim();
-
-    // Validate URL format
-    if (!trimmedUrl) {
-      logger.error('❌ Empty URL');
-      logger.groupEnd();
-      setVideoHash('');
-      updateStatus('No video URL entered.', false);
-      showWarning('Please enter a video URL to load.');
-      return;
-    }
-
-    // Basic URL validation
-    try {
-      new URL(trimmedUrl);
-      logger.log('✅ Valid URL format');
-    } catch (error) {
-      logger.error('❌ Invalid URL format:', error);
-      logger.groupEnd();
-      showError('Please enter a valid URL format.');
-      updateStatus('Invalid URL format', false);
-      return;
-    }
-
-    // Check if it's a wubby.tv URL
-    if (!trimmedUrl.includes('archive.wubby.tv')) {
-      logger.warn('⚠️ Not a wubby.tv URL:', trimmedUrl);
-      showWarning(
-        'This tool is designed for archive.wubby.tv URLs. Other URLs may not work as expected.'
-      );
-    }
+  // Fetch videos based on current filters
+  const loadVideos = useCallback(async () => {
+    setLoading(true);
 
     try {
-      setIsLoading(true);
-      updateStatus('Computing hash...', true);
+      let results: Video[];
 
-      // Compute hash
-      logger.log('Computing hash...');
-      const hash = await computeVideoHash(trimmedUrl);
-      setVideoHash(hash);
-      logger.log('Hash computed:', hash);
-
-      // Fetch video data
-      updateStatus('Fetching video data...', true);
-      logger.log('Fetching video data from Supabase...');
-      const summary = await getWubbySummary(trimmedUrl);
-
-      if (summary) {
-        logger.log('✅ Video data retrieved');
-        setVideo(summary);
-        updateStatus('Success - Video loaded', true);
+      if (isSearchMode && searchTerm) {
+        // Search mode
+        logger.log('Searching videos:', searchTerm);
+        results = await searchVideos({ searchTerm, limit: 200 });
       } else {
-        logger.log('⚠️ No metadata found');
-        setVideo(null);
-        updateStatus('Success - No Metadata Available', true);
+        // Normal filter mode
+        logger.log('Fetching recent videos:', {
+          platform,
+          dateRange,
+        });
+
+        results = await fetchRecentVideos({
+          limit: 50,
+          platform: platform as any,
+          fromDate: dateRange?.from || null,
+          toDate: dateRange?.to || null,
+        });
       }
 
-      logger.groupEnd();
-    } catch (err) {
-      logger.error('❌ Error loading video:', err);
-      logger.groupEnd();
-
-      const error = err as Error;
-      showError(`Failed to load video: ${error.message}`, {
+      setVideos(results);
+      logger.log(`✅ Loaded ${results.length} videos`);
+    } catch (error) {
+      logger.error('Error loading videos:', error);
+      showError('Failed to load videos. Please try again.', {
         action: {
           label: 'Retry',
           onClick: () => {
             logger.log('Retrying video load...');
-            handleLoadVideo();
+            loadVideos();
           },
         },
       });
-      updateStatus('Error occurred', false);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform, dateRange, searchTerm, isSearchMode]);
 
-  // Clear handler
-  const handleClear = () => {
-    logger.log('🧹 Clearing all data');
-    setVideoUrl('');
-    setVideoHash('');
-    setStatus('');
-    setIsSuccess(true);
-    setVideo(null);
-    document.title = 'Wubby Parasocial Workbench';
-  };
+  // Load videos on mount and when filters change
+  useEffect(() => {
+    loadVideos();
+  }, [loadVideos]);
+
+  // Handle search input changes
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+    setIsSearchMode(term.trim().length > 0);
+  }, []);
+
+  // Handle platform change
+  const handlePlatformChange = useCallback((newPlatform: Platform) => {
+    setPlatform(newPlatform);
+  }, []);
+
+  // Handle date range change
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
+    setDateRange(range);
+  }, []);
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Page header */}
       <PageHeader
-        title="Transcription Details"
-        description="Load and view video metadata from archive.wubby.tv including titles, dates, tags, and summaries."
+        title="Wubby VOD Diary"
+        description="Browse and discover Wubby VODs with AI-powered summaries and smart tagging."
       />
 
-      {/* Video Selector */}
-      <section aria-labelledby="video-section-title">
-        <h2 id="video-section-title" className="sr-only">
-          Video Information
-        </h2>
-
-        <div className="space-y-4">
-          <VideoSelector
-            videoUrl={videoUrl}
-            onVideoUrlChange={setVideoUrl}
-            onLoad={handleLoadVideo}
-            onClear={handleClear}
-            isLoading={isLoading}
-          />
-
-          <HashDisplay hash={videoHash} status={status} isSuccess={isSuccess} />
+      {/* Filters section */}
+      <div className="flex flex-wrap gap-4 justify-end items-center">
+        {/* Date Range Picker */}
+        <div className="w-full sm:w-auto sm:min-w-[280px]">
+          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
         </div>
-      </section>
 
-      {/* Video Metadata Display */}
-      <section className="rounded-lg border border-border bg-card p-6" aria-labelledby="video-title">
-        <VideoMetadata video={video} />
-      </section>
+        {/* Platform Slider */}
+        <PlatformSlider value={platform} onChange={handlePlatformChange} />
+
+        {/* Search Toggle and Input */}
+        <SearchInput onSearch={handleSearch} />
+      </div>
+
+      {/* Video list */}
+      <VideoList
+        videos={videos}
+        loading={loading}
+        isSearchMode={isSearchMode}
+      />
     </div>
   );
 }

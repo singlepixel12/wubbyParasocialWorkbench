@@ -1,0 +1,48 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - link "Wubby Parasocial Workbench" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - button "Open menu" [ref=e7]:
+        - img
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "Get Transcript" [level=2] [ref=e11]
+        - paragraph [ref=e12]: Load archive.wubby.tv videos with transcripts and view them alongside the video player. Subtitles will be enabled automatically if available.
+      - region "Video Information" [ref=e13]:
+        - heading "Video Information" [level=2] [ref=e14]
+        - generic [ref=e15]:
+          - generic [ref=e17]:
+            - generic [ref=e18]:
+              - combobox "Video URL" [ref=e19]
+              - generic [ref=e20]: Enter a video URL or select from the dropdown list of available videos
+            - button "Load video data" [disabled]: Load
+            - button "Clear video input and data" [ref=e21]: Clear
+          - status [ref=e22]:
+            - code [ref=e23]: "Hash: -"
+            - code [ref=e24]: "Status: -"
+      - region "Video Player" [ref=e25]:
+        - heading "Video Player" [level=3] [ref=e26]
+        - generic "Video player" [ref=e28]:
+          - paragraph [ref=e30]: No video loaded
+      - region "Video Title for VOD" [ref=e31]:
+        - generic [ref=e32]:
+          - heading "Video Title for VOD" [level=4] [ref=e33]
+          - heading "November 16, 2025" [level=3] [ref=e34]
+          - paragraph [ref=e36]: "- This vod has no summary -"
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e42] [cursor=pointer]:
+    - generic [ref=e45]:
+      - text: Compiling
+      - generic [ref=e46]:
+        - generic [ref=e47]: .
+        - generic [ref=e48]: .
+        - generic [ref=e49]: .
+  - alert [ref=e50]
+```

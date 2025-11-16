@@ -113,7 +113,7 @@ export async function getWubbySummary(
     const response = await fetch(queryUrl, {
       method: 'GET',
       headers: {
-        apikey: SUPABASE_ANON_KEY,
+        apikey: SUPABASE_ANON_KEY!,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
       },
@@ -211,6 +211,96 @@ export async function getWubbySummary(
 }
 
 /**
+ * Fetches video metadata by video hash (direct lookup)
+ *
+ * Uses the pre-computed video hash to query the wubby_summary table
+ * This is faster than getWubbySummary since it doesn't need to compute the hash
+ *
+ * @param videoHash - The SHA-256 hash of the video URL (64 character hex string)
+ * @returns Video metadata or null if not found
+ * @throws Error on API failures
+ *
+ * @example
+ * ```ts
+ * const video = await getWubbySummaryByHash('8cc0eeeafb8d55f97531588f67c2671a0e645c4923655ad07f9801fac4b422a9');
+ * if (video) {
+ *   console.log(video.title, video.summary);
+ * }
+ * ```
+ */
+export async function getWubbySummaryByHash(
+  videoHash: string
+): Promise<Video | null> {
+  logger.group('📡 Fetching Video Summary by Hash');
+  logger.log('Video hash:', videoHash);
+
+  try {
+    // Validate input (should be 64-character hex string)
+    if (!videoHash || typeof videoHash !== 'string' || videoHash.length !== 64) {
+      logger.error('❌ Invalid video hash:', videoHash);
+      throw new Error('Invalid video hash provided (expected 64-character hex string)');
+    }
+
+    // Query Supabase using REST API directly
+    const queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?video_hash=eq.${videoHash}`;
+    logger.log('Query URL:', queryUrl);
+    logger.log('Making API request...');
+
+    const response = await fetch(queryUrl, {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_ANON_KEY!,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    logger.log('API Response Status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      let errorMessage = `Request failed: ${response.status}`;
+      switch (response.status) {
+        case 404:
+          errorMessage = 'Video not found in database';
+          break;
+        case 500:
+          errorMessage = 'Server error - Please try again later';
+          break;
+      }
+      logger.error('❌ API Error:', errorMessage);
+      logger.groupEnd();
+      throw new Error(errorMessage);
+    }
+
+    logger.log('✅ API request successful');
+    const data: SupabaseVideoRow[] = await response.json();
+    logger.log('Response data:', data);
+    logger.log('Number of results:', data.length);
+
+    // No results found
+    if (data.length === 0) {
+      logger.log('⚠️ No video found for this hash');
+      logger.groupEnd();
+      return null;
+    }
+
+    const video = mapRowToVideo(data[0]);
+    logger.log('✅ Video metadata retrieved:', {
+      title: video.title,
+      platform: video.platform,
+      date: video.date,
+      tagsCount: video.tags.length,
+    });
+    logger.groupEnd();
+    return video;
+  } catch (error) {
+    logger.error('❌ Error fetching video by hash:', error);
+    logger.groupEnd();
+    throw error;
+  }
+}
+
+/**
  * Fetches recent videos with optional filtering
  *
  * @param params - Query parameters (limit, platform, date range)
@@ -249,7 +339,7 @@ export async function fetchRecentVideos(
 
     const response = await fetch(queryUrl, {
       headers: {
-        apikey: SUPABASE_ANON_KEY,
+        apikey: SUPABASE_ANON_KEY!,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
     });
@@ -301,7 +391,7 @@ export async function searchVideos(
 
     const response = await fetch(queryUrl, {
       headers: {
-        apikey: SUPABASE_ANON_KEY,
+        apikey: SUPABASE_ANON_KEY!,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
     });

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Temp files
+nul
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local config
+.mcp.json
+.claude/
+
+# Archive (already committed before)
+# archive/
+
+# Web-new has its own .gitignore

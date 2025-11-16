@@ -1,72 +1,78 @@
 # Wubby Parasocial Workbench
 
-A comprehensive web-based tool for analyzing and working with parasocial content and interactions from Wubby's streams. This workbench provides tools for video transcription, VOD diary management, and content analysis.
+Web tool for analyzing Wubby stream content with video transcription, VOD diary, and content analysis.
 
-## Features
+## 📚 Documentation
 
-### 🎥 Video Management
-- **Video Player Integration**: Built-in video player with Vidstack for enhanced playback experience
-- **URL Input System**: Support for archive.wubby.tv URLs with dropdown selection of available VODs
-- **Hash-based Tracking**: Unique hash generation and status tracking for video content
-- **Video Metadata Display**: Title, date, tags, and summary information
+**Start Here:**
+- **[UI_IMPLEMENTATION_GUIDE.md](./UI_IMPLEMENTATION_GUIDE.md)** - Complete design & implementation reference (all-in-one)
+- **[CLAUDE.md](./CLAUDE.md)** - Project overview & migration status
 
-### 📝 Transcription Tools
-- **Transcript Extraction**: Get transcripts from video content with subtitle support
-- **VTT File Handling**: Support for WebVTT subtitle files
-- **Real-time Transcript Display**: View transcripts alongside video playback
-- **Transcript Analysis**: Tools for working with extracted transcript data
+**Archived:**
+- See `archive/` folder for old design documents (now consolidated)
 
-### 📅 VOD Diary System
-- **Date Range Filtering**: Calendar-based date range selection using Flatpickr
-- **Platform Filtering**: Toggle between Twitch, Kick, or both platforms
-- **Video List Management**: Organized display of VOD entries with filtering capabilities
-- **Responsive Design**: Mobile-friendly interface for diary management
+## 🚀 Quick Start
 
-## Project Structure
-
-```
-parasocial-clone/
-├── index.html              # Main application entry point (Transcription Details)
-├── transcript.html          # Transcript extraction and viewing interface
-├── vod-diary.html          # VOD diary management interface
-├── styles.css              # Main stylesheet with responsive design
-├── README.md               # Project documentation
-└── src/                    # JavaScript source files
-    ├── script.js           # Core application logic and video handling
-    ├── toast.js            # Toast notification system
-    └── vodDiary.js         # VOD diary functionality and filtering
+```bash
+cd web-new
+npm install
+npm run dev
 ```
 
-## Usage
+Open [http://localhost:3000](http://localhost:3000)
 
-### Transcription Details (Main Page)
-- Enter a video URL from archive.wubby.tv or select from the dropdown
-- Click "Load" to fetch video data and display metadata
-- View video information including title, date, tags, and summary
+## ✅ Current Status
 
-### Get Transcript
-- Load a video to extract and view transcripts
-- Use the video player controls to navigate through content
-- Access subtitle tracks and transcript data
-- Test transcript extraction functionality
+**Week 0-1: Two-Tier UX** - ✅ COMPLETE (2025-11-16)
+- Browse cards show 1-2 line hooks (scannable!)
+- "Read more →" navigates to full detail view
+- Full AI summary on `/watch/[hash]` pages
+- Tag count badges, clickable tags (6 visible)
+- Platform-specific play button glows
+- Green accent bars for summaries
 
-### VOD Diary
-- Use the date range picker to filter VODs by date
-- Toggle between Twitch and Kick platforms using the slider
-- Browse and manage your VOD collection
-- View organized video lists with filtering options
+**Next:** Phase 1 - Mobile-First Foundation (2-3 weeks)
 
-## Technical Details
+See [UI_IMPLEMENTATION_GUIDE.md](./UI_IMPLEMENTATION_GUIDE.md) for the complete roadmap.
 
-### Dependencies
-- **Vidstack Player**: Modern video player with enhanced features
-- **Flatpickr**: Date range picker for VOD diary filtering
+## 🎯 Key Features
 
-## License
+1. **AI-Generated Summaries** - 200+ word summaries for instant video understanding
+2. **Intelligent Tagging** - Lightning-fast search by topics/guests/games
+3. **Title Renaming** - AI-cleaned titles + original filenames preserved
+4. **Two-Tier UX** - Scan first (browse), read later (detail page)
 
-This project is open source and available under the MIT License.
+## 📁 Project Structure
 
-## Acknowledgments
+```
+wubbyParasocialWorkbench/
+├── web-new/                 # Next.js 16 app (current)
+│   ├── app/                 # App router pages
+│   ├── components/          # React components
+│   ├── lib/                 # Utilities & API clients
+│   └── types/               # TypeScript types
+├── archive/                 # Old design docs (consolidated)
+├── UI_IMPLEMENTATION_GUIDE.md  # ⭐ Main design reference
+├── CLAUDE.md               # Project overview
+└── README.md               # This file
+```
 
-- Built for the Wubby community
-- Inspired by parasocial content analysis needs
+## 🛠️ Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **UI:** React 19 + shadcn/ui + Tailwind CSS 4
+- **Video:** Vidstack Player
+- **Backend:** Supabase (PostgreSQL + Storage)
+- **Animations:** tw-animate-css (CSS animations)
+- **Testing:** Playwright (E2E) + Vitest (Unit)
+
+## 📱 Platform Support
+
+- Twitch VODs
+- Kick VODs
+- Platform-specific filtering & color theming
+
+---
+
+**Last Updated:** 2025-11-16
+**Status:** Week 0-1 Complete, Phase 1 Next

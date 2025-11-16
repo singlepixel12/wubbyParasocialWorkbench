@@ -1,84 +1,105 @@
 'use client';
 
 /**
- * Header component with navigation
- * Provides main navigation between all pages in the app
+ * Header component with hamburger menu
+ * Main landing page is VOD Diary - other pages accessible via menu
+ * Updated: Week 0-1 Two-Tier UX implementation
  */
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Menu, FileText, Video, Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 /**
- * Navigation links configuration
+ * Secondary navigation links (hidden in hamburger menu)
  */
-const NAV_LINKS = [
+const MENU_LINKS = [
   {
-    href: '/',
-    label: 'Transcription Details',
-    ariaLabel: 'Go to Transcription Details page',
+    href: '/video-metadata',
+    label: 'Video Metadata',
+    icon: Home,
+    description: 'View video metadata and hash information',
   },
   {
     href: '/transcript',
     label: 'Get Transcript',
-    ariaLabel: 'Go to Get Transcript page',
-  },
-  {
-    href: '/vod-diary',
-    label: 'VOD Diary',
-    ariaLabel: 'Go to VOD Diary page',
-  },
-  {
-    href: '/player',
-    label: 'Player',
-    ariaLabel: 'Go to Video Player page',
+    icon: FileText,
+    description: 'Extract and view video transcripts',
   },
 ] as const;
 
 export function Header() {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <header className="border-b border-border bg-background">
-      <div className="container mx-auto px-4 py-4">
-        {/* Site Title */}
-        <h1 className="mb-4 text-2xl font-bold text-foreground">
-          Parasocial Workbench
-        </h1>
+    <header className="sticky top-0 z-40 border-b border-[#333] bg-[#111]/95 backdrop-blur-sm">
+      <div className="container mx-auto px-4 py-3">
+        <div className="flex items-center justify-between">
+          {/* Site Title */}
+          <Link href="/" className="text-xl font-bold text-white hover:text-[#28a745] transition-colors">
+            Wubby Parasocial Workbench
+          </Link>
 
-        {/* Navigation */}
-        <nav aria-label="Main navigation">
-          <ul
-            role="menubar"
-            className="flex flex-wrap gap-2 md:gap-4"
-          >
-            {NAV_LINKS.map((link) => {
-              const isActive = pathname === link.href;
+          {/* Hamburger Menu */}
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-[#ccc] hover:text-white hover:bg-[#222]"
+                aria-label="Open menu"
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
 
-              return (
-                <li key={link.href} role="none">
-                  <Link
-                    href={link.href}
-                    role="menuitem"
-                    aria-label={link.ariaLabel}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      // Base styles
-                      'inline-block rounded-md px-4 py-2 text-sm font-medium transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                      // Active state
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+            <SheetContent side="right" className="w-[300px] bg-[#111] border-l border-[#333]">
+              <SheetHeader>
+                <SheetTitle className="text-white">Navigation</SheetTitle>
+              </SheetHeader>
+
+              <nav className="mt-6 space-y-2">
+                {MENU_LINKS.map((link) => {
+                  const isActive = pathname === link.href;
+                  const Icon = link.icon;
+
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className={cn(
+                        'flex items-start gap-3 p-3 rounded-lg transition-colors',
+                        isActive
+                          ? 'bg-[#28a745] text-white'
+                          : 'text-[#ccc] hover:bg-[#222] hover:text-white'
+                      )}
+                    >
+                      <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="font-medium">{link.label}</div>
+                        <div className="text-xs text-[#888] mt-0.5">{link.description}</div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="absolute bottom-6 left-6 right-6">
+                <div className="text-xs text-[#666] text-center">
+                  Wubby Parasocial Workbench
+                  <br />
+                  v1.0 - Two-Tier UX
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   );

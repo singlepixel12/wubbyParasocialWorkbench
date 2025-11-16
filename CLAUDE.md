@@ -65,6 +65,34 @@ All 4 pages functional, mobile tested (375x667px), all features working.
 - Better cross-browser support
 - Improved keyboard navigation + screen readers
 
+### ✅ WEEK 0-1: TWO-TIER UX COMPLETE (2025-11-16)
+
+**UI Uplift - Differentiator Focus:**
+
+1. **Two-Tier UX Pattern** - Progressive disclosure implemented
+   - ✅ Browse cards show 1-2 line hooks (scannable!)
+   - ✅ "Read more →" CTA on all cards
+   - ✅ `/watch/[id]` route with full detail view
+   - ✅ Full 200-word AI summary on detail page
+   - ✅ `getWubbySummaryByHash()` for direct hash lookup
+
+2. **Visual Enhancements** - Make differentiators prominent
+   - ✅ Tag count badge added (no icon - clean)
+   - ✅ Green accent bar for summary hooks
+   - ✅ FileText icon for original titles
+   - ✅ 6 tags visible (was 3), all clickable
+   - ✅ Platform-specific play button glow (Kick green, Twitch purple)
+   - ✅ Removed redundant "Click to watch" text
+
+**Impact:**
+- 7 files modified
+- ~200 lines changed
+- Better UX with two-tier progressive disclosure
+- Differentiators (AI, tags, titles) now prominent
+- "Read more" flow fully functional
+
+**See:** `UI_IMPLEMENTATION_GUIDE.md` for complete design reference
+
 ### ✅ MEDIUM PRIORITY OPTIMIZATIONS COMPLETE (2025-11-11)
 
 **Optimizations Completed:**

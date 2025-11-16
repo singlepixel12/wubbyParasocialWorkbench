@@ -1,0 +1,15 @@
+{
+  "name": "wubby-parasocial-workbench",
+  "version": "2.0.0",
+  "description": "Next.js migration of Wubby stream content analyzer",
+  "scripts": {
+    "dev": "cd web-new && npm run dev",
+    "build": "cd web-new && npm run build",
+    "build:test": "cd web-new && npm run build && npx serve out",
+    "lint": "cd web-new && npm run lint",
+    "test": "cd web-new && npm test"
+  },
+  "devDependencies": {
+    "shadcn": "^3.5.0"
+  }
+}
