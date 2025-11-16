@@ -22,6 +22,9 @@ import { useToast } from '@/lib/hooks/useToast';
 import { logger } from '@/lib/utils/logger';
 
 export default function VodDiaryPage() {
+  // Client-only rendering flag (prevents SSR hydration issues with Radix UI Popover)
+  const [isMounted, setIsMounted] = useState(false);
+
   // Filter states
   const [platform, setPlatform] = useState<Platform>('both');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -36,6 +39,11 @@ export default function VodDiaryPage() {
   const [isSearchMode, setIsSearchMode] = useState(false);
 
   const { showError, showWarning } = useToast();
+
+  // Set mounted flag after client-side hydration
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch videos based on current filters
   const loadVideos = useCallback(async () => {
@@ -114,9 +122,13 @@ export default function VodDiaryPage() {
 
       {/* Filters section */}
       <div className="flex flex-wrap gap-4 justify-end items-center">
-        {/* Date Range Picker */}
+        {/* Date Range Picker - Only render on client to avoid SSR issues with Radix Popover */}
         <div className="w-full sm:w-auto sm:min-w-[280px]">
-          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+          {isMounted ? (
+            <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+          ) : (
+            <div className="h-10 bg-muted animate-pulse rounded-md" />
+          )}
         </div>
 
         {/* Platform Slider */}
