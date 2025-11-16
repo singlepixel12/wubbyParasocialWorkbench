@@ -44,7 +44,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
     async function loadSubtitles() {
       try {
         const hash = await computeVideoHash(video.url);
-        const subtitlePath = `https://uowggqnrsiwuzumkqenj.supabase.co/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt`;
+        const subtitlePath = `https://sbvaclmypokafpxebusn.supabase.co/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt`;
         setSubtitleUrl(subtitlePath);
       } catch (error) {
         console.error('Failed to generate subtitle URL:', error);
