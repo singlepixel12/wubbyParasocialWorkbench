@@ -7,7 +7,7 @@
  * Part of Two-Tier UX: Scan first (VideoCard) → Read later (VideoDetailView)
  */
 
-import { Sparkles, Tag, Calendar, FileText, ArrowLeft } from 'lucide-react';
+import { Tag, Calendar, FileText, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Video } from '@/types/video';
 import { Badge } from '@/components/ui/badge';
@@ -77,10 +77,6 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
       <div className="space-y-3">
         {/* Badges */}
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-[#28a745] text-[#28a745]">
-            <Sparkles className="w-3 h-3 mr-1" />
-            AI-Enhanced
-          </Badge>
           <Badge variant={getSolidBadgeVariant(video.platform)}>
             {video.platform}
           </Badge>
@@ -116,20 +112,13 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
       {/* Separator */}
       <div className="h-px bg-[#333]" />
 
-      {/* 🎯 FULL AI SUMMARY (The Payoff!) */}
+      {/* 🎯 FULL SUMMARY (The Payoff!) */}
       <Card className={cn(
         'p-6',
         'bg-gradient-to-br from-[#28a745]/10 via-transparent to-transparent',
         'border-l-4 border-[#28a745]'
       )}>
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#28a745]" />
-            <h2 className="text-lg font-semibold text-white">
-              AI Summary
-            </h2>
-          </div>
-
           {/* Full 200-word summary with nice formatting */}
           <div className="prose prose-invert prose-sm max-w-none">
             <p className="text-[#ccc] leading-relaxed whitespace-pre-line">

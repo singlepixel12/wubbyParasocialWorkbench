@@ -2,15 +2,14 @@
 
 /**
  * VideoCard Component
- * Scannable browse card showing 1-2 line hook (Two-Tier UX)
- * Clicking card navigates to /watch?id=hash for full detail view
+ * Scannable browse card showing 1-2 line hook with expandable full summary
+ * Clicking "Read more" expands the card to show full summary in-place
  * Optimized with React.memo to prevent unnecessary re-renders
- * Updated: Week 0-1 Two-Tier UX implementation
+ * Updated: Expandable summary view
  */
 
-import { memo } from 'react';
-import Link from 'next/link';
-import { Play, Tag, FileText } from 'lucide-react';
+import { memo, useState } from 'react';
+import { Play, FileText, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Video } from '@/types/video';
 import { formatDateDisplay, extractOriginalTitle, extractHook } from '@/lib/utils/video-helpers';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +35,7 @@ interface VideoCardProps {
 export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCardProps) {
   const formattedDate = video.date ? formatDateDisplay(new Date(video.date)) : '';
   const originalTitle = extractOriginalTitle(video.url);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Extract 1-2 line hook for scannable browse view
   const hook = extractHook(video.summary || '', 120);
@@ -49,43 +49,35 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
   }
 
   const handleThumbnailClick = (e: React.MouseEvent) => {
-    // Prevent card navigation when clicking thumbnail
+    // Prevent card expansion when clicking thumbnail
     e.preventDefault();
     e.stopPropagation();
 
-    // Store video URL in localStorage for player page
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedVideoUrl', video.url);
+    // Navigate to watch page with video hash (include basePath for GitHub Pages)
+    if (videoHash) {
+      const basePath = process.env.NODE_ENV === 'production' ? '/wubbyParasocialWorkbench' : '/wubbyParasocialWorkbench';
+      window.open(`${basePath}/watch?id=${videoHash}`, '_blank');
+      onCardClick?.(video);
     }
-
-    // Open player in new tab
-    window.open('/player', '_blank');
-    onCardClick?.(video);
   };
 
-  // Render as link only if hash exists, otherwise as div
   const cardContent = (
     <div
       className={cn(
-        'flex gap-4 bg-[#111] border border-[#333] rounded-lg p-4 min-h-[180px] relative overflow-hidden cursor-pointer transition-all duration-200',
-        videoHash && 'group-hover:bg-[#1a1a1a] group-hover:border-[#444]'
+        'flex flex-col md:flex-row gap-4 bg-[#111] border border-[#333] rounded-lg p-4 relative overflow-hidden transition-all duration-200',
+        'hover:bg-[#1a1a1a] hover:border-[#444]',
+        // Platform-specific glow on hover
+        video.platform === 'kick' && 'hover:shadow-[0_0_20px_rgba(40,167,69,0.3)]',
+        video.platform === 'twitch' && 'hover:shadow-[0_0_20px_rgba(100,65,165,0.3)]'
       )}
     >
-        {/* Platform tag (top right) */}
-        <Badge
-          variant={getSolidBadgeVariant(video.platform)}
-          className="absolute top-3 right-3 font-semibold z-10 px-3 py-1"
-        >
-          {video.platform}
-        </Badge>
-
         {/* Thumbnail with play button */}
         <div
           onClick={handleThumbnailClick}
-          className="group/thumb block flex-shrink-0 cursor-pointer"
+          className="group/thumb block flex-shrink-0 cursor-pointer w-full md:w-40"
           aria-label={`Play ${video.title}`}
         >
-          <div className="relative w-40 h-full min-h-[90px] bg-black rounded overflow-hidden">
+          <div className="relative w-full md:w-40 h-48 md:h-full md:min-h-[90px] bg-black rounded overflow-hidden">
             {/* Placeholder thumbnail (black box) */}
             <div className="absolute inset-0 bg-black" />
 
@@ -111,14 +103,15 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
 
         {/* Info section */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Tag count badge (top right of content area) */}
-          {video.tags && video.tags.length > 0 && (
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline" className="border-[#6441A5] text-[#6441A5] text-xs">
-                {video.tags.length} tags
-              </Badge>
-            </div>
-          )}
+          {/* Platform badge */}
+          <div className="flex items-center gap-2 mb-2">
+            <Badge
+              variant={getSolidBadgeVariant(video.platform)}
+              className="font-semibold px-3 py-1"
+            >
+              {video.platform}
+            </Badge>
+          </div>
 
           {/* Title */}
           <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">{video.title}</h3>
@@ -132,24 +125,58 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
           )}
 
           {/* Metadata inline */}
-          <div className="flex items-center gap-2 text-xs text-[#888] mb-2 flex-wrap">
-            {formattedDate && <span>{formattedDate}</span>}
+          <div className="flex items-center gap-1.5 text-xs text-[#888] mb-2 flex-wrap">
+            {formattedDate && (
+              <>
+                <Calendar className="w-3 h-3 flex-shrink-0" />
+                <span>{formattedDate}</span>
+              </>
+            )}
           </div>
 
-          {/* 🎯 HOOK: 1-2 line summary with green accent */}
+          {/* 🎯 SUMMARY: Expandable with hook preview */}
           <div className={cn(
             'mb-2 p-2.5 rounded',
             'bg-gradient-to-r from-[#28a745]/10 to-transparent',
             'border-l-2 border-[#28a745]'
           )}>
-            <p className="text-sm text-[#ccc] leading-relaxed line-clamp-2">
-              {hook}
+            <p className={cn(
+              'text-sm text-[#ccc] leading-relaxed',
+              !isExpanded && 'line-clamp-2'
+            )}>
+              {isExpanded ? (video.summary || 'No summary available for this video.') : hook}
             </p>
           </div>
 
-          {/* Tag preview (6 tags) + Read more */}
-          <div className="flex items-center justify-between mt-auto">
-            <div className="flex gap-1.5 flex-wrap flex-1">
+          {/* Tag preview (3 tags on mobile, 6 on desktop) */}
+          <div className="flex gap-1.5 flex-wrap mb-3">
+            {/* Mobile: show 3 tags */}
+            <div className="flex gap-1.5 flex-wrap md:hidden">
+              {video.tags
+                ?.filter((tag) => tag !== video.platform)
+                .slice(0, 3)
+                .map((tag, index) => (
+                  <Badge
+                    key={index}
+                    variant="tag"
+                    className="text-xs cursor-pointer hover:bg-[#28a745] hover:text-white hover:border-[#28a745] transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // TODO: Implement tag search
+                      console.log('Search for tag:', tag);
+                    }}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              {video.tags && video.tags.filter(t => t !== video.platform).length > 3 && (
+                <span className="text-xs text-[#666]">+{video.tags.filter(t => t !== video.platform).length - 3}</span>
+              )}
+            </div>
+
+            {/* Desktop: show 6 tags */}
+            <div className="hidden md:flex gap-1.5 flex-wrap">
               {video.tags
                 ?.filter((tag) => tag !== video.platform)
                 .slice(0, 6)
@@ -172,23 +199,30 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
                 <span className="text-xs text-[#666]">+{video.tags.filter(t => t !== video.platform).length - 6}</span>
               )}
             </div>
-
-            {/* Read more CTA */}
-            <span className="text-xs font-medium text-[#28a745] group-hover:text-white transition-colors ml-3 flex-shrink-0">
-              Read more →
-            </span>
           </div>
+
+          {/* Read more/Show less toggle at bottom */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+            className="w-full py-2 text-xs font-medium text-[#28a745] hover:text-white transition-colors flex items-center justify-center gap-1 border-t border-[#333] -mx-4 px-4 -mb-4 mt-auto"
+          >
+            {isExpanded ? (
+              <>
+                Show less <ChevronUp className="w-3 h-3" />
+              </>
+            ) : (
+              <>
+                Read more <ChevronDown className="w-3 h-3" />
+              </>
+            )}
+          </button>
         </div>
     </div>
   );
 
-  // Wrap with Link if hash exists, otherwise return plain div
-  // Build the card content
-  return videoHash ? (
-    <Link href={`/watch?id=${videoHash}`} className="block group">
-      {cardContent}
-    </Link>
-  ) : (
-    cardContent
-  );
+  return cardContent;
 });

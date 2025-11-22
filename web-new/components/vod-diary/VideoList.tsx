@@ -5,10 +5,11 @@
  * Container for rendering a list of video cards
  * Handles loading and empty states with skeleton placeholders
  * Optimized with React.memo to prevent unnecessary re-renders
+ * Adds 2-second delay before showing "No Videos Found" for better UX
  * Ported from: vod-diary.html #video-list
  */
 
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Video } from '@/types/video';
 import { VideoCard } from './VideoCard';
 import { SkeletonVideoCard } from './SkeletonVideoCard';
@@ -27,10 +28,27 @@ export const VideoList = memo(function VideoList({
   isSearchMode = false,
   onVideoClick,
 }: VideoListProps) {
+  const [showEmptyState, setShowEmptyState] = useState(false);
+
+  // Add delay before showing "No Videos Found" (2 seconds)
+  useEffect(() => {
+    if (!loading && videos.length === 0) {
+      const timer = setTimeout(() => {
+        setShowEmptyState(true);
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    } else {
+      setShowEmptyState(false);
+    }
+  }, [loading, videos.length]);
+
   if (loading) {
     return (
       <div className="flex flex-col gap-4 w-full">
-        {/* Show 3 skeleton cards while loading */}
+        {/* Show 5 skeleton cards while loading (better mobile UX) */}
+        <SkeletonVideoCard />
+        <SkeletonVideoCard />
         <SkeletonVideoCard />
         <SkeletonVideoCard />
         <SkeletonVideoCard />
@@ -38,7 +56,18 @@ export const VideoList = memo(function VideoList({
     );
   }
 
-  if (videos.length === 0) {
+  // Show skeletons during the 2-second delay (don't flash empty state immediately)
+  if (videos.length === 0 && !showEmptyState) {
+    return (
+      <div className="flex flex-col gap-4 w-full">
+        <SkeletonVideoCard />
+        <SkeletonVideoCard />
+        <SkeletonVideoCard />
+      </div>
+    );
+  }
+
+  if (videos.length === 0 && showEmptyState) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4">
         <div className="rounded-full bg-muted p-6 mb-4">

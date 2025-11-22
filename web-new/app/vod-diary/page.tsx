@@ -20,6 +20,7 @@ import { fetchRecentVideos, searchVideos } from '@/lib/api/supabase';
 import { getThisWeekRange } from '@/lib/utils/video-helpers';
 import { useToast } from '@/lib/hooks/useToast';
 import { logger } from '@/lib/utils/logger';
+import { cn } from '@/lib/utils';
 
 export default function VodDiaryPage() {
   // Client-only rendering flag (prevents SSR hydration issues with Radix UI Popover)
@@ -32,6 +33,7 @@ export default function VodDiaryPage() {
     return { from, to };
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
 
   // Data states
   const [videos, setVideos] = useState<Video[]>([]);
@@ -121,21 +123,51 @@ export default function VodDiaryPage() {
       />
 
       {/* Filters section */}
-      <div className="flex flex-wrap gap-4 justify-end items-center">
-        {/* Date Range Picker - Only render on client to avoid SSR issues with Radix Popover */}
-        <div className="w-full sm:w-auto sm:min-w-[280px]">
-          {isMounted ? (
-            <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
-          ) : (
-            <div className="h-10 bg-muted animate-pulse rounded-md" />
+      <div className="flex flex-col gap-4">
+        {/* Mobile: Platform centered | Desktop: hidden (will show inline below) */}
+        <div className="flex justify-center md:hidden">
+          {!isSearchVisible && (
+            <PlatformSlider value={platform} onChange={handlePlatformChange} />
           )}
         </div>
 
-        {/* Platform Slider */}
-        <PlatformSlider value={platform} onChange={handlePlatformChange} />
+        {/* All filters in one row - Platform left, Date+Search right | Search full-width when open */}
+        <div className={cn(
+          "flex items-center",
+          isSearchVisible ? "" : "gap-4 md:justify-between"
+        )}>
+          {/* Platform - Desktop only (left side) */}
+          {!isSearchVisible && (
+            <div className="hidden md:block w-[180px] flex-shrink-0">
+              <PlatformSlider value={platform} onChange={handlePlatformChange} />
+            </div>
+          )}
 
-        {/* Search Toggle and Input */}
-        <SearchInput onSearch={handleSearch} />
+          {/* Date + Search group (right side on desktop) | Full width when search open */}
+          <div className={cn(
+            "flex gap-4 items-center",
+            isSearchVisible ? "w-screen -mx-4 px-4 md:w-full md:mx-0 md:px-0" : "flex-1 md:flex-none md:justify-end"
+          )}>
+            {/* Date Range Picker - Hide entire div when search is visible */}
+            {!isSearchVisible && (
+              <div className="flex-1 md:flex-none md:w-[280px]">
+                {isMounted ? (
+                  <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+                ) : (
+                  <div className="h-10 bg-muted animate-pulse rounded-md" />
+                )}
+              </div>
+            )}
+
+            {/* Search - Full width when visible */}
+            <SearchInput
+              onSearch={handleSearch}
+              isVisible={isSearchVisible}
+              onToggle={setIsSearchVisible}
+              className={isSearchVisible ? 'flex-1 w-full' : ''}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Video list */}

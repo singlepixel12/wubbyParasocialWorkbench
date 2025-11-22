@@ -15,12 +15,17 @@ import { cn } from '@/lib/utils';
 
 interface SearchInputProps {
   onSearch: (searchTerm: string) => void;
+  isVisible?: boolean;
+  onToggle?: (visible: boolean) => void;
   className?: string;
 }
 
-export function SearchInput({ onSearch, className }: SearchInputProps) {
-  const [isVisible, setIsVisible] = useState(false);
+export function SearchInput({ onSearch, isVisible: controlledVisible, onToggle, className }: SearchInputProps) {
+  const [internalVisible, setInternalVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Use controlled visibility if provided, otherwise use internal state
+  const isVisible = controlledVisible !== undefined ? controlledVisible : internalVisible;
 
   // Debounce search term by 300ms
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -31,12 +36,19 @@ export function SearchInput({ onSearch, className }: SearchInputProps) {
   }, [debouncedSearchTerm, onSearch]);
 
   const handleToggle = () => {
+    const newVisible = !isVisible;
     if (isVisible) {
       // Hiding search - clear it
       setSearchTerm('');
       onSearch('');
     }
-    setIsVisible(!isVisible);
+
+    // Update visibility (controlled or internal)
+    if (onToggle) {
+      onToggle(newVisible);
+    } else {
+      setInternalVisible(newVisible);
+    }
   };
 
   const handleClear = () => {
@@ -52,25 +64,10 @@ export function SearchInput({ onSearch, className }: SearchInputProps) {
   };
 
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
-      {/* Toggle button */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={handleToggle}
-        className={cn(
-          'transition-colors',
-          isVisible && 'bg-primary text-primary-foreground hover:bg-primary/90'
-        )}
-        aria-label="Toggle search"
-        title="Search videos"
-      >
-        <Search className="h-4 w-4" />
-      </Button>
-
+    <div className={cn('flex items-center gap-2', className)}>
       {/* Search input (shown when visible) */}
       {isVisible && (
-        <div className="relative w-full">
+        <div className="relative flex-1">
           <Input
             type="text"
             placeholder="Search by title, tags, or URL..."
@@ -94,6 +91,21 @@ export function SearchInput({ onSearch, className }: SearchInputProps) {
           )}
         </div>
       )}
+
+      {/* Toggle button - now on the right */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handleToggle}
+        className={cn(
+          'transition-colors flex-shrink-0',
+          isVisible && 'bg-primary text-primary-foreground hover:bg-primary/90'
+        )}
+        aria-label="Toggle search"
+        title="Search videos"
+      >
+        <Search className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
