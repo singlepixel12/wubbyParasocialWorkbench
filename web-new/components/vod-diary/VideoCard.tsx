@@ -36,6 +36,7 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
   const formattedDate = video.date ? formatDateDisplay(new Date(video.date)) : '';
   const originalTitle = extractOriginalTitle(video.url);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState(false);
 
   // Extract 1-2 line hook for scannable browse view
   const hook = extractHook(video.summary || '', 120);
@@ -78,8 +79,18 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
           aria-label={`Play ${video.title}`}
         >
           <div className="relative w-full md:w-40 h-48 md:h-full md:min-h-[90px] bg-black rounded overflow-hidden">
-            {/* Placeholder thumbnail (black box) */}
-            <div className="absolute inset-0 bg-black" />
+            {/* Thumbnail image (with fallback to black box) */}
+            {video.thumbnailUrl && !thumbnailError ? (
+              <img
+                src={video.thumbnailUrl}
+                alt={`Thumbnail for ${video.title}`}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={() => setThumbnailError(true)}
+                loading="lazy"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-black" />
+            )}
 
             {/* Play button overlay with platform-specific glow */}
             <div className="absolute inset-0 flex items-center justify-center opacity-80 transition-all duration-300 group-hover/thumb:opacity-100">

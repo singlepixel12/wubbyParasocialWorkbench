@@ -54,6 +54,12 @@ function mapRowToVideo(row: SupabaseVideoRow): Video {
     tags = row.tags.split(',').map((t) => t.trim());
   }
 
+  // Generate thumbnail URL if video hash exists
+  const videoHash = row.video_hash;
+  const thumbnailUrl = videoHash
+    ? `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${videoHash}/thumbnail.webp`
+    : undefined;
+
   return {
     url: row.video_url || '#',
     title: row.pleb_title || 'Untitled',
@@ -61,7 +67,8 @@ function mapRowToVideo(row: SupabaseVideoRow): Video {
     summary: row.summary || '- This vod has no summary -',
     tags,
     date: row.upload_date || row.created_at || new Date().toISOString(),
-    videoHash: row.video_hash || undefined,
+    videoHash: videoHash || undefined,
+    thumbnailUrl,
   };
 }
 

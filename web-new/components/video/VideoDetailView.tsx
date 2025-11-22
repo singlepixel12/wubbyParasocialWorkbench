@@ -39,6 +39,9 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
 
   const [subtitleUrl, setSubtitleUrl] = useState<string | undefined>();
 
+  // Debug: Log thumbnail URL
+  console.log('🖼️ VideoDetailView - Thumbnail URL:', video.thumbnailUrl);
+
   // Generate subtitle URL from video hash
   useEffect(() => {
     async function loadSubtitles() {
@@ -70,7 +73,11 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
 
       {/* Video Player */}
       <div className="w-full">
-        <VidstackPlayer videoUrl={video.url} subtitleUrl={subtitleUrl} />
+        <VidstackPlayer
+          videoUrl={video.url}
+          subtitleUrl={subtitleUrl}
+          poster={video.thumbnailUrl}
+        />
       </div>
 
       {/* Header Section */}

@@ -118,7 +118,12 @@ export function VidstackPlayer({
     const newPlayer = document.createElement('media-player') as HTMLElement;
     newPlayer.setAttribute('class', className);
     newPlayer.setAttribute('src', videoUrl);
-    if (poster) newPlayer.setAttribute('poster', poster);
+    if (poster) {
+      newPlayer.setAttribute('poster', poster);
+      logger.log('🖼️ Poster attribute set:', poster);
+    } else {
+      logger.warn('⚠️ No poster URL provided');
+    }
     newPlayer.setAttribute('playsinline', '');
 
     // Create media outlet
@@ -162,6 +167,21 @@ export function VidstackPlayer({
     // Add to container
     containerRef.current.appendChild(newPlayer);
     logger.log('✅ New player created and added to DOM');
+
+    // Set poster on the actual video element after player is created
+    if (poster) {
+      const checkVideoAndSetPoster = () => {
+        const videoElement = newPlayer.querySelector('video');
+        if (videoElement) {
+          videoElement.setAttribute('poster', poster);
+          logger.log('✅ Poster set on video element:', poster);
+        } else {
+          // Retry after a short delay if video element doesn't exist yet
+          setTimeout(checkVideoAndSetPoster, 100);
+        }
+      };
+      checkVideoAndSetPoster();
+    }
 
     // Restore saved position after player is ready (do this AFTER subtitles are set up)
     const playerElement = newPlayer as any;

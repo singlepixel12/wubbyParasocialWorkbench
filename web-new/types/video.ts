@@ -33,6 +33,9 @@ export interface Video {
 
   /** Optional SHA-256 hash of the video URL (used for database lookups) */
   videoHash?: string;
+
+  /** Optional thumbnail URL (stored in Supabase storage) */
+  thumbnailUrl?: string;
 }
 
 /**

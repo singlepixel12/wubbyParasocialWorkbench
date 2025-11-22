@@ -110,4 +110,9 @@
       transform: scale(1.05);
     }
   }
+
+  /* Vidstack player poster/video - 80% opacity when paused */
+  media-player[data-paused="true"] video {
+    opacity: 0.8;
+  }
 }
