@@ -64,6 +64,7 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
 
   const cardContent = (
     <div
+      data-video-hash={videoHash}
       className={cn(
         'flex flex-col md:flex-row gap-4 bg-[#111] border border-[#333] rounded-lg p-4 relative overflow-hidden transition-all duration-200',
         'hover:bg-[#1a1a1a] hover:border-[#444]',
