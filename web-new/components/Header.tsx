@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, FileText, Video, Home } from 'lucide-react';
+import { Menu, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -18,12 +18,6 @@ import { cn } from '@/lib/utils';
  * Secondary navigation links (hidden in hamburger menu)
  */
 const MENU_LINKS = [
-  {
-    href: '/video-metadata',
-    label: 'Video Metadata',
-    icon: Home,
-    description: 'View video metadata and hash information',
-  },
   {
     href: '/transcript',
     label: 'Get Transcript',

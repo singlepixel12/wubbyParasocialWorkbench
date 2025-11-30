@@ -14,10 +14,11 @@ import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useToast } from '@/lib/hooks/useToast';
 import { computeVideoHash } from '@/lib/utils/hash';
-import { getWubbySummary } from '@/lib/api/supabase';
+import { getWubbySummary, fetchRecentVideos } from '@/lib/api/supabase';
 import type { Video } from '@/types/video';
 import { logger } from '@/lib/utils/logger';
 import { SUPABASE_URL } from '@/lib/constants';
+import { Badge } from '@/components/ui/badge';
 
 export default function TranscriptPage() {
   logger.log('===== TranscriptPage Render =====');
@@ -32,6 +33,9 @@ export default function TranscriptPage() {
   const [isSuccess, setIsSuccess] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [video, setVideo] = useState<Video | null>(null);
+  const [recentVideos, setRecentVideos] = useState<Video[]>([]);
+  const [hasSubtitle, setHasSubtitle] = useState<boolean | null>(null);
+  const [hasThumbnail, setHasThumbnail] = useState<boolean | null>(null);
 
   logger.log('Current state:', {
     videoUrl: videoUrl.substring(0, 50) + '...',
@@ -42,6 +46,21 @@ export default function TranscriptPage() {
     isLoading,
     hasVideo: !!video,
   });
+
+  // Fetch recent videos on mount
+  useEffect(() => {
+    const loadRecentVideos = async () => {
+      try {
+        logger.log('Fetching recent videos for dropdown...');
+        const videos = await fetchRecentVideos({ limit: 10 }); // Get 10 most recent
+        setRecentVideos(videos);
+        logger.log(`✅ Loaded ${videos.length} recent videos`);
+      } catch (error) {
+        logger.error('Failed to load recent videos:', error);
+      }
+    };
+    loadRecentVideos();
+  }, []);
 
   // Update page title when video changes
   useEffect(() => {
@@ -120,16 +139,19 @@ export default function TranscriptPage() {
         if (testResponse.ok) {
           logger.log('✅ Subtitles found');
           setSubtitleUrl(subtitlePath);
+          setHasSubtitle(true);
           updateStatus('Subtitles available', true);
         } else {
           logger.warn('⚠️ No subtitles available:', testResponse.status, testResponse.statusText);
           setSubtitleUrl('');
+          setHasSubtitle(false);
           updateStatus(`No subtitles (${testResponse.status})`, false);
           showWarning('No transcript available for this video. Video will play without subtitles.');
         }
       } catch (fetchError) {
         logger.error('❌ Network error testing subtitle URL:', fetchError);
         setSubtitleUrl('');
+        setHasSubtitle(false);
         updateStatus('Could not check subtitles', false);
         showWarning('Unable to check for subtitles. Video will load without them.');
       }
@@ -142,10 +164,25 @@ export default function TranscriptPage() {
       if (summary) {
         logger.log('✅ Video data retrieved');
         setVideo(summary);
+
+        // Check for thumbnail
+        if (summary.thumbnailUrl) {
+          try {
+            const thumbnailResponse = await fetch(summary.thumbnailUrl, { method: 'HEAD' });
+            setHasThumbnail(thumbnailResponse.ok);
+            logger.log(`Thumbnail check: ${thumbnailResponse.ok ? '✅' : '❌'}`);
+          } catch {
+            setHasThumbnail(false);
+          }
+        } else {
+          setHasThumbnail(false);
+        }
+
         updateStatus('Video loaded', true);
       } else {
         logger.log('⚠️ No metadata found');
         setVideo(null);
+        setHasThumbnail(false);
         updateStatus('Video loaded - No Metadata', true);
       }
 
@@ -180,6 +217,8 @@ export default function TranscriptPage() {
     setStatus('');
     setIsSuccess(true);
     setVideo(null);
+    setHasSubtitle(null);
+    setHasThumbnail(null);
     document.title = 'Get Transcript | Wubby Parasocial Workbench';
   };
 
@@ -188,7 +227,7 @@ export default function TranscriptPage() {
       {/* Page Header */}
       <PageHeader
         title="Get Transcript"
-        description="Load archive.wubby.tv videos with transcripts and view them alongside the video player. Subtitles will be enabled automatically if available."
+        description="Technical showcase: Load archive.wubby.tv videos to see transcript extraction, hash generation, and metadata lookup in action. Check the status below to see subtitle/thumbnail availability and platform details."
       />
 
       {/* Video Selector */}
@@ -204,9 +243,40 @@ export default function TranscriptPage() {
             onLoad={handleLoadVideo}
             onClear={handleClear}
             isLoading={isLoading}
+            recentVideos={recentVideos}
           />
 
           <HashDisplay hash={videoHash} status={status} isSuccess={isSuccess} />
+
+          {/* Video Status Display */}
+          {video && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span>Video Status</span>
+                <Badge variant={video.platform === 'kick' ? 'kick-solid' : 'twitch-solid'}>
+                  {video.platform?.toUpperCase()}
+                </Badge>
+              </h3>
+              <pre className="bg-muted p-4 rounded text-sm overflow-x-auto">
+                <code>{JSON.stringify(
+                  {
+                    title: video.title,
+                    platform: video.platform,
+                    date: video.date,
+                    has_subtitles: hasSubtitle,
+                    has_thumbnail: hasThumbnail,
+                    thumbnail_url: video.thumbnailUrl || null,
+                    subtitle_url: subtitleUrl || null,
+                    video_hash: videoHash,
+                    tags_count: video.tags?.length || 0,
+                    tags: video.tags?.slice(0, 5) || [],
+                  },
+                  null,
+                  2
+                )}</code>
+              </pre>
+            </div>
+          )}
         </div>
       </section>
 

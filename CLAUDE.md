@@ -397,47 +397,32 @@ web-new/
 
 ---
 
-## Optimization Plan
+---
 
-**Priority Levels:**
-- 🔴 **CRITICAL**: Blocks production deployment
-- 🟠 **HIGH**: Impacts reliability/UX significantly
-- 🟡 **MEDIUM**: Nice to have, improves quality
-- 🟢 **LOW**: Polish, future enhancements
+## Current Work
 
-### Priority Summary
-
-**✅ CRITICAL (2 issues)** - COMPLETED:
-1. ✅ Remove 173 console.log statements → Centralized logger
-2. ✅ Add global error boundary → Prevent blank page crashes
-
-**✅ HIGH (3 of 4 issues)** - COMPLETED:
-3. ✅ Add page metadata (SEO, social sharing)
-4. ✅ Remove hardcoded env fallbacks → Fail-fast config
-5. ✅ Add loading.tsx/error.tsx files
-6. ⏳ Add component unit tests - PENDING
-
-**✅ MEDIUM (5 of 8 issues)** - COMPLETED:
-7. ✅ Consolidate utility files (no changes needed)
-8. ✅ Simplify useToast hook (217→90 lines)
-9. ✅ Add better empty states with icons and actions
-10. ✅ Add React.memo to large components
-11. ⏳ Add API caching (React Query) - PENDING
-12. ✅ Add retry logic to error toasts
-13. ⏳ Improve mobile date picker UX - PENDING
-14. ⏳ Add pagination to VOD Diary - PENDING
-
-**🟢 LOW (2 issues)** - Future enhancements:
-15. Production build optimization
-16. Bundle analysis and lazy loading
+### 🔄 IN PROGRESS: Touch Gestures for Video Player
+- Added `useTouchGestures.ts` hook
+- Added `player-gestures.spec.ts` E2E test
+- Changes to VidstackPlayer, VideoSelector, Header, transcript page
 
 ---
 
-## Detailed Implementation Steps
+## Remaining Tasks
 
-See optimization plan below for 15 step-by-step implementation guides.
+### 🟠 HIGH Priority
+1. **Component Unit Tests** - Zero unit tests currently, only 3 E2E tests
+
+### 🟡 MEDIUM Priority
+2. **API Caching** - Add React Query/SWR to avoid re-fetching on filter changes (Issue #15)
+3. **VOD Diary Pagination** - Currently fetches 200 videos at once (Issue #14)
+4. **Mobile Date Picker UX** - Flatpickr touch improvements
+
+### 🟢 LOW Priority
+5. **Production Build Optimization** - Bundle analysis, code splitting (Issue #16)
+6. **Keyboard Shortcuts** - Ctrl+K for search, etc.
 
 ---
 
-**Last Updated:** 2025-11-11
-**Status:** CRITICAL & HIGH priority optimizations complete. 5 of 8 MEDIUM priority tasks complete. Ready for remaining enhancements (unit tests, API caching, pagination, mobile UX).
+**Last Updated:** 2025-11-30
+**Status:** Core migration complete. All CRITICAL & HIGH optimizations done (except unit tests). Touch gestures work in progress. 3 MEDIUM priority enhancements pending.

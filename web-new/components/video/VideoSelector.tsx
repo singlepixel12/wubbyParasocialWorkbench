@@ -9,6 +9,7 @@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/utils/logger';
+import type { Video } from '@/types/video';
 
 interface VideoSelectorProps {
   videoUrl: string;
@@ -16,6 +17,7 @@ interface VideoSelectorProps {
   onLoad: () => void;
   onClear: () => void;
   isLoading: boolean;
+  recentVideos?: Video[];
 }
 
 // Sample videos for dropdown (from index.html datalist)
@@ -64,8 +66,14 @@ export function VideoSelector({
   onLoad,
   onClear,
   isLoading,
+  recentVideos = [],
 }: VideoSelectorProps) {
-  logger.debug('VideoSelector render:', { videoUrl, isLoading });
+  logger.debug('VideoSelector render:', { videoUrl, isLoading, videoCount: recentVideos.length });
+
+  // Use recent videos if provided, otherwise fall back to sample videos
+  const videos = recentVideos.length > 0
+    ? recentVideos.map((v) => ({ url: v.url, label: v.title }))
+    : SAMPLE_VIDEOS;
 
   return (
     <div className="space-y-4">
@@ -87,7 +95,7 @@ export function VideoSelector({
             aria-describedby="video-input-help"
           />
           <datalist id="video-options">
-            {SAMPLE_VIDEOS.map((video) => (
+            {videos.map((video) => (
               <option key={video.url} value={video.url}>
                 {video.label}
               </option>

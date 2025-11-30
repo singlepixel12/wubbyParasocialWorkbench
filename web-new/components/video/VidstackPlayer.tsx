@@ -10,6 +10,7 @@ import { logger } from '@/lib/utils/logger';
 
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/lib/hooks/useToast';
+import { useTouchGestures } from '@/lib/hooks/useTouchGestures';
 
 // TypeScript declarations for Vidstack custom elements
 declare global {
@@ -60,12 +61,21 @@ export function VidstackPlayer({
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<HTMLElement | null>(null);
   const { showError, showWarning } = useToast();
 
   // Track watch time for 30-second threshold before enabling storage
   const [hasWatched30Seconds, setHasWatched30Seconds] = useState(false);
   const watchTimeRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+
+  // Enable touch gestures for mobile (drag down = PiP, drag up = fullscreen)
+  useTouchGestures(playerRef, {
+    threshold: 80,
+    enablePiP: true,
+    enableFullscreen: true,
+    mobileOnly: true,
+  });
 
   useEffect(() => {
     logger.group('🎬 VidstackPlayer Initialization');
@@ -116,6 +126,7 @@ export function VidstackPlayer({
 
     // Create new media player
     const newPlayer = document.createElement('media-player') as HTMLElement;
+    playerRef.current = newPlayer; // Store ref for touch gestures
     newPlayer.setAttribute('class', className);
     newPlayer.setAttribute('src', videoUrl);
     if (poster) {
@@ -339,6 +350,7 @@ export function VidstackPlayer({
       if (player) {
         player.remove();
       }
+      playerRef.current = null; // Clear ref
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoUrl, subtitleUrl, poster, className, enableSubtitles, showWarning]);
