@@ -54,7 +54,7 @@ export default function GlobalError({ error, reset }: ErrorProps) {
                 Something went wrong!
               </h1>
               <p className="text-muted-foreground">
-                The application encountered an unexpected error. Don't worry, your data is safe.
+                The application encountered an unexpected error. Your data is safe.
               </p>
             </div>
 

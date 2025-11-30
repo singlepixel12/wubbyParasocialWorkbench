@@ -65,7 +65,7 @@ export default function HomePage() {
 
         results = await fetchRecentVideos({
           limit: 50,
-          platform: platform as any,
+          platform: platform as Platform,
           fromDate: dateRange?.from || null,
           toDate: dateRange?.to || null,
         });

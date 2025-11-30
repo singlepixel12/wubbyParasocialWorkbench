@@ -28,12 +28,12 @@ export default function TranscriptLoading() {
       <div className="border border-border rounded-lg p-6 space-y-3">
         <div className="h-6 w-40 bg-muted animate-pulse rounded" />
         <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
+          {[85, 72, 90, 65, 78, 88, 70, 82].map((width, i) => (
             <div key={i} className="flex gap-3">
               <div className="h-5 w-20 bg-muted animate-pulse rounded" />
               <div
                 className="h-5 bg-muted animate-pulse rounded"
-                style={{ width: `${Math.random() * 40 + 60}%` }}
+                style={{ width: `${width}%` }}
               />
             </div>
           ))}

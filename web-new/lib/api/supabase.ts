@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { Video } from '@/types/video';
+import type { Video, Platform } from '@/types/video';
 import type {
   SupabaseVideoRow,
   FetchVideosParams,
@@ -63,7 +63,7 @@ function mapRowToVideo(row: SupabaseVideoRow): Video {
   return {
     url: row.video_url || '#',
     title: row.pleb_title || 'Untitled',
-    platform: (row.platform as any) || 'unknown',
+    platform: (row.platform as Platform) || 'unknown',
     summary: row.summary || '- This vod has no summary -',
     tags,
     date: row.upload_date || row.created_at || new Date().toISOString(),

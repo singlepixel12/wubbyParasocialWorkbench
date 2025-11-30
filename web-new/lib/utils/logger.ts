@@ -25,7 +25,7 @@ export const logger = {
    * Debug-level logging (development only)
    * Use for verbose debugging information
    */
-  debug: (...args: any[]) => {
+  debug: (...args: unknown[]) => {
     if (isDevelopment && !isTest) {
       console.log('[DEBUG]', ...args);
     }
@@ -35,7 +35,7 @@ export const logger = {
    * Informational messages (development only)
    * Use for general application flow logging
    */
-  log: (...args: any[]) => {
+  log: (...args: unknown[]) => {
     if (isDevelopment && !isTest) {
       console.log(...args);
     }
@@ -45,7 +45,7 @@ export const logger = {
    * Info-level logging (development only)
    * Use for important but non-critical information
    */
-  info: (...args: any[]) => {
+  info: (...args: unknown[]) => {
     if (isDevelopment && !isTest) {
       console.info(...args);
     }
@@ -55,7 +55,7 @@ export const logger = {
    * Warning messages (all environments)
    * Use for recoverable issues that need attention
    */
-  warn: (...args: any[]) => {
+  warn: (...args: unknown[]) => {
     if (!isTest) {
       console.warn('[WARN]', ...args);
     }
@@ -66,7 +66,7 @@ export const logger = {
    * Error messages (all environments)
    * Use for critical errors that affect functionality
    */
-  error: (...args: any[]) => {
+  error: (...args: unknown[]) => {
     if (!isTest) {
       console.error('[ERROR]', ...args);
     }

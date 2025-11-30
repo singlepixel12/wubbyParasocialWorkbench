@@ -14,6 +14,7 @@ import { useTouchGestures } from '@/lib/hooks/useTouchGestures';
 
 // TypeScript declarations for Vidstack custom elements
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements {
       'media-player': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & {
@@ -90,9 +91,10 @@ export function VidstackPlayer({
         // Add error listener to player after it's defined
         const player = document.querySelector('media-player');
         if (player) {
-          player.addEventListener('error', (e: any) => {
-            logger.error('❌ Player error:', e.detail);
-            const error = new Error(e.detail?.message || 'Player error occurred');
+          player.addEventListener('error', (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            logger.error('❌ Player error:', detail);
+            const error = new Error(detail?.message || 'Player error occurred');
             onError?.(error);
             showError('Video player error occurred');
           });
@@ -195,6 +197,7 @@ export function VidstackPlayer({
     }
 
     // Restore saved position after player is ready (do this AFTER subtitles are set up)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const playerElement = newPlayer as any;
     const restoreSavedPosition = () => {
       if (!storageKey) return;
@@ -361,6 +364,7 @@ export function VidstackPlayer({
       return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const player = containerRef.current.querySelector('media-player') as any;
     if (!player) {
       return;

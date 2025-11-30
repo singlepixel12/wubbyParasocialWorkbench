@@ -16,11 +16,14 @@ interface PageTransitionProps {
 
 // Check if user prefers reduced motion
 function useReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  // Initialize with SSR-safe default, then check on mount
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
 
     const handler = (event: MediaQueryListEvent) => {
       setPrefersReducedMotion(event.matches);
@@ -57,8 +60,8 @@ const reducedMotionVariants = {
 };
 
 const pageTransition = {
-  type: 'tween',
-  ease: 'easeInOut',
+  type: 'tween' as const,
+  ease: 'easeInOut' as const,
   duration: 0.25,
 };
 

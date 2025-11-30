@@ -9,7 +9,7 @@
  * Ported from: vod-diary.html #video-list
  */
 
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Video } from '@/types/video';
 import { VideoCard } from './VideoCard';
 import { SkeletonVideoCard } from './SkeletonVideoCard';
@@ -28,20 +28,41 @@ export const VideoList = memo(function VideoList({
   isSearchMode = false,
   onVideoClick,
 }: VideoListProps) {
-  const [showEmptyState, setShowEmptyState] = useState(false);
+  // Track if delay has elapsed for empty state
+  const [delayElapsed, setDelayElapsed] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check if empty state conditions are met
+  const shouldShowEmpty = !loading && videos.length === 0;
 
   // Add delay before showing "No Videos Found" (2 seconds)
   useEffect(() => {
-    if (!loading && videos.length === 0) {
-      const timer = setTimeout(() => {
-        setShowEmptyState(true);
-      }, 2000);
-
-      return () => clearTimeout(timer);
-    } else {
-      setShowEmptyState(false);
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-  }, [loading, videos.length]);
+
+    if (shouldShowEmpty) {
+      timerRef.current = setTimeout(() => {
+        setDelayElapsed(true);
+      }, 2000);
+    } else {
+      // Reset immediately when we have videos - this is intentional
+      // to prevent stale empty state from showing
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDelayElapsed(false);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [shouldShowEmpty]);
+
+  // Derive showEmptyState from both conditions
+  const showEmptyState = shouldShowEmpty && delayElapsed;
 
   if (loading) {
     return (

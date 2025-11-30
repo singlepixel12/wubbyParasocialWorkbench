@@ -290,6 +290,7 @@ async function enterPictureInPicture(element: HTMLElement) {
 async function enterFullscreen(element: HTMLElement) {
   try {
     // Check if already in fullscreen
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
       logger.debug('[useTouchGestures] Already in fullscreen mode');
       return;
@@ -301,6 +302,7 @@ async function enterFullscreen(element: HTMLElement) {
     }
     // Fallback to webkit (iOS Safari)
     else if ('webkitRequestFullscreen' in element) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (element as any).webkitRequestFullscreen();
     }
     else {

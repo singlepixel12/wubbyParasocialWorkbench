@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { logger } from '@/lib/utils/logger';
 
 interface ErrorProps {
@@ -48,7 +49,7 @@ export default function PlayerError({ error, reset }: ErrorProps) {
             Video Player Error
           </h2>
           <p className="text-muted-foreground">
-            We couldn't load the video player. This might be a video loading issue or a temporary problem.
+            Unable to load the video player. This might be a video loading issue or a temporary problem.
           </p>
         </div>
 
@@ -69,12 +70,12 @@ export default function PlayerError({ error, reset }: ErrorProps) {
           >
             Retry Loading
           </button>
-          <a
+          <Link
             href="/vod-diary"
             className="px-6 py-3 bg-muted text-muted-foreground rounded-lg font-medium hover:bg-muted/90 transition-colors inline-block"
           >
             Back to VOD Diary
-          </a>
+          </Link>
         </div>
       </div>
     </div>

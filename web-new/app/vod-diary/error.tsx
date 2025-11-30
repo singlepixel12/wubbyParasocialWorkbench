@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { logger } from '@/lib/utils/logger';
 
 interface ErrorProps {
@@ -48,7 +49,7 @@ export default function VodDiaryError({ error, reset }: ErrorProps) {
             VOD Diary Error
           </h2>
           <p className="text-muted-foreground">
-            We couldn't load the VOD diary. This might be a temporary issue.
+            Unable to load the VOD diary. This might be a temporary issue.
           </p>
         </div>
 
@@ -69,12 +70,12 @@ export default function VodDiaryError({ error, reset }: ErrorProps) {
           >
             Retry Loading
           </button>
-          <a
+          <Link
             href="/"
             className="px-6 py-3 bg-muted text-muted-foreground rounded-lg font-medium hover:bg-muted/90 transition-colors inline-block"
           >
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     </div>
