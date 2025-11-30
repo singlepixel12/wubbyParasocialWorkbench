@@ -13,6 +13,8 @@ interface TouchGestureConfig {
   enableFullscreen?: boolean;
   /** Only enable on mobile devices */
   mobileOnly?: boolean;
+  /** Enable visual scale feedback during drag */
+  enableScaleFeedback?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export function useTouchGestures(
     enablePiP = true,
     enableFullscreen = true,
     mobileOnly = true,
+    enableScaleFeedback = true,
   } = config;
 
   // Track touch state
@@ -115,6 +118,44 @@ export function useTouchGestures(
     };
 
     /**
+     * Apply scale transform during drag for visual feedback
+     */
+    const applyScaleTransform = (deltaY: number) => {
+      if (!enableScaleFeedback) return;
+
+      // Calculate scale based on drag distance
+      // Drag down (PiP): shrink from 1.0 to 0.85
+      // Drag up (Fullscreen): grow from 1.0 to 1.05
+      let scale: number;
+      if (deltaY > 0) {
+        // Dragging down - shrink (PiP preview)
+        scale = Math.max(0.85, 1 - (deltaY / 400));
+      } else {
+        // Dragging up - grow (Fullscreen preview)
+        scale = Math.min(1.05, 1 + (Math.abs(deltaY) / 800));
+      }
+
+      element.style.transform = `scale(${scale})`;
+      element.style.transition = 'none';
+    };
+
+    /**
+     * Reset scale transform with spring animation
+     */
+    const resetScaleTransform = () => {
+      if (!enableScaleFeedback) return;
+
+      element.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      element.style.transform = 'scale(1)';
+
+      // Clean up transition after animation
+      setTimeout(() => {
+        element.style.transition = '';
+        element.style.transform = '';
+      }, 300);
+    };
+
+    /**
      * Handle touch move - track if user is dragging vertically
      */
     const handleTouchMove = (e: TouchEvent) => {
@@ -132,6 +173,9 @@ export function useTouchGestures(
         isDragging.current = true;
         // Prevent default scroll behavior during vertical drag
         e.preventDefault();
+
+        // Apply scale feedback during drag
+        applyScaleTransform(deltaY);
       }
     };
 
@@ -139,6 +183,9 @@ export function useTouchGestures(
      * Handle touch end - trigger action if threshold met
      */
     const handleTouchEnd = async (e: TouchEvent) => {
+      // Always reset scale on touch end
+      resetScaleTransform();
+
       if (touchStartY.current === null || !isDragging.current) {
         // Reset state
         touchStartY.current = null;

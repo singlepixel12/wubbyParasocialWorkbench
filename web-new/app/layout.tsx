@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
+import { PageTransition } from "@/components/PageTransition";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -65,9 +66,11 @@ export default function RootLayout({
         {/* Header with navigation */}
         <Header />
 
-        {/* Main content area */}
-        <main id="main-content" className="container mx-auto px-4 py-8">
-          {children}
+        {/* Main content area - reduced padding on mobile */}
+        <main id="main-content" className="container mx-auto px-2 md:px-4 py-4 md:py-8">
+          <PageTransition>
+            {children}
+          </PageTransition>
         </main>
 
         {/* Toast notifications */}

@@ -18,6 +18,7 @@ import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpe
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { computeVideoHash } from '@/lib/utils/hash';
+import { motion } from 'framer-motion';
 
 interface VideoDetailViewProps {
   video: Video;
@@ -39,9 +40,6 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
 
   const [subtitleUrl, setSubtitleUrl] = useState<string | undefined>();
 
-  // Debug: Log thumbnail URL
-  console.log('🖼️ VideoDetailView - Thumbnail URL:', video.thumbnailUrl);
-
   // Generate subtitle URL from video hash
   useEffect(() => {
     async function loadSubtitles() {
@@ -59,10 +57,29 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
     }
   }, [video.url]);
 
+  // Animation variants
+  const videoVariants = {
+    initial: { opacity: 0, scale: 0.98 },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.3 }
+    }
+  };
+
+  const metadataVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: { delay: 0.15, duration: 0.3 }
+    }
+  };
+
   return (
-    <div className="space-y-6 px-4 py-6">
+    <div className="space-y-4 md:space-y-6 px-0 md:px-4 py-4 md:py-6">
       {/* Back to VOD Diary */}
-      <div>
+      <div className="px-2 md:px-0">
         <Link href="/vod-diary">
           <Button variant="ghost" size="sm" className="text-[#888] hover:text-white">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -71,17 +88,27 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
         </Link>
       </div>
 
-      {/* Video Player */}
-      <div className="w-full">
+      {/* Video Player - full width on mobile */}
+      <motion.div
+        className="w-full"
+        variants={videoVariants}
+        initial="initial"
+        animate="animate"
+      >
         <VidstackPlayer
           videoUrl={video.url}
           subtitleUrl={subtitleUrl}
           poster={video.thumbnailUrl}
         />
-      </div>
+      </motion.div>
 
-      {/* Header Section */}
-      <div className="space-y-3">
+      {/* Header Section - with padding on mobile */}
+      <motion.div
+        className="space-y-3 px-2 md:px-0"
+        variants={metadataVariants}
+        initial="initial"
+        animate="animate"
+      >
         {/* Badges */}
         <div className="flex items-center gap-2">
           <Badge variant={getSolidBadgeVariant(video.platform)}>
@@ -114,30 +141,42 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Separator */}
-      <div className="h-px bg-[#333]" />
+      <div className="h-px bg-[#333] mx-2 md:mx-0" />
 
       {/* 🎯 FULL SUMMARY (The Payoff!) */}
-      <Card className={cn(
-        'p-6',
-        'bg-gradient-to-br from-[#28a745]/10 via-transparent to-transparent',
-        'border-l-4 border-[#28a745]'
-      )}>
-        <div className="space-y-3">
-          {/* Full 200-word summary with nice formatting */}
-          <div className="prose prose-invert prose-sm max-w-none">
-            <p className="text-[#ccc] leading-relaxed whitespace-pre-line">
-              {video.summary || 'No summary available for this video.'}
-            </p>
+      <motion.div
+        className="px-2 md:px-0"
+        variants={metadataVariants}
+        initial="initial"
+        animate="animate"
+      >
+        <Card className={cn(
+          'p-4 md:p-6',
+          'bg-gradient-to-br from-[#28a745]/10 via-transparent to-transparent',
+          'border-l-4 border-[#28a745]'
+        )}>
+          <div className="space-y-3">
+            {/* Full 200-word summary with nice formatting */}
+            <div className="prose prose-invert prose-sm max-w-none">
+              <p className="text-[#ccc] leading-relaxed whitespace-pre-line">
+                {video.summary || 'No summary available for this video.'}
+              </p>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </motion.div>
 
       {/* Tags Section */}
       {video.tags && video.tags.length > 0 && (
-        <div className="space-y-3">
+        <motion.div
+          className="space-y-3 px-2 md:px-0"
+          variants={metadataVariants}
+          initial="initial"
+          animate="animate"
+        >
           <h3 className="text-sm font-medium text-[#888] uppercase tracking-wide">
             Topics & Tags
           </h3>
@@ -155,7 +194,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
                 </Badge>
               ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

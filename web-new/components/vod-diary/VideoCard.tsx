@@ -56,7 +56,7 @@ export const VideoCard = memo(function VideoCard({ video, onCardClick }: VideoCa
 
     // Navigate to watch page with video hash (include basePath for GitHub Pages)
     if (videoHash) {
-      const basePath = process.env.NODE_ENV === 'production' ? '/wubbyParasocialWorkbench' : '/wubbyParasocialWorkbench';
+      const basePath = process.env.NODE_ENV === 'production' ? '/wubbyParasocialWorkbench' : '';
       window.open(`${basePath}/watch?id=${videoHash}`, '_blank');
       onCardClick?.(video);
     }
