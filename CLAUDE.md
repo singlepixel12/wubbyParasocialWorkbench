@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Wubby Parasocial Workbench** - Web tool for analyzing Wubby stream content with video transcription, VOD diary, and content analysis.
+**Wubby Parasocial Workbench** - Web tool for analyzing Wubby stream content with AI-powered video summaries, transcripts, and smart tagging.
 
 **Target Audience:** Wubby community
 **Data Source:** archive.wubby.tv
@@ -12,124 +12,48 @@
 
 ## Tech Stack
 
-### Original (Vanilla)
-- Pure HTML/CSS/JavaScript
-- Vidstack Player
-- Flatpickr date picker
-
-### Migrated (Next.js)
 - **Framework:** Next.js 16 (App Router)
-- **UI:** React + shadcn/ui + Tailwind CSS
-- **Video:** Vidstack Player
-- **Backend:** Supabase (video metadata, subtitles)
+- **UI:** React 19 + shadcn/ui + Tailwind CSS 4
+- **Video:** Vidstack Player (CDN-loaded)
+- **Backend:** Supabase (PostgreSQL + Storage)
+- **Testing:** Playwright (E2E)
+- **Animations:** tw-animate-css
 
 ---
 
 ## Core Features
 
-1. **Video Management** - URL input, dropdown VOD selection, hash-based tracking, metadata display
-2. **Transcription Tools** - VTT subtitle extraction/display, transcript sync with video
-3. **VOD Diary** - Date range filtering, platform toggle (Twitch/Kick), expandable video cards, search
-4. **Player Page** - Dedicated video player with subtitle support
+### 1. VOD Diary (Browse)
+- Date range filtering with locale-aware formatting (AU/US)
+- Platform toggle (Twitch/Kick/Both) with color theming
+- Real-time search with debouncing
+- Expandable video cards with AI summary hooks
+- Lazy-loaded thumbnails with fallbacks
 
----
+### 2. Two-Tier UX (Progressive Disclosure)
+- **Browse View:** Scannable 1-2 line hooks + "Read more"
+- **Detail View:** Full 200+ word AI summary at `/watch?id=HASH`
+- Platform-specific play button glow (Kick green, Twitch purple)
+- Tag display (3 mobile, 6 desktop) with click handlers
 
-## Migration Status
+### 3. Video Player
+- Vidstack player with custom community skin
+- Subtitle/transcript support (VTT files from Supabase)
+- Playback position saving (every 10s after 30s threshold)
+- Position restoration on page reload
+- Media Session API (lock screen controls, background playback)
+- Touch gestures (mobile only): drag up = fullscreen, drag down = PiP
 
-### ✅ CORE MIGRATION COMPLETE (2025-11-08)
-All 4 pages functional, mobile tested (375x667px), all features working.
+### 4. Transcript Extraction
+- Manual URL input or dropdown selection
+- Real-time SHA-256 hash computation
+- Subtitle availability detection (HEAD request)
+- Debug output with metadata display
 
-**Success Criteria:**
-- [x] All pages functional in Next.js
-- [x] Video playback + subtitles working
-- [x] Transcript extraction working
-- [x] VOD diary filtering (date + platform + search)
-- [x] Hash-based tracking preserved
-- [x] archive.wubby.tv integration intact
-- [x] Responsive design matches original
-- [x] Toast notifications working
-- [x] Visual appearance preserved
-- [x] No functionality lost
-
-### ✅ SHADCN PHASE 1 COMPLETE (2025-11-10)
-
-**Migrations Completed:**
-1. **Sonner Toast** - Replaced custom AlertToastProvider (182 lines removed)
-2. **Badge Component** - Replaced PlatformTag with shadcn Badge + 6 custom variants (58 lines removed)
-3. **Skeleton Loading** - Added SkeletonVideoCard for better loading UX
-4. **Collapsible** - Replaced custom VideoCard animations with Radix Collapsible (60 lines removed)
-
-**Impact:**
-- ~300 lines of custom code removed
-- WCAG 2.1 AA accessibility compliance
-- Better cross-browser support
-- Improved keyboard navigation + screen readers
-
-### ✅ WEEK 0-1: TWO-TIER UX COMPLETE (2025-11-16)
-
-**UI Uplift - Differentiator Focus:**
-
-1. **Two-Tier UX Pattern** - Progressive disclosure implemented
-   - ✅ Browse cards show 1-2 line hooks (scannable!)
-   - ✅ "Read more →" CTA on all cards
-   - ✅ `/watch/[id]` route with full detail view
-   - ✅ Full 200-word AI summary on detail page
-   - ✅ `getWubbySummaryByHash()` for direct hash lookup
-
-2. **Visual Enhancements** - Make differentiators prominent
-   - ✅ Tag count badge added (no icon - clean)
-   - ✅ Green accent bar for summary hooks
-   - ✅ FileText icon for original titles
-   - ✅ 6 tags visible (was 3), all clickable
-   - ✅ Platform-specific play button glow (Kick green, Twitch purple)
-   - ✅ Removed redundant "Click to watch" text
-
-**Impact:**
-- 7 files modified
-- ~200 lines changed
-- Better UX with two-tier progressive disclosure
-- Differentiators (AI, tags, titles) now prominent
-- "Read more" flow fully functional
-
-**See:** `UI_IMPLEMENTATION_GUIDE.md` for complete design reference
-
-### ✅ MEDIUM PRIORITY OPTIMIZATIONS COMPLETE (2025-11-11)
-
-**Optimizations Completed:**
-
-1. **Utility File Consolidation** - Analyzed all utility files
-   - ✅ No consolidation needed - files already well-organized
-   - 4 files with distinct responsibilities: cn(), logger, hash, video-helpers
-   - No overlapping functionality found
-
-2. **Enhanced Empty States** - Improved UX with icons and actions
-   - ✅ VideoList.tsx - Search/Film icons, helpful descriptions
-   - ✅ app/player/page.tsx - PlayCircle icon with "Browse VOD Diary" action button
-   - Better visual hierarchy and user guidance
-
-3. **Error Retry Logic** - Added retry buttons to all error toasts
-   - ✅ app/vod-diary/page.tsx - Retry loading videos
-   - ✅ app/player/page.tsx - Retry loading video metadata (2 cases)
-   - ✅ app/page.tsx - Retry loading video on index page
-   - ✅ app/transcript/page.tsx - Retry loading video on transcript page
-   - Users can retry failed operations without manual page refresh
-
-4. **React.memo Optimization** - Prevented unnecessary re-renders
-   - ✅ VideoCard.tsx - Memoized to prevent re-renders on parent updates
-   - ✅ VideoList.tsx - Memoized list container
-   - Improved performance with 50+ video cards
-
-5. **useToast Simplification** - Reduced code complexity
-   - ✅ Simplified from 217 lines to 90 lines (58% reduction)
-   - Removed unnecessary wrapper functions
-   - Maintained all functionality with cleaner code
-
-**Impact:**
-- 6 files modified
-- ~120 lines changed
-- Better UX with retry functionality
-- Improved performance with React.memo
-- Cleaner, more maintainable code
+### 5. Hash-Based Tracking
+- SHA-256 hash of video URLs as unique identifier
+- Used for: DB lookups, subtitle paths, thumbnail paths, position storage
+- Format: `wubbytranscript/{hash}/en/subtitle.vtt`
 
 ---
 
@@ -138,291 +62,200 @@ All 4 pages functional, mobile tested (375x667px), all features working.
 ```
 web-new/
 ├── app/
-│   ├── page.tsx              # Index - Video metadata
+│   ├── page.tsx              # Landing/Home (VOD browse)
+│   ├── watch/page.tsx        # Detail view (/watch?id=HASH)
+│   ├── vod-diary/page.tsx    # VOD diary with filters
+│   ├── player/page.tsx       # Dedicated player
 │   ├── transcript/page.tsx   # Transcript extraction
-│   ├── vod-diary/page.tsx    # VOD list with filters
-│   ├── player/page.tsx       # Video player
-│   ├── layout.tsx            # Root layout
+│   ├── layout.tsx            # Root layout + metadata
+│   ├── error.tsx             # Global error boundary
+│   ├── not-found.tsx         # 404 page
+│   ├── loading.tsx           # Loading skeleton
 │   └── globals.css           # Tailwind styles
 ├── components/
-│   ├── ui/                   # shadcn components
-│   ├── video/                # VideoSelector, VidstackPlayer, VideoMetadata
-│   ├── vod-diary/            # VideoCard, DateRangePicker, PlatformSlider, SearchInput
-│   └── Header.tsx            # Navigation
+│   ├── ui/                   # shadcn components (badge, button, card, etc.)
+│   ├── video/
+│   │   ├── VidstackPlayer.tsx    # Main player (CDN, subtitles, gestures)
+│   │   ├── VideoSelector.tsx     # URL input + dropdown
+│   │   ├── VideoMetadata.tsx     # Metadata display
+│   │   ├── VideoDetailView.tsx   # Full detail view
+│   │   └── HashDisplay.tsx       # Hash status display
+│   ├── vod-diary/
+│   │   ├── VideoCard.tsx         # Browse card (React.memo)
+│   │   ├── VideoList.tsx         # Card container (React.memo)
+│   │   ├── SkeletonVideoCard.tsx # Loading placeholder
+│   │   ├── DateRangePicker.tsx   # Flatpickr integration
+│   │   ├── PlatformSlider.tsx    # Platform toggle
+│   │   └── SearchInput.tsx       # Debounced search
+│   ├── layout/
+│   │   └── PageHeader.tsx        # Page title/description
+│   └── Header.tsx                # Site navigation
 ├── lib/
-│   ├── api/supabase.ts       # API client
-│   ├── hooks/useToast.ts     # Toast wrapper
-│   └── utils/                # hash, video-helpers, cn
-└── types/
-    ├── video.ts              # Video interface
-    └── supabase.ts           # DB types
+│   ├── api/
+│   │   └── supabase.ts           # API client (4 functions)
+│   ├── hooks/
+│   │   ├── useTouchGestures.ts   # Mobile gestures (PiP/fullscreen)
+│   │   ├── useLocalStorage.ts    # SSR-safe storage
+│   │   ├── useToast.ts           # Sonner wrapper
+│   │   └── useDebounce.ts        # Debounce utility
+│   └── utils/
+│       ├── hash.ts               # SHA-256 computation
+│       ├── video-helpers.ts      # Format/extract utilities
+│       ├── logger.ts             # Environment-aware logging
+│       └── storage-cleanup.ts    # Vidstack position cleanup
+├── types/
+│   ├── video.ts                  # Video interface
+│   └── supabase.ts               # DB types
+└── tests/
+    ├── player-gestures.spec.ts   # Touch gesture tests (32 tests)
+    ├── navigation.spec.ts        # Page navigation
+    ├── vod-diary.spec.ts         # Filter functionality
+    └── ...                       # Other E2E tests
 ```
 
 ---
 
-## Key Technical Details
+## API Functions (lib/api/supabase.ts)
 
-### Hash-based Video Tracking
-- SHA-256 hash generation from video URLs
-- Used for subtitle lookup: `wubbytranscript/{hash}/en/subtitle.vtt`
-- Implementation: `/lib/utils/hash.ts`
-
-### Supabase Integration
-- Video metadata from `wubby_summaries` table
-- Subtitle storage in `wubbytranscript` bucket
-- Client: `/lib/api/supabase.ts`
-
-### Platform Support
-- Twitch VODs
-- Kick VODs
-- Platform-specific filtering + color theming (purple/green)
-
-### Accessibility
-- ARIA attributes via Radix UI primitives
-- Keyboard navigation (Tab, Enter, Space)
-- Screen reader compatible
-- Focus indicators
+| Function | Purpose |
+|----------|---------|
+| `getWubbySummary(url)` | Fetch metadata by URL (computes hash) |
+| `getWubbySummaryByHash(hash)` | Fetch metadata by pre-computed hash |
+| `fetchRecentVideos(params)` | Query videos with filters |
+| `searchVideos(params)` | Search by title, URL, tags |
 
 ---
 
-## Component Highlights
+## Custom Hooks
 
-### Badge Variants (Custom)
-```typescript
-// Light variants: kick, twitch, tag
-// Solid variants: kick-solid, twitch-solid, tag-solid
-// Colors: Kick=#1e7e34, Twitch=#6441A5
-```
-
-### Collapsible VideoCard
-- Replaces 60 lines of custom animation code
-- Automatic ARIA attributes
-- Keyboard accessible expand/collapse
-
-### Skeleton Loading
-- SkeletonVideoCard mimics VideoCard structure
-- Shows 3 cards during VOD fetch
-- Better perceived performance
+| Hook | Purpose |
+|------|---------|
+| `useTouchGestures` | Mobile touch gestures for PiP/fullscreen |
+| `useLocalStorage` | SSR-safe localStorage with cross-tab sync |
+| `useToast` | Sonner toast wrapper (error/success/info) |
+| `useDebounce` | Debounce values for search input |
 
 ---
 
-## Code Analysis & Optimization Findings
+## Completed Work
 
-**Analysis Date:** 2025-11-10
-**Codebase Size:** 3,117 lines (40 TypeScript/TSX files)
+### ✅ Core Migration (2025-11-08)
+- All 4 pages functional in Next.js
+- Video playback + subtitles working
+- VOD diary filtering (date + platform + search)
+- Hash-based tracking preserved
+- Mobile tested (375x667px)
 
-### 1. Code Organization & Structure ✅ GOOD
+### ✅ shadcn Phase 1 (2025-11-10)
+- Sonner Toast (182 lines removed)
+- Badge component with 6 variants (kick, twitch, tag + solid)
+- Skeleton loading components
+- Collapsible (60 lines removed)
+- WCAG 2.1 AA accessibility
 
-**Strengths:**
-- Clear separation: app/, components/, lib/, types/ directories well-organized
-- Component composition: Proper separation (video/, vod-diary/, ui/, layout/)
-- Type safety: TypeScript properly used with dedicated type files
-- Modern patterns: Next.js App Router, shadcn/ui with Radix UI primitives
+### ✅ Two-Tier UX (2025-11-16)
+- Browse cards with 1-2 line hooks
+- `/watch?id=HASH` detail pages
+- Full 200-word AI summaries
+- Platform-specific play button glow
+- 6 tags visible (was 3)
+- Green accent bar for summaries
 
-**Issues:**
-- ✅ ~~Utility fragmentation~~ - RESOLVED: Files analyzed, no consolidation needed (well-organized)
-- Component size: Some growing large (VideoCard: 171 lines, vod-diary/page: 128 lines)
-- ✅ ~~Missing structure~~ - RESOLVED: Error boundaries and loading.tsx files added (HIGH priority)
-- Test gap: Only 3 test files - no component unit tests
+### ✅ Optimizations (2025-11-11)
+- React.memo on VideoCard/VideoList
+- Error retry buttons on all toasts
+- Enhanced empty states with icons
+- useToast simplified (217→90 lines)
+- Environment-aware logger
 
-### 2. Code Quality & Best Practices ⚠️ NEEDS WORK
+### ✅ Touch Gestures (2025-11-30)
+- `useTouchGestures.ts` hook
+- Drag up = fullscreen, drag down = PiP
+- Mobile-only (80px threshold)
+- 32 E2E tests passing (Mobile Chrome + Safari)
+- `data-video-hash` attribute for testability
 
-**Strengths:**
-- TypeScript: Proper types, interfaces, type safety throughout
-- Documentation: Comprehensive JSDoc (hash.ts, supabase.ts)
-- Error handling: 24 try-catch blocks for critical operations
-- React patterns: Proper hooks (useState, useEffect, useCallback)
+### ✅ Thumbnails & Posters (2025-11-30)
+- Thumbnail images from Supabase storage
+- Lazy loading with fallback to black box
+- Poster display in video player
+- Path: `wubbytranscript/{hash}/thumbnail.webp`
 
-**🚨 CRITICAL ISSUES:**
+### ✅ Playback Position (2025-11-30)
+- Saves position every 10s (after 30s watch threshold)
+- Position restoration on reload
+- Storage cleanup after 60 days or 100 max
+- Per-video storage using hash key
 
-**✅ Issue #1: Excessive Console Logging (173 statements)** - RESOLVED
-- ✅ Centralized logger.ts implemented with environment-aware log levels
-- ✅ Logs suppressed in production, only show in development
-- ✅ All console.log statements now go through logger utility
-
-**✅ Issue #2: No Production Logging Strategy** - RESOLVED
-- ✅ Logger.ts with debug/info/warn/error levels implemented
-- ✅ Environment detection (development vs production)
-- ✅ Ready for Sentry/LogRocket integration
-
-**✅ Issue #3: Hardcoded API Key Fallbacks** - RESOLVED
-- ✅ Removed hardcoded fallback from lib/api/supabase.ts
-- ✅ App now fails fast with clear error message if env vars missing
-- ✅ Better debugging for configuration errors
-
-**✅ Issue #4: No Global Error Boundary** - RESOLVED
-- ✅ app/error.tsx implemented with user-friendly UI
-- ✅ Component-level error boundaries (player, transcript, vod-diary)
-- ✅ app/not-found.tsx for 404 errors
-- ✅ Graceful error recovery with retry options
-
-**MAJOR ISSUES:**
-
-**✅ Issue #5: No Environment Detection** - RESOLVED
-- ✅ Logger.ts now detects NODE_ENV (development, production, test)
-- ✅ Logs automatically suppressed in production
-- ✅ Ready for environment-specific analytics and error reporting
-
-**✅ Issue #6: useToast Over-Engineering** - RESOLVED
-- ✅ Simplified from 217 lines to 90 lines (58% reduction)
-- ✅ Removed unnecessary convertOptions/convertDuration wrappers
-- ✅ Maintained all functionality with cleaner implementation
-
-**Issue #7: Code Duplication**
-- Similar fetch patterns across supabase.ts
-- Sample data hardcoded in components (should be in constants)
-- Priority: MEDIUM
-
-**Issue #8: Unused Code**
-- isValidHash function defined but never used
-- Sample videos in VideoSelector (should be constant)
-- Priority: LOW
-
-### 3. UI/UX Analysis ✅ MOSTLY GOOD
-
-**Strengths:**
-- **Accessibility:** Skip links, ARIA labels, semantic HTML, keyboard nav via Radix UI
-- **Responsive:** Tested 375x667px mobile, works well
-- **Loading states:** Skeleton components for perceived performance
-- **Feedback:** Toast notifications for all operations
-- **Theming:** Platform-specific colors (Kick green, Twitch purple)
-
-**Issues:**
-
-**✅ Issue #9: Missing Page Metadata** - RESOLVED
-- ✅ Root layout updated with comprehensive metadata
-- ✅ Per-page layouts for vod-diary, transcript, player
-- ✅ Open Graph tags for social sharing
-- ✅ Twitter Card support
-
-**✅ Issue #10: No 404/Error Pages** - RESOLVED
-- ✅ app/not-found.tsx implemented
-- ✅ app/error.tsx (global error boundary)
-- ✅ Page-level error.tsx files (player, transcript, vod-diary)
-
-**✅ Issue #11: No Loading States** - RESOLVED
-- ✅ loading.tsx files for all routes (/, /vod-diary, /transcript, /player)
-- ✅ Skeleton UIs for better perceived performance
-- ✅ Next.js Suspense streaming support
-
-**Issue #12: Player UX**
-- Opens in new tab (target="_blank") - could use modal
-- No in-page player option
-- Priority: LOW
-
-**✅ Enhancements Completed:**
-- ✅ Retry buttons on error toasts (all critical error cases)
-- ✅ Better empty states with icons and helpful messages
-
-**Enhancement Opportunities:**
-- Pagination for VOD Diary (currently fetches 200 at once)
-- Search loading indicator (debounce already implemented)
-- Keyboard shortcuts (Ctrl+K for search)
-- Offline support indicator
-
-### 4. Performance Analysis ⚠️ OPTIMIZATION NEEDED
-
-**Optimizations Completed:**
-
-**✅ Issue #13: No React.memo** - RESOLVED
-- ✅ VideoCard.tsx wrapped with React.memo
-- ✅ VideoList.tsx wrapped with React.memo
-- ✅ Prevents unnecessary re-renders of 50+ video cards on filter changes
-
-**Potential Issues:**
-
-**Issue #14: Large Data Fetches**
-- Search fetches 200 videos without pagination
-- VOD Diary fetches 50 videos at once
-- Priority: MEDIUM
-
-**Issue #15: No API Caching**
-- Repeated API calls on filter changes
-- Could cache with React Query/SWR
-- Priority: MEDIUM
-
-**Issue #16: Bundle Size**
-- Vidstack player is heavy (could lazy load)
-- No dynamic imports for heavy components
-- Priority: LOW
-
-**Measurements:**
-- Component lines: 3,117
-- Dependencies: 33 packages (reasonable)
-- Console logs: 173 statements
-
-### 5. Testing & Quality Assurance ⚠️ MAJOR GAPS
-
-**Current Coverage:**
-- E2E tests: 3 Playwright specs (smoke, hash, vod-diary)
-- Unit tests: **ZERO**
-- Integration tests: **ZERO**
-- Visual regression: **ZERO**
-
-**Issue #17: No Component Tests**
-- No tests for VideoCard, VideoSelector, VideoMetadata
-- No hook tests (useToast, useLocalStorage)
-- Priority: HIGH
-
-**Issue #18: No API Tests**
-- No mocked Supabase tests
-- No error handling tests
-- Priority: MEDIUM
-
-**Issue #19: No Accessibility Tests**
-- Beyond manual verification, no automated a11y tests
-- Priority: MEDIUM
-
-**Missing Test Types:**
-- Component rendering tests
-- Hook behavior tests
-- API mocking tests
-- Error boundary tests
-- Keyboard navigation tests
-- Screen reader tests
-
-### 6. Security & Best Practices ✅ ACCEPTABLE
-
-**Good:**
-- Read-only Supabase anon key (safe to expose)
-- RLS protection on database
-- No sensitive data in client
-- Proper CORS via Supabase
-
-**Recommendations:**
-- Remove hardcoded API key fallback (Issue #3)
-- Add client-side rate limiting
-- Request timeout handling (already in getWubbySummary)
-- Consider CSRF protection for future writes
-
----
-
----
-
-## Current Work
-
-### 🔄 IN PROGRESS: Touch Gestures for Video Player
-- Added `useTouchGestures.ts` hook
-- Added `player-gestures.spec.ts` E2E test
-- Changes to VidstackPlayer, VideoSelector, Header, transcript page
+### ✅ Media Session API (2025-11-30)
+- Lock screen controls for background playback
+- Metadata display (title, artist, artwork)
+- Seek forward/backward buttons
 
 ---
 
 ## Remaining Tasks
 
-### 🟠 HIGH Priority
-1. **Component Unit Tests** - Zero unit tests currently, only 3 E2E tests
+### HIGH Priority
+1. **Component Unit Tests** - Zero unit tests currently (only 32 E2E tests)
 
-### 🟡 MEDIUM Priority
-2. **API Caching** - Add React Query/SWR to avoid re-fetching on filter changes (Issue #15)
-3. **VOD Diary Pagination** - Currently fetches 200 videos at once (Issue #14)
+### MEDIUM Priority
+2. **API Caching** - Add React Query/SWR to avoid re-fetching
+3. **VOD Diary Pagination** - Currently fetches 200 videos at once
 4. **Mobile Date Picker UX** - Flatpickr touch improvements
+5. **Tag Search** - Tags are clickable but don't trigger search (TODO in code)
 
-### 🟢 LOW Priority
-5. **Production Build Optimization** - Bundle analysis, code splitting (Issue #16)
-6. **Keyboard Shortcuts** - Ctrl+K for search, etc.
+### LOW Priority
+6. **Production Build Optimization** - Bundle analysis, code splitting
+7. **Keyboard Shortcuts** - Ctrl+K for search
+8. **Offline Support Indicator**
+
+---
+
+## Key Technical Details
+
+### Video Interface
+```typescript
+interface Video {
+  url: string;
+  title: string;
+  platform: 'twitch' | 'kick';
+  summary: string;           // 200+ words AI-generated
+  tags: string[];            // Topic tags
+  date: string;              // ISO date
+  videoHash?: string;        // SHA-256 (64 chars)
+  thumbnailUrl?: string;     // Supabase storage URL
+}
+```
+
+### Badge Variants
+```typescript
+// Light: kick, twitch, tag
+// Solid: kick-solid, twitch-solid, tag-solid
+// Colors: Kick=#28a745, Twitch=#6441A5
+```
+
+### Storage Keys
+- `selectedVideoUrl` - Current video URL
+- `vds-{hash}` - Playback position (Vidstack format)
+
+---
+
+## Testing
+
+### E2E Tests (Playwright)
+- **player-gestures.spec.ts** - 32 tests (Mobile Chrome + Safari)
+- **navigation.spec.ts** - Page navigation
+- **vod-diary.spec.ts** - Filters, search
+- **accessibility.spec.ts** - WCAG compliance
+- **mobile.spec.ts** - Responsive design
+
+### Test Strategy
+- Uses real Supabase data (fetches video hash from VOD diary)
+- Serial execution with `test.beforeAll` for shared state
+- Touch detection skips simulation on desktop
 
 ---
 
 **Last Updated:** 2025-11-30
-**Status:** Core migration complete. All CRITICAL & HIGH optimizations done (except unit tests). Touch gestures work in progress. 3 MEDIUM priority enhancements pending.
+**Status:** Core complete. Touch gestures complete (32 E2E tests). Unit tests needed.
