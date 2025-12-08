@@ -6,7 +6,12 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true, // Required for static export
   },
-  // turbopack config removed for Next.js 15 compatibility
+  // React Compiler for automatic memoization (Next.js 16)
+  reactCompiler: true,
+  // Silence turbopack root warning for monorepo structure
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 export default nextConfig;
