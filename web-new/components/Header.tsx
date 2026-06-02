@@ -31,12 +31,15 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#333] bg-[#111]/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-rule bg-background/90 backdrop-blur-sm">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          {/* Site Title */}
-          <Link href="/" className="text-xl font-bold text-white hover:text-[#28a745] transition-colors">
-            Wubby Parasocial Workbench
+          {/* Site Title — editorial wordmark */}
+          <Link
+            href="/"
+            className="font-display text-xl tracking-tight text-foreground transition-colors hover:text-accent-green"
+          >
+            The Wubby <span className="italic text-accent-green">Archive</span>
           </Link>
 
           {/* Hamburger Menu */}
@@ -45,16 +48,16 @@ export function Header() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-[#ccc] hover:text-white hover:bg-[#222]"
+                className="text-ink-muted hover:bg-muted hover:text-foreground"
                 aria-label="Open menu"
               >
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
 
-            <SheetContent side="right" className="w-[300px] bg-[#111] border-l border-[#333]">
+            <SheetContent side="right" className="w-[300px] bg-background border-l border-rule">
               <SheetHeader>
-                <SheetTitle className="text-white">Navigation</SheetTitle>
+                <SheetTitle className="font-display text-foreground">Navigation</SheetTitle>
               </SheetHeader>
 
               <nav className="mt-6 space-y-2">
@@ -68,16 +71,16 @@ export function Header() {
                       href={link.href}
                       onClick={() => setIsOpen(false)}
                       className={cn(
-                        'flex items-start gap-3 p-3 rounded-lg transition-colors',
+                        'flex items-start gap-3 p-3 rounded-md transition-colors',
                         isActive
-                          ? 'bg-[#28a745] text-white'
-                          : 'text-[#ccc] hover:bg-[#222] hover:text-white'
+                          ? 'bg-accent-green text-white'
+                          : 'text-ink-muted hover:bg-muted hover:text-foreground'
                       )}
                     >
                       <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
                         <div className="font-medium">{link.label}</div>
-                        <div className="text-xs text-[#888] mt-0.5">{link.description}</div>
+                        <div className="text-xs text-ink-muted mt-0.5">{link.description}</div>
                       </div>
                     </Link>
                   );
@@ -85,10 +88,10 @@ export function Header() {
               </nav>
 
               <div className="absolute bottom-6 left-6 right-6">
-                <div className="text-xs text-[#666] text-center">
-                  Wubby Parasocial Workbench
+                <div className="text-center font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">
+                  The Wubby Archive
                   <br />
-                  v1.0 - Two-Tier UX
+                  v1.0 — Two-Tier UX
                 </div>
               </div>
             </SheetContent>

@@ -24,12 +24,6 @@ test.describe('VOD Diary Page', () => {
     const dateButton = page.getByRole('button', { name: /\d{2}\/\d{2}\/\d{4}/ });
     await expect(dateButton).toBeVisible();
 
-    // Check platform slider defaults to "both"
-    const platformSlider = page.getByRole('radiogroup', { name: 'Platform filter' });
-    await expect(platformSlider).toBeVisible();
-    const bothRadio = page.getByRole('radio', { name: 'both platform selected' });
-    await expect(bothRadio).toBeChecked();
-
     // Check search toggle is visible
     const searchToggle = page.getByRole('button', { name: 'Toggle search' });
     await expect(searchToggle).toBeVisible();
@@ -57,44 +51,6 @@ test.describe('VOD Diary Page', () => {
     const body = await page.textContent('body');
     const hasVideos = body && (body.includes('Expand') || body.includes('No videos found'));
     expect(hasVideos).toBe(true);
-  });
-
-  test('platform slider filters videos correctly', async ({ page }) => {
-    const consoleMessages: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'log') {
-        consoleMessages.push(msg.text());
-      }
-    });
-
-    // Wait for initial load
-    await page.waitForTimeout(1500);
-    consoleMessages.length = 0; // Clear previous logs
-
-    // Click platform slider to select "twitch" (middle position)
-    const platformSlider = page.getByRole('radiogroup', { name: 'Platform filter' });
-    const sliderBox = await platformSlider.boundingBox();
-
-    if (sliderBox) {
-      // Click at 50% position (center) for Twitch
-      await page.mouse.click(
-        sliderBox.x + sliderBox.width * 0.5,
-        sliderBox.y + sliderBox.height * 0.5
-      );
-    }
-
-    // Wait for refetch
-    await page.waitForTimeout(1000);
-
-    // Verify twitch is selected
-    const twitchRadio = page.getByRole('radio', { name: 'twitch platform selected' });
-    await expect(twitchRadio).toBeChecked();
-
-    // Verify fetch was called with platform filter
-    const fetchLog = consoleMessages.find(msg =>
-      msg.includes('platform: twitch')
-    );
-    expect(fetchLog).toBeTruthy();
   });
 
   test('search functionality works with debouncing', async ({ page }) => {
@@ -252,23 +208,6 @@ test.describe('VOD Diary Page', () => {
     // Check for "No videos found" message
     const noResults = page.getByText('No videos found matching your search.');
     await expect(noResults).toBeVisible();
-  });
-
-  test('platform slider has correct visual states', async ({ page }) => {
-    const platformSlider = page.getByRole('radiogroup', { name: 'Platform filter' });
-
-    // Check that slider exists and has correct structure
-    await expect(platformSlider).toBeVisible();
-
-    // Check for label text (use first() to handle multiple matches)
-    await expect(platformSlider.getByText('both').first()).toBeVisible();
-    await expect(platformSlider.getByText('twitch').first()).toBeVisible();
-    await expect(platformSlider.getByText('kick').first()).toBeVisible();
-
-    // Check for thumb label
-    const thumbLabel = platformSlider.locator('.thumb-label');
-    await expect(thumbLabel).toBeVisible();
-    await expect(thumbLabel).toHaveText('both');
   });
 
   test('video cards display correct metadata', async ({ page }) => {

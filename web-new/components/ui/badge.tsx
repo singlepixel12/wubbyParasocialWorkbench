@@ -21,15 +21,15 @@ const badgeVariants = cva(
         kick:
           "border-transparent bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400 [a&]:hover:bg-green-100 dark:[a&]:hover:bg-green-500/20",
         "kick-solid":
-          "border-transparent bg-[#1e7e34] text-white [a&]:hover:bg-[#1e7e34]/90",
+          "border-transparent bg-kick text-white [a&]:hover:bg-kick/90",
         twitch:
           "border-transparent bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 [a&]:hover:bg-purple-100 dark:[a&]:hover:bg-purple-500/20",
         "twitch-solid":
-          "border-transparent bg-[#6441A5] text-white [a&]:hover:bg-[#6441A5]/90",
+          "border-transparent bg-twitch text-white [a&]:hover:bg-twitch/90",
         tag:
           "border-transparent bg-gray-50 text-gray-700 dark:bg-gray-500/10 dark:text-gray-400 [a&]:hover:bg-gray-100 dark:[a&]:hover:bg-gray-500/20",
         "tag-solid":
-          "border-transparent bg-[#666] text-white [a&]:hover:bg-[#666]/90",
+          "border-transparent bg-ink-muted text-background [a&]:hover:bg-ink-muted/90",
       },
     },
     defaultVariants: {

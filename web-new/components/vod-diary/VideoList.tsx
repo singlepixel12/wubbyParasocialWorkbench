@@ -10,6 +10,7 @@
  */
 
 import { memo, useState, useEffect, useRef } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Video } from '@/types/video';
 import { VideoCard } from './VideoCard';
 import { SkeletonVideoCard } from './SkeletonVideoCard';
@@ -31,6 +32,7 @@ export const VideoList = memo(function VideoList({
   // Track if delay has elapsed for empty state
   const [delayElapsed, setDelayElapsed] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const reduceMotion = useReducedMotion();
 
   // Check if empty state conditions are met
   const shouldShowEmpty = !loading && videos.length === 0;
@@ -111,14 +113,30 @@ export const VideoList = memo(function VideoList({
   }
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <motion.div
+      className="flex flex-col gap-4 w-full"
+      initial={reduceMotion ? false : 'hidden'}
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
+      }}
+    >
       {videos.map((video, index) => (
-        <VideoCard
+        <motion.div
           key={`${video.url}-${index}`}
-          video={video}
-          onCardClick={onVideoClick}
-        />
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            visible: {
+              opacity: 1,
+              y: 0,
+              transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+            },
+          }}
+        >
+          <VideoCard video={video} index={index} onCardClick={onVideoClick} />
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 });

@@ -10,7 +10,7 @@ import type {
   FetchVideosParams,
   SearchVideosParams,
 } from '@/types/supabase';
-import { computeVideoHash } from '@/lib/utils/hash';
+import { computeVideoHash, isValidHash } from '@/lib/utils/hash';
 import { SUPABASE_URL } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
 
@@ -242,14 +242,15 @@ export async function getWubbySummaryByHash(
   logger.log('Video hash:', videoHash);
 
   try {
-    // Validate input (should be 64-character hex string)
-    if (!videoHash || typeof videoHash !== 'string' || videoHash.length !== 64) {
+    // Validate input (must be a 64-character hex string) to prevent
+    // injection of extra query parameters / PostgREST operators into the URL
+    if (typeof videoHash !== 'string' || !isValidHash(videoHash)) {
       logger.error('❌ Invalid video hash:', videoHash);
       throw new Error('Invalid video hash provided (expected 64-character hex string)');
     }
 
     // Query Supabase using REST API directly
-    const queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?video_hash=eq.${videoHash}`;
+    const queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?video_hash=eq.${encodeURIComponent(videoHash)}`;
     logger.log('Query URL:', queryUrl);
     logger.log('Making API request...');
 
