@@ -12,6 +12,9 @@ nul
 .DS_Store
 Thumbs.db
 
+# Playwright MCP screenshots/artifacts
+.playwright-mcp/
+
 # IDE
 .vscode/
 .idea/
