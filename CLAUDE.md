@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Wubby Parasocial Workbench** - Web tool for analyzing Wubby stream content with AI-powered video summaries, transcripts, and smart tagging.
+**Wubby Parasocial Workbench** - Web tool for analyzing Wubby stream content with AI-powered video summaries, transcripts, and smart tagging. The UI is themed as an editorial "archive periodical": **The Wubby Archive**.
 
 **Target Audience:** Wubby community
 **Data Source:** archive.wubby.tv
@@ -12,28 +12,36 @@
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router)
+- **Framework:** Next.js 16 (App Router), with the React Compiler (`babel-plugin-react-compiler`)
 - **UI:** React 19 + shadcn/ui + Tailwind CSS 4
+- **Typography:** Fraunces (display serif), Hanken Grotesk (body), Geist Mono (mono) — via `next/font/google`
+- **Theming:** HSL CSS variables in `globals.css`; `next-themes` (app is dark by default)
+- **Animation:** Framer Motion (page transitions, masthead, staggered list) + tw-animate-css
 - **Video:** Vidstack Player (CDN-loaded)
 - **Backend:** Supabase (PostgreSQL + Storage)
-- **Testing:** Playwright (E2E)
-- **Animations:** tw-animate-css
+- **Unit testing:** Vitest + Testing Library + jsdom
+- **E2E testing:** Playwright
 
 ---
 
 ## Core Features
 
 ### 1. VOD Diary (Browse)
-- Date range filtering with locale-aware formatting (AU/US)
-- Platform toggle (Twitch/Kick/Both) with color theming
-- Real-time search with debouncing
-- Expandable video cards with AI summary hooks
-- Lazy-loaded thumbnails with fallbacks
+- Single shared `VodDiaryScreen` rendered by both `/` and `/vod-diary` (one source of truth)
+- Editorial `Masthead` — wordmark, issue/record count, date-range meta line
+- Date range filtering via `react-day-picker` (`DateRangePicker`)
+- Toggleable, debounced real-time search (`SearchInput`) across title / URL / tags
+- Archive-record cards: running `№` number, Fraunces title, 1-2 line hook, expand-in-place full summary
+- Lazy-loaded thumbnails, grayscale by default and colorizing on hover, with black-box fallback
+
+> **Removed:** the Twitch/Kick **platform toggle** (`PlatformSlider`) no longer exists.
+> The diary shows all platforms together. `fetchRecentVideos` still accepts a `platform`
+> param (default `'both'`) for programmatic filtering, but no UI exposes it.
 
 ### 2. Two-Tier UX (Progressive Disclosure)
-- **Browse View:** Scannable 1-2 line hooks + "Read more"
-- **Detail View:** Full 200+ word AI summary at `/watch?id=HASH`
-- Platform-specific play button glow (Kick green, Twitch purple)
+- **Browse View:** Scannable 1-2 line hooks + "Read more" (expands the full summary in place)
+- **Detail View:** Full AI summary + player at `/watch?id=HASH` (open via card thumbnail)
+- Single quiet-green play-button glow (no per-platform color theming anymore)
 - Tag display (3 mobile, 6 desktop) with click handlers
 
 ### 3. Video Player
@@ -53,7 +61,8 @@
 ### 5. Hash-Based Tracking
 - SHA-256 hash of video URLs as unique identifier
 - Used for: DB lookups, subtitle paths, thumbnail paths, position storage
-- Format: `wubbytranscript/{hash}/en/subtitle.vtt`
+- `isValidHash()` guards hash lookups (64-char hex) against query injection
+- Format: `wubbytranscript/{hash}/en/subtitle.vtt`, `wubbytranscript/{hash}/thumbnail.webp`
 
 ---
 
@@ -62,18 +71,23 @@
 ```
 web-new/
 ├── app/
-│   ├── page.tsx              # Landing/Home (VOD browse)
-│   ├── watch/page.tsx        # Detail view (/watch?id=HASH)
-│   ├── vod-diary/page.tsx    # VOD diary with filters
+│   ├── page.tsx              # Home — renders <VodDiaryScreen>
+│   ├── vod-diary/page.tsx    # VOD diary — also renders <VodDiaryScreen>
+│   ├── watch/page.tsx        # Detail view (/watch?id=HASH, query param)
 │   ├── player/page.tsx       # Dedicated player
 │   ├── transcript/page.tsx   # Transcript extraction
-│   ├── layout.tsx            # Root layout + metadata
+│   ├── player-test/page.tsx  # Player sandbox
+│   ├── layout.tsx            # Root layout — fonts, Header, PageTransition, Toaster
 │   ├── error.tsx             # Global error boundary
 │   ├── not-found.tsx         # 404 page
 │   ├── loading.tsx           # Loading skeleton
-│   └── globals.css           # Tailwind styles
+│   ├── globals.css           # Tailwind v4 theme + HSL design tokens
+│   └── (per-route loading.tsx / error.tsx / layout.tsx)
 ├── components/
-│   ├── ui/                   # shadcn components (badge, button, card, etc.)
+│   ├── ui/                   # shadcn components (badge, button, card, sheet, etc.)
+│   ├── layout/
+│   │   ├── Masthead.tsx          # Editorial "The Wubby Archive" masthead (Framer Motion)
+│   │   └── PageHeader.tsx        # Utilitarian header for the other pages
 │   ├── video/
 │   │   ├── VidstackPlayer.tsx    # Main player (CDN, subtitles, gestures)
 │   │   ├── VideoSelector.tsx     # URL input + dropdown
@@ -81,15 +95,14 @@ web-new/
 │   │   ├── VideoDetailView.tsx   # Full detail view
 │   │   └── HashDisplay.tsx       # Hash status display
 │   ├── vod-diary/
-│   │   ├── VideoCard.tsx         # Browse card (React.memo)
-│   │   ├── VideoList.tsx         # Card container (React.memo)
+│   │   ├── VodDiaryScreen.tsx    # Shared browse screen (masthead + filters + list)
+│   │   ├── VideoCard.tsx         # Archive-record browse card (React.memo)
+│   │   ├── VideoList.tsx         # Card container, staggered reveal (React.memo)
 │   │   ├── SkeletonVideoCard.tsx # Loading placeholder
-│   │   ├── DateRangePicker.tsx   # Flatpickr integration
-│   │   ├── PlatformSlider.tsx    # Platform toggle
-│   │   └── SearchInput.tsx       # Debounced search
-│   ├── layout/
-│   │   └── PageHeader.tsx        # Page title/description
-│   └── Header.tsx                # Site navigation
+│   │   ├── DateRangePicker.tsx   # react-day-picker integration
+│   │   └── SearchInput.tsx       # Toggleable debounced search
+│   ├── PageTransition.tsx        # Framer Motion route transitions
+│   └── Header.tsx                # Sticky editorial wordmark + hamburger Sheet
 ├── lib/
 │   ├── api/
 │   │   └── supabase.ts           # API client (4 functions)
@@ -98,19 +111,33 @@ web-new/
 │   │   ├── useLocalStorage.ts    # SSR-safe storage
 │   │   ├── useToast.ts           # Sonner wrapper
 │   │   └── useDebounce.ts        # Debounce utility
-│   └── utils/
-│       ├── hash.ts               # SHA-256 computation
-│       ├── video-helpers.ts      # Format/extract utilities
-│       ├── logger.ts             # Environment-aware logging
-│       └── storage-cleanup.ts    # Vidstack position cleanup
+│   ├── utils/
+│   │   ├── hash.ts               # SHA-256 computation + isValidHash
+│   │   ├── video-helpers.ts      # Format/extract utilities (extractHook, etc.)
+│   │   ├── logger.ts             # Environment-aware logging
+│   │   └── storage-cleanup.ts    # Vidstack position cleanup
+│   └── constants.ts              # SUPABASE_URL, shared constants
 ├── types/
-│   ├── video.ts                  # Video interface
+│   ├── video.ts                  # Video / Platform interfaces ('twitch'|'kick'|'both'|'unknown')
 │   └── supabase.ts               # DB types
 └── tests/
-    ├── player-gestures.spec.ts   # Touch gesture tests (32 tests)
+    ├── unit/                     # Vitest unit tests
+    │   ├── VideoCard.test.tsx
+    │   ├── VideoSelector.test.tsx
+    │   ├── useToast.test.tsx
+    │   ├── useLocalStorage.test.tsx
+    │   ├── hash.test.ts
+    │   └── video-helpers.test.ts
+    ├── player-gestures.spec.ts   # Touch gesture E2E tests
     ├── navigation.spec.ts        # Page navigation
     ├── vod-diary.spec.ts         # Filter functionality
-    └── ...                       # Other E2E tests
+    ├── player.spec.ts            # Player E2E
+    ├── transcript.spec.ts        # Transcript E2E
+    ├── index.spec.ts             # Home E2E
+    ├── accessibility.spec.ts     # WCAG compliance
+    ├── mobile.spec.ts            # Responsive design
+    ├── smoke.spec.ts / hash.spec.ts
+    └── ...
 ```
 
 ---
@@ -120,9 +147,12 @@ web-new/
 | Function | Purpose |
 |----------|---------|
 | `getWubbySummary(url)` | Fetch metadata by URL (computes hash) |
-| `getWubbySummaryByHash(hash)` | Fetch metadata by pre-computed hash |
-| `fetchRecentVideos(params)` | Query videos with filters |
-| `searchVideos(params)` | Search by title, URL, tags |
+| `getWubbySummaryByHash(hash)` | Fetch metadata by pre-computed hash (validated via `isValidHash`) |
+| `fetchRecentVideos(params)` | Query videos with filters (limit, optional platform, date range) |
+| `searchVideos(params)` | Search by title, URL, tags (PostgREST `ilike` + client-side tag filter) |
+
+Rows are mapped to the `Video` type by `mapRowToVideo`, which also derives the
+thumbnail URL from `video_hash`.
 
 ---
 
@@ -137,78 +167,70 @@ web-new/
 
 ---
 
+## Design Language — "The Wubby Archive"
+
+Editorial archive-periodical aesthetic on a warm near-black background. All colors are
+HSL CSS variables in `app/globals.css` — **do not** reintroduce hardcoded hex like
+`#28a745` / `#6441A5` in components.
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--background` | `30 12% 5%` | warm near-black page |
+| `--foreground` | `40 18% 92%` | warm off-white text |
+| `--accent-green` | `142 38% 45%` | the one quiet accent (wordmark italic, № numbers, hooks, play glow) |
+| `--ink-muted` | `40 6% 58%` | muted metadata text (`text-ink-muted`) |
+| `--rule` | `30 6% 17%` | hairline borders (`border-rule`) |
+
+Other design details:
+- `.font-display` → Fraunces; body → Hanken Grotesk; `font-mono` → Geist Mono
+- `.masthead-band` radial warm-green wash behind the masthead
+- Fixed SVG film-grain overlay (`body::before`, ~4% opacity)
+- `playButtonPulse` keyframe on idle play buttons
+- Framer Motion respects `prefers-reduced-motion` everywhere (`useReducedMotion`)
+
+---
+
 ## Completed Work
 
 ### ✅ Core Migration (2025-11-08)
-- All 4 pages functional in Next.js
-- Video playback + subtitles working
-- VOD diary filtering (date + platform + search)
-- Hash-based tracking preserved
-- Mobile tested (375x667px)
+- All pages functional in Next.js, video playback + subtitles, hash-based tracking, mobile tested
 
 ### ✅ shadcn Phase 1 (2025-11-10)
-- Sonner Toast (182 lines removed)
-- Badge component with 6 variants (kick, twitch, tag + solid)
-- Skeleton loading components
-- Collapsible (60 lines removed)
-- WCAG 2.1 AA accessibility
+- Sonner toast, Badge variants, Skeleton loaders, Collapsible, WCAG 2.1 AA accessibility
 
 ### ✅ Two-Tier UX (2025-11-16)
-- Browse cards with 1-2 line hooks
-- `/watch?id=HASH` detail pages
-- Full 200-word AI summaries
-- Platform-specific play button glow
-- 6 tags visible (was 3)
-- Green accent bar for summaries
+- Browse hooks, `/watch?id=HASH` detail pages, full summaries, 6 tags on desktop
 
-### ✅ Optimizations (2025-11-11)
-- React.memo on VideoCard/VideoList
-- Error retry buttons on all toasts
-- Enhanced empty states with icons
-- useToast simplified (217→90 lines)
-- Environment-aware logger
+### ✅ Touch Gestures, Thumbnails, Playback Position, Media Session API (2025-11-30)
+- See git history for details; all shipped with E2E coverage
 
-### ✅ Touch Gestures (2025-11-30)
-- `useTouchGestures.ts` hook
-- Drag up = fullscreen, drag down = PiP
-- Mobile-only (80px threshold)
-- 32 E2E tests passing (Mobile Chrome + Safari)
-- `data-video-hash` attribute for testability
+### ✅ Next.js 16 + React 19 upgrade
+- Upgraded framework/runtime; enabled the React Compiler; ESLint clean for production build
 
-### ✅ Thumbnails & Posters (2025-11-30)
-- Thumbnail images from Supabase storage
-- Lazy loading with fallback to black box
-- Poster display in video player
-- Path: `wubbytranscript/{hash}/thumbnail.webp`
+### ✅ Editorial "Wubby Archive" redesign
+- New HSL token system + Fraunces/Hanken/Geist Mono typography
+- `Masthead`, archive-record `VideoCard`, film-grain + hairline-rule visual language
+- Framer Motion: `PageTransition`, masthead wordmark rise, staggered `VideoList` reveal
+- Removed the platform toggle; consolidated `/` and `/vod-diary` into shared `VodDiaryScreen`
 
-### ✅ Playback Position (2025-11-30)
-- Saves position every 10s (after 30s watch threshold)
-- Position restoration on reload
-- Storage cleanup after 60 days or 100 max
-- Per-video storage using hash key
-
-### ✅ Media Session API (2025-11-30)
-- Lock screen controls for background playback
-- Metadata display (title, artist, artwork)
-- Seek forward/backward buttons
+### ✅ Unit test suite
+- Vitest + Testing Library; tests in `tests/unit/` (VideoCard, VideoSelector, hooks, hash, helpers)
+- npm scripts: `test`, `test:watch`, `test:coverage`, `test:e2e*`, `test:all`
 
 ---
 
 ## Remaining Tasks
 
-### HIGH Priority
-1. **Component Unit Tests** - Zero unit tests currently (only 32 E2E tests)
-
 ### MEDIUM Priority
-2. **API Caching** - Add React Query/SWR to avoid re-fetching
-3. **VOD Diary Pagination** - Currently fetches 200 videos at once
-4. **Mobile Date Picker UX** - Flatpickr touch improvements
-5. **Tag Search** - Tags are clickable but don't trigger search (TODO in code)
+1. **API Caching** - Add React Query/SWR to avoid re-fetching
+2. **VOD Diary Pagination** - Currently fetches up to 50–200 videos at once
+3. **Tag Search** - Tags are clickable but don't trigger search yet (TODO in `VideoCard`)
+4. **Mobile Date Picker UX** - `react-day-picker` touch improvements
 
 ### LOW Priority
-6. **Production Build Optimization** - Bundle analysis, code splitting
-7. **Keyboard Shortcuts** - Ctrl+K for search
-8. **Offline Support Indicator**
+5. **Production Build Optimization** - Bundle analysis, code splitting
+6. **Keyboard Shortcuts** - Ctrl+K for search
+7. **Offline Support Indicator**
 
 ---
 
@@ -216,23 +238,18 @@ web-new/
 
 ### Video Interface
 ```typescript
+type Platform = 'twitch' | 'kick' | 'both' | 'unknown';
+
 interface Video {
   url: string;
-  title: string;
-  platform: 'twitch' | 'kick';
-  summary: string;           // 200+ words AI-generated
-  tags: string[];            // Topic tags
-  date: string;              // ISO date
-  videoHash?: string;        // SHA-256 (64 chars)
-  thumbnailUrl?: string;     // Supabase storage URL
+  title: string;            // AI-cleaned pleb_title
+  platform: Platform;
+  summary: string;          // 200+ words AI-generated
+  tags: string[];           // Topic tags
+  date: string;             // ISO date
+  videoHash?: string;       // SHA-256 (64 chars)
+  thumbnailUrl?: string;    // Supabase storage URL
 }
-```
-
-### Badge Variants
-```typescript
-// Light: kick, twitch, tag
-// Solid: kick-solid, twitch-solid, tag-solid
-// Colors: Kick=#28a745, Twitch=#6441A5
 ```
 
 ### Storage Keys
@@ -243,19 +260,29 @@ interface Video {
 
 ## Testing
 
+### Unit Tests (Vitest)
+```bash
+npm run test            # run once
+npm run test:watch      # watch mode
+npm run test:coverage   # coverage report
+```
+- Located in `tests/unit/`: `VideoCard`, `VideoSelector`, `useToast`, `useLocalStorage`, `hash`, `video-helpers`
+
 ### E2E Tests (Playwright)
-- **player-gestures.spec.ts** - 32 tests (Mobile Chrome + Safari)
-- **navigation.spec.ts** - Page navigation
-- **vod-diary.spec.ts** - Filters, search
-- **accessibility.spec.ts** - WCAG compliance
-- **mobile.spec.ts** - Responsive design
+```bash
+npm run test:e2e        # all suites
+npm run test:e2e:ui     # interactive UI
+npm run test:e2e:headed # headed browser
+npm run test:all        # vitest + playwright
+```
+- Suites: `player-gestures`, `navigation`, `vod-diary`, `player`, `transcript`, `index`, `accessibility`, `mobile`
 
 ### Test Strategy
-- Uses real Supabase data (fetches video hash from VOD diary)
+- E2E uses real Supabase data (fetches a video hash from the VOD diary)
 - Serial execution with `test.beforeAll` for shared state
 - Touch detection skips simulation on desktop
 
 ---
 
-**Last Updated:** 2025-11-30
-**Status:** Core complete. Touch gestures complete (32 E2E tests). Unit tests needed.
+**Last Updated:** 2026-06-02
+**Status:** Core complete. Editorial "Wubby Archive" redesign live. Unit + E2E suites in place.
