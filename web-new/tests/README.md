@@ -5,7 +5,7 @@
 The Wubby Parasocial Workbench now has comprehensive unit test coverage using **Vitest** and **React Testing Library**.
 
 **Current Stats:**
-- 129 unit tests across 6 test files
+- 125 unit tests across 6 test files
 - All tests passing ✅
 - Test categories: Hooks, Components, Utilities
 
@@ -63,9 +63,9 @@ tests/
 ├── test-utils.tsx                  # Custom render helpers, mock factories
 ├── unit/                           # Unit tests
 │   ├── useLocalStorage.test.tsx    # 14 tests - localStorage hook
-│   ├── useToast.test.tsx           # 17 tests - toast notifications
+│   ├── useToast.test.tsx           # 16 tests - toast notifications
 │   ├── VideoSelector.test.tsx      # 22 tests - video input component
-│   ├── VideoCard.test.tsx          # 20 tests - VOD diary card component
+│   ├── VideoCard.test.tsx          # 17 tests - VOD diary card component
 │   ├── hash.test.ts                # 25 tests - SHA-256 hashing utilities
 │   └── video-helpers.test.ts       # 31 tests - date/URL utilities
 ├── smoke.spec.ts                   # E2E smoke test
@@ -77,7 +77,7 @@ tests/
 
 ## What's Tested
 
-### Hooks (31 tests)
+### Hooks (30 tests)
 
 #### `useLocalStorage` (14 tests)
 - ✅ Initial value loading
@@ -88,14 +88,14 @@ tests/
 - ✅ Error handling (JSON parse errors, quota exceeded)
 - ✅ SSR safety
 
-#### `useToast` (17 tests)
+#### `useToast` (16 tests)
 - ✅ All toast types (error, warning, success, info, loading)
 - ✅ Custom durations
 - ✅ Options (description, action buttons)
-- ✅ Dismiss individual/all toasts
+- ✅ Dismiss individual toasts
 - ✅ Default durations per type
 
-### Components (42 tests)
+### Components (39 tests)
 
 #### `VideoSelector` (22 tests)
 - ✅ Rendering (input, buttons, datalist)
@@ -104,14 +104,13 @@ tests/
 - ✅ Clear button functionality
 - ✅ Accessibility (ARIA labels, descriptions)
 
-#### `VideoCard` (20 tests)
-- ✅ Rendering (title, summary, date, platform badge)
-- ✅ Expand/collapse functionality
-- ✅ Tag display when expanded
-- ✅ Platform-specific styling
-- ✅ Thumbnail click behavior
-- ✅ LocalStorage integration
-- ✅ Accessibility (links, labels)
+#### `VideoCard` (17 tests)
+- ✅ Rendering (title, summary hook, date, record number)
+- ✅ No platform badge (single accent, per the editorial redesign)
+- ✅ Read more / Show less expand-in-place
+- ✅ Topic tags, filtering a tag that duplicates the platform
+- ✅ Thumbnail opens `/watch?id=HASH` in a new tab (via `window.open`)
+- ✅ Accessibility (play affordance label, expand button)
 
 ### Utilities (56 tests)
 
@@ -283,7 +282,7 @@ This creates:
 1. **More Component Tests**
    - VideoMetadata
    - VidstackPlayer
-   - PlatformSlider
+   - VodDiaryScreen
    - SearchInput
    - DateRangePicker
 

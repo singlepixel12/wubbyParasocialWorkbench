@@ -213,6 +213,15 @@ Other design details:
 - Framer Motion: `PageTransition`, masthead wordmark rise, staggered `VideoList` reveal
 - Removed the platform toggle; consolidated `/` and `/vod-diary` into shared `VodDiaryScreen`
 
+### ✅ Editorial uplift — rest of the site
+- Extended the editorial language to every secondary/utility page: `PageHeader`
+  (mono kicker + Fraunces + hairline rules), `watch`/`VideoDetailView`, `player`,
+  `transcript`, `player-test`, and the error/404 pages
+- Open ruled sections instead of boxed `bg-card` panels; minimal `border-l-2
+  border-accent-green/50` accent-bar summaries; tokens replacing all hardcoded hex
+- Dropped platform badges site-wide and removed the now-dead `kick`/`twitch` badge
+  variants + `--kick`/`--twitch` tokens (visual-only; no logic/data/player changes)
+
 ### ✅ Unit test suite
 - Vitest + Testing Library; tests in `tests/unit/` (VideoCard, VideoSelector, hooks, hash, helpers)
 - npm scripts: `test`, `test:watch`, `test:coverage`, `test:e2e*`, `test:all`

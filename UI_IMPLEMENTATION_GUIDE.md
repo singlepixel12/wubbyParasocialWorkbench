@@ -63,8 +63,9 @@ hardcode hex such as `#28a745` / `#6441A5` in components.
 --ring:         142 38% 38%;  /* focus ring                                        */
 ```
 
-Legacy `--kick` / `--twitch` / gray-scale vars still exist in `globals.css` but are
-effectively retired by the redesign.
+The legacy `--kick` / `--twitch` platform tokens and the `kick`/`twitch` badge variants
+have been removed entirely; only a neutral gray scale remains in `globals.css` for the
+`tag` badge.
 
 ### Typography
 

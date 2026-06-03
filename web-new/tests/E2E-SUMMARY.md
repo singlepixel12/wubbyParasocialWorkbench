@@ -5,7 +5,7 @@
 Comprehensive End-to-End test coverage for Wubby Parasocial Workbench using **Playwright**.
 
 **Test Count:** 695 tests total
-- **Unit Tests:** 129 tests (Vitest)
+- **Unit Tests:** 125 tests (Vitest)
 - **E2E Tests:** 139 test scenarios × 5 browser/device configs = 695 test runs
 
 ---
@@ -75,7 +75,6 @@ Tests run across **5 configurations:**
 - ✅ Error handling
 
 ### 4. VOD Diary (15 tests)
-- ✅ Platform filtering (Kick/Twitch/Both)
 - ✅ Date range picker with presets
 - ✅ Search with debouncing
 - ✅ Video card expand/collapse
@@ -209,7 +208,7 @@ npm run test:all          # Unit + E2E tests
 
 | Category | Tests | Status |
 |----------|-------|--------|
-| Unit Tests | 129 | ✅ All passing |
+| Unit Tests | 125 | ✅ All passing |
 | E2E Smoke | 3 × 5 = 15 | ✅ Mostly passing |
 | E2E Hash | 7 × 5 = 35 | ⚠️ Some failures |
 | E2E VOD Diary | 15 × 5 = 75 | ✅ Mostly passing |
@@ -220,7 +219,7 @@ npm run test:all          # Unit + E2E tests
 | E2E Accessibility | 29 × 5 = 145 | ⚠️ Some failures |
 | E2E Mobile | 24 × 1 = 24 | 🔄 Running |
 
-**Total:** 824 tests (129 unit + 695 E2E)
+**Total:** 820 tests (125 unit + 695 E2E)
 
 ---
 
@@ -229,7 +228,7 @@ npm run test:all          # Unit + E2E tests
 ### ✅ Achievements
 - **7 new E2E test files** created
 - **116 new test scenarios** written
-- **Unit test coverage**: 129 tests all passing
+- **Unit test coverage**: 125 tests all passing
 - **E2E browser coverage**: 3 desktop + 2 mobile
 - **Accessibility testing**: WCAG 2.1 AA compliance checks
 - **Mobile testing**: 3 viewport sizes
