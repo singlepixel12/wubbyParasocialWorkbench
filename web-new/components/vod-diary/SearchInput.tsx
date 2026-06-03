@@ -60,6 +60,9 @@ export function SearchInput({ onSearch, isVisible: controlledVisible, onToggle, 
     if (e.key === 'Enter') {
       // Immediate search on Enter
       onSearch(searchTerm);
+    } else if (e.key === 'Escape') {
+      // Escape closes search (and clears it) so the user is never trapped
+      handleToggle();
     }
   };
 
@@ -92,19 +95,22 @@ export function SearchInput({ onSearch, isVisible: controlledVisible, onToggle, 
         </div>
       )}
 
-      {/* Toggle button - now on the right */}
+      {/* Toggle button - now on the right. Becomes a clear "close" affordance when open. */}
       <Button
         variant="outline"
         size="icon"
         onClick={handleToggle}
         className={cn(
           'transition-colors flex-shrink-0',
-          isVisible && 'bg-primary text-primary-foreground hover:bg-primary/90'
+          // App is dark-mode only; the outline variant's dark: rules out-specify plain
+          // overrides, so target dark: to make the active "close" state read green.
+          isVisible &&
+            'text-accent-green dark:text-accent-green dark:border-accent-green dark:hover:bg-accent-green/10'
         )}
-        aria-label="Toggle search"
-        title="Search videos"
+        aria-label={isVisible ? 'Close search' : 'Open search'}
+        title={isVisible ? 'Close search' : 'Search videos'}
       >
-        <Search className="h-4 w-4" />
+        {isVisible ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
       </Button>
     </div>
   );

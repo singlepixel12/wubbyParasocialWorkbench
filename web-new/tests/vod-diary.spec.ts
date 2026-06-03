@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 /**
  * VOD Diary Page Tests
- * Tests all filtering functionality (platform, date range, search)
+ * Tests filtering functionality (date range, search)
  * Tests video card interactions and Supabase data fetching
  */
 
@@ -11,21 +11,21 @@ test.describe('VOD Diary Page', () => {
     // Navigate to VOD Diary page before each test
     await page.goto('/vod-diary');
 
-    // Wait for page to load
-    await page.waitForSelector('h2:has-text("VOD Diary")');
+    // Wait for the editorial masthead to render
+    await page.waitForSelector('h1:has-text("The Wubby")');
   });
 
   test('loads page with default filters', async ({ page }) => {
-    // Check page title and description
-    await expect(page.getByRole('heading', { name: 'VOD Diary' })).toBeVisible();
-    await expect(page.getByText('Browse and filter Wubby VODs')).toBeVisible();
+    // Check masthead and edition label (scope to <main> to avoid the <title> tag)
+    await expect(page.getByRole('heading', { name: /The Wubby Archive/i })).toBeVisible();
+    await expect(page.getByRole('main').getByText('VOD Diary')).toBeVisible();
 
     // Check default date range (This Week)
     const dateButton = page.getByRole('button', { name: /\d{2}\/\d{2}\/\d{4}/ });
     await expect(dateButton).toBeVisible();
 
     // Check search toggle is visible
-    const searchToggle = page.getByRole('button', { name: 'Toggle search' });
+    const searchToggle = page.getByRole('button', { name: 'Open search' });
     await expect(searchToggle).toBeVisible();
   });
 
@@ -38,6 +38,10 @@ test.describe('VOD Diary Page', () => {
       }
     });
 
+    // Reload so the mount-time data fetch fires while the listener is attached
+    await page.reload();
+    await page.waitForSelector('h1:has-text("The Wubby")');
+
     // Wait for videos to load
     await page.waitForTimeout(2000);
 
@@ -47,9 +51,13 @@ test.describe('VOD Diary Page', () => {
     );
     expect(fetchLogs.length).toBeGreaterThan(0);
 
-    // Check if videos are displayed (or "No videos found" message)
+    // Check if videos are displayed (or an empty-state message)
     const body = await page.textContent('body');
-    const hasVideos = body && (body.includes('Expand') || body.includes('No videos found'));
+    const hasVideos = body && (
+      body.includes('Read more') ||
+      body.includes('No videos available') ||
+      body.includes('No results found')
+    );
     expect(hasVideos).toBe(true);
   });
 
@@ -62,7 +70,7 @@ test.describe('VOD Diary Page', () => {
     });
 
     // Click search toggle to show input
-    const searchToggle = page.getByRole('button', { name: 'Toggle search' });
+    const searchToggle = page.getByRole('button', { name: 'Open search' });
     await searchToggle.click();
 
     // Wait for search input to appear
@@ -99,10 +107,10 @@ test.describe('VOD Diary Page', () => {
     await page.waitForTimeout(2000);
 
     // Find first expand button
-    const expandButton = page.getByRole('button', { name: 'Expand ▼' }).first();
+    const expandButton = page.getByRole('button', { name: 'Read more' }).first();
 
     // Check if any videos are present
-    const expandButtonCount = await page.getByRole('button', { name: 'Expand ▼' }).count();
+    const expandButtonCount = await page.getByRole('button', { name: 'Read more' }).count();
 
     if (expandButtonCount > 0) {
       // Click expand button
@@ -112,7 +120,7 @@ test.describe('VOD Diary Page', () => {
       await page.waitForTimeout(500);
 
       // Verify button text changed
-      const collapseButton = page.getByRole('button', { name: 'Collapse ▲' }).first();
+      const collapseButton = page.getByRole('button', { name: 'Show less' }).first();
       await expect(collapseButton).toBeVisible();
 
       // Click collapse button
@@ -195,7 +203,7 @@ test.describe('VOD Diary Page', () => {
 
   test('displays empty state when no videos found', async ({ page }) => {
     // Open search
-    const searchToggle = page.getByRole('button', { name: 'Toggle search' });
+    const searchToggle = page.getByRole('button', { name: 'Open search' });
     await searchToggle.click();
 
     // Search for something that won't match
@@ -205,8 +213,8 @@ test.describe('VOD Diary Page', () => {
     // Wait for debounce + fetch
     await page.waitForTimeout(1500);
 
-    // Check for "No videos found" message
-    const noResults = page.getByText('No videos found matching your search.');
+    // Check for empty search-results message
+    const noResults = page.getByText('No results found');
     await expect(noResults).toBeVisible();
   });
 
@@ -231,21 +239,20 @@ test.describe('VOD Diary Page', () => {
   });
 
   test('search toggle button changes state', async ({ page }) => {
-    const searchToggle = page.getByRole('button', { name: 'Toggle search' });
+    const searchInput = page.getByRole('textbox', { name: 'Search videos' });
 
     // Initially search input should not be visible
-    let searchInput = page.getByRole('textbox', { name: 'Search videos' });
     await expect(searchInput).not.toBeVisible();
 
-    // Click to show search
-    await searchToggle.click();
+    // Click to show search (toggle is labelled "Open search" when closed)
+    await page.getByRole('button', { name: 'Open search' }).click();
     await page.waitForTimeout(200);
 
     // Now search input should be visible
     await expect(searchInput).toBeVisible();
 
-    // Click again to hide search
-    await searchToggle.click();
+    // Click again to hide search (toggle is labelled "Close search" when open)
+    await page.getByRole('button', { name: 'Close search' }).click();
     await page.waitForTimeout(200);
 
     // Search input should be hidden again

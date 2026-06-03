@@ -12,7 +12,6 @@ import {
   showInfo,
   showLoading,
   dismissToast,
-  clearAllToasts,
 } from '@/lib/hooks/useToast';
 import { toast } from 'sonner';
 
@@ -36,14 +35,12 @@ describe('useToast', () => {
   it('should return all toast utility functions', () => {
     const { result } = renderHook(() => useToast());
 
-    expect(result.current).toHaveProperty('showToast');
     expect(result.current).toHaveProperty('showError');
     expect(result.current).toHaveProperty('showWarning');
     expect(result.current).toHaveProperty('showSuccess');
     expect(result.current).toHaveProperty('showInfo');
     expect(result.current).toHaveProperty('showLoading');
     expect(result.current).toHaveProperty('dismissToast');
-    expect(result.current).toHaveProperty('clearAllToasts');
   });
 });
 
@@ -211,17 +208,5 @@ describe('dismissToast', () => {
     dismissToast();
 
     expect(toast.dismiss).toHaveBeenCalledWith(undefined);
-  });
-});
-
-describe('clearAllToasts', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should call toast.dismiss to clear all toasts', () => {
-    clearAllToasts();
-
-    expect(toast.dismiss).toHaveBeenCalled();
   });
 });

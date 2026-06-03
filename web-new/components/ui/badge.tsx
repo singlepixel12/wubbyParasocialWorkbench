@@ -17,15 +17,7 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        // Platform-specific variants
-        kick:
-          "border-transparent bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400 [a&]:hover:bg-green-100 dark:[a&]:hover:bg-green-500/20",
-        "kick-solid":
-          "border-transparent bg-kick text-white [a&]:hover:bg-kick/90",
-        twitch:
-          "border-transparent bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 [a&]:hover:bg-purple-100 dark:[a&]:hover:bg-purple-500/20",
-        "twitch-solid":
-          "border-transparent bg-twitch text-white [a&]:hover:bg-twitch/90",
+        // Topic tag variants (the single editorial accent handles hover in callers)
         tag:
           "border-transparent bg-gray-50 text-gray-700 dark:bg-gray-500/10 dark:text-gray-400 [a&]:hover:bg-gray-100 dark:[a&]:hover:bg-gray-500/20",
         "tag-solid":

@@ -11,27 +11,15 @@ import { Tag, Calendar, FileText, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Video } from '@/types/video';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
-import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { computeVideoHash } from '@/lib/utils/hash';
 import { motion } from 'framer-motion';
 
 interface VideoDetailViewProps {
   video: Video;
-}
-
-/**
- * Get solid Badge variant for platform
- */
-function getSolidBadgeVariant(platform: string): 'kick-solid' | 'twitch-solid' | 'tag-solid' {
-  const normalized = platform.toLowerCase();
-  if (normalized === 'kick') return 'kick-solid';
-  if (normalized === 'twitch') return 'twitch-solid';
-  return 'tag-solid';
 }
 
 export function VideoDetailView({ video }: VideoDetailViewProps) {
@@ -81,7 +69,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
       {/* Back to VOD Diary */}
       <div className="px-2 md:px-0">
         <Link href="/vod-diary">
-          <Button variant="ghost" size="sm" className="text-[#888] hover:text-white">
+          <Button variant="ghost" size="sm" className="text-ink-muted hover:text-foreground">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to VOD Diary
           </Button>
@@ -109,23 +97,16 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
         initial="initial"
         animate="animate"
       >
-        {/* Badges */}
-        <div className="flex items-center gap-2">
-          <Badge variant={getSolidBadgeVariant(video.platform)}>
-            {video.platform}
-          </Badge>
-        </div>
-
         {/* Titles */}
         <div className="space-y-2">
-          {/* AI Title */}
-          <h1 className="text-2xl md:text-3xl font-bold text-white">
+          {/* AI Title — Fraunces display */}
+          <h1 className="font-display text-2xl md:text-3xl leading-tight text-foreground">
             {video.title}
           </h1>
 
           {/* Original filename */}
           {originalTitle && (
-            <div className="flex items-center gap-2 text-sm text-[#888]">
+            <div className="flex items-center gap-2 text-sm text-ink-muted">
               <FileText className="w-4 h-4" />
               <span className="font-mono">{originalTitle}</span>
             </div>
@@ -133,7 +114,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
         </div>
 
         {/* Metadata Row */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-[#888]">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-ink-muted">
           {formattedDate && (
             <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4" />
@@ -144,29 +125,20 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
       </motion.div>
 
       {/* Separator */}
-      <div className="h-px bg-[#333] mx-2 md:mx-0" />
+      <div className="h-px bg-rule mx-2 md:mx-0" />
 
-      {/* 🎯 FULL SUMMARY (The Payoff!) */}
+      {/* 🎯 FULL SUMMARY (The Payoff!) — minimal accent bar, no box */}
       <motion.div
         className="px-2 md:px-0"
         variants={metadataVariants}
         initial="initial"
         animate="animate"
       >
-        <Card className={cn(
-          'p-4 md:p-6',
-          'bg-gradient-to-br from-[#28a745]/10 via-transparent to-transparent',
-          'border-l-4 border-[#28a745]'
-        )}>
-          <div className="space-y-3">
-            {/* Full 200-word summary with nice formatting */}
-            <div className="prose prose-invert prose-sm max-w-none">
-              <p className="text-[#ccc] leading-relaxed whitespace-pre-line">
-                {video.summary || 'No summary available for this video.'}
-              </p>
-            </div>
-          </div>
-        </Card>
+        <div className="border-l-2 border-accent-green/50 pl-4 md:pl-5">
+          <p className="text-foreground/80 leading-relaxed whitespace-pre-line">
+            {video.summary || 'No summary available for this video.'}
+          </p>
+        </div>
       </motion.div>
 
       {/* Tags Section */}
@@ -177,8 +149,8 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
           initial="initial"
           animate="animate"
         >
-          <h3 className="text-sm font-medium text-[#888] uppercase tracking-wide">
-            Topics & Tags
+          <h3 className="font-mono text-[0.65rem] font-medium text-ink-muted uppercase tracking-[0.25em]">
+            Topics &amp; Tags
           </h3>
           <div className="flex flex-wrap gap-2">
             {video.tags
@@ -187,7 +159,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
                 <Badge
                   key={index}
                   variant="tag"
-                  className="cursor-default hover:bg-[#28a745] hover:text-white transition-colors"
+                  className="cursor-default transition-colors hover:border-accent-green hover:bg-accent-green hover:text-white"
                 >
                   <Tag className="w-3 h-3 mr-1" />
                   {tag}

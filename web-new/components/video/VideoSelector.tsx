@@ -113,7 +113,6 @@ export function VideoSelector({
             onLoad();
           }}
           disabled={isLoading || !videoUrl.trim()}
-          className="bg-green-600 hover:bg-green-700"
           aria-label="Load video data"
         >
           {isLoading ? 'Loading...' : 'Load'}

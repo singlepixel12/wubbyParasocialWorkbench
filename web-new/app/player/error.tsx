@@ -44,8 +44,11 @@ export default function PlayerError({ error, reset }: ErrorProps) {
         </div>
 
         {/* Error Message */}
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-foreground">
+        <div className="space-y-2 border-t border-rule pt-5">
+          <p className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted">
+            Archive · player error
+          </p>
+          <h2 className="font-display text-xl md:text-2xl text-foreground">
             Video Player Error
           </h2>
           <p className="text-muted-foreground">

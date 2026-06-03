@@ -83,13 +83,14 @@ export default function PlayerTestPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
+        kicker="Internal · player sandbox"
         title="VidstackPlayer Test"
         description="Test the VidstackPlayer component with various video sources and subtitles."
       />
 
       {/* Test Controls */}
-      <section className="rounded-lg border border-border bg-card p-6 space-y-4">
-        <h3 className="text-xl font-semibold">Test Videos</h3>
+      <section className="border-t border-rule pt-5 space-y-4">
+        <h3 className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted">Test Videos</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {TEST_VIDEOS.map((video) => (
@@ -122,8 +123,9 @@ export default function PlayerTestPage() {
       </section>
 
       {/* Player Status */}
-      <section className="rounded-lg border border-border bg-muted p-4">
-        <div className="space-y-2 text-sm font-mono">
+      <section className="border-t border-rule pt-5">
+        <h3 className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-3">Player Status</h3>
+        <div className="space-y-2 rounded bg-muted p-4 text-sm font-mono">
           <div>
             <span className="font-semibold">Video URL:</span>{' '}
             <span className="text-muted-foreground">{videoUrl || '-'}</span>
@@ -136,7 +138,7 @@ export default function PlayerTestPage() {
           </div>
           <div>
             <span className="font-semibold">Has Subtitles:</span>{' '}
-            <span className={subtitleUrl ? 'text-green-600' : 'text-yellow-600'}>
+            <span className={subtitleUrl ? 'text-accent-green' : 'text-ink-muted'}>
               {subtitleUrl ? 'Yes' : 'No'}
             </span>
           </div>
@@ -145,10 +147,10 @@ export default function PlayerTestPage() {
 
       {/* Video Player */}
       <section
-        className="rounded-lg border border-border bg-card p-6"
+        className="border-t border-rule pt-5"
         aria-labelledby="player-section-title"
       >
-        <h3 id="player-section-title" className="text-xl font-semibold mb-4">
+        <h3 id="player-section-title" className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-4">
           Video Player
         </h3>
 
@@ -164,8 +166,8 @@ export default function PlayerTestPage() {
       </section>
 
       {/* Instructions */}
-      <section className="rounded-lg border border-border bg-card p-6">
-        <h3 className="text-lg font-semibold mb-3">Testing Checklist</h3>
+      <section className="border-t border-rule pt-5">
+        <h3 className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-3">Testing Checklist</h3>
         <ul className="space-y-2 text-sm">
           <li>✅ Click a test video button to load the player</li>
           <li>✅ Check the console logs for detailed player initialization</li>

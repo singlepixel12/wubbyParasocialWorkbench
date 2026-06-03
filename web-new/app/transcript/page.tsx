@@ -18,7 +18,6 @@ import { getWubbySummary, fetchRecentVideos } from '@/lib/api/supabase';
 import type { Video } from '@/types/video';
 import { logger } from '@/lib/utils/logger';
 import { SUPABASE_URL } from '@/lib/constants';
-import { Badge } from '@/components/ui/badge';
 
 export default function TranscriptPage() {
   logger.log('===== TranscriptPage Render =====');
@@ -226,6 +225,7 @@ export default function TranscriptPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
+        kicker="Tools · transcript extraction"
         title="Get Transcript"
         description="Technical showcase: Load archive.wubby.tv videos to see transcript extraction, hash generation, and metadata lookup in action. Check the status below to see subtitle/thumbnail availability and platform details."
       />
@@ -250,12 +250,9 @@ export default function TranscriptPage() {
 
           {/* Video Status Display */}
           {video && (
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <span>Video Status</span>
-                <Badge variant={video.platform === 'kick' ? 'kick-solid' : 'twitch-solid'}>
-                  {video.platform?.toUpperCase()}
-                </Badge>
+            <section className="border-t border-rule pt-5">
+              <h3 className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-3">
+                Video Status
               </h3>
               <pre className="bg-muted p-4 rounded text-sm overflow-x-auto">
                 <code>{JSON.stringify(
@@ -275,17 +272,17 @@ export default function TranscriptPage() {
                   2
                 )}</code>
               </pre>
-            </div>
+            </section>
           )}
         </div>
       </section>
 
       {/* Video Player with Subtitles */}
       <section
-        className="rounded-lg border border-border bg-card p-6"
+        className="border-t border-rule pt-5"
         aria-labelledby="player-section-title"
       >
-        <h3 id="player-section-title" className="text-xl font-semibold mb-4">
+        <h3 id="player-section-title" className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-4">
           Video Player
         </h3>
 
@@ -301,25 +298,21 @@ export default function TranscriptPage() {
           />
 
           {subtitleUrl && (
-            <div className="rounded-lg bg-muted p-3 text-sm">
-              <p className="text-green-600 dark:text-green-400 font-medium">
-                ✓ Transcript loaded - Use the CC button in the player to toggle subtitles
-              </p>
-            </div>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent-green">
+              ✓ Transcript loaded — use the CC button in the player to toggle subtitles
+            </p>
           )}
 
           {videoUrl && !subtitleUrl && !isLoading && (
-            <div className="rounded-lg bg-muted p-3 text-sm">
-              <p className="text-yellow-600 dark:text-yellow-400 font-medium">
-                ⚠ No transcript available for this video
-              </p>
-            </div>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink-muted">
+              ⚠ No transcript available for this video
+            </p>
           )}
         </div>
       </section>
 
       {/* Video Metadata Display */}
-      <section className="rounded-lg border border-border bg-card p-6" aria-labelledby="video-title">
+      <section className="border-t border-rule pt-5" aria-labelledby="video-title">
         <VideoMetadata video={video} />
       </section>
     </div>

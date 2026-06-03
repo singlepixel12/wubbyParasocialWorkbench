@@ -35,7 +35,7 @@ export function HashDisplay({ hash, status, isSuccess }: HashDisplayProps) {
       <code
         className={cn(
           'text-xs sm:text-sm font-mono whitespace-nowrap',
-          isSuccess ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+          isSuccess ? 'text-accent-green' : 'text-destructive'
         )}
       >
         <span className="font-semibold">Status:</span>{' '}

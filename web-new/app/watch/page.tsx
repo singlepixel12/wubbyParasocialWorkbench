@@ -49,7 +49,7 @@ export default function WatchPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-muted-foreground">Loading video...</div>
       </div>
     );
@@ -57,9 +57,9 @@ export default function WatchPage() {
 
   if (error || !video) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Video Not Found</h1>
+          <h1 className="font-display text-2xl md:text-3xl text-foreground mb-2">Video Not Found</h1>
           <p className="text-muted-foreground">{error || 'The requested video could not be found.'}</p>
         </div>
       </div>
@@ -67,7 +67,7 @@ export default function WatchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-background">
       {/* Video Player Section */}
       <div className="w-full bg-black">
         <div className="max-w-7xl mx-auto">

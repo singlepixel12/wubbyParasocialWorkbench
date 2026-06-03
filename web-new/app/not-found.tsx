@@ -27,9 +27,12 @@ export default function NotFound() {
         </div>
 
         {/* Error Message */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">404</h1>
-          <h2 className="text-xl font-semibold text-foreground">
+        <div className="space-y-2 border-t border-rule pt-5">
+          <p className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted">
+            Archive · record not found
+          </p>
+          <h1 className="font-display text-5xl md:text-6xl text-foreground">404</h1>
+          <h2 className="font-display text-xl md:text-2xl text-foreground">
             Page Not Found
           </h2>
           <p className="text-muted-foreground">

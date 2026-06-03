@@ -49,8 +49,11 @@ export default function GlobalError({ error, reset }: ErrorProps) {
             </div>
 
             {/* Error Message */}
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-foreground">
+            <div className="space-y-2 border-t border-rule pt-5">
+              <p className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted">
+                Archive · system error
+              </p>
+              <h1 className="font-display text-2xl md:text-3xl text-foreground">
                 Something went wrong!
               </h1>
               <p className="text-muted-foreground">

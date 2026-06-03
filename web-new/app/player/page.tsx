@@ -23,18 +23,6 @@ import { logger } from '@/lib/utils/logger';
 import { PlayCircle, ArrowRight } from 'lucide-react';
 import { cleanupOldPlaybackPositions } from '@/lib/utils/storage-cleanup';
 
-/**
- * Get solid Badge variant for platform/tag
- * @param text - Platform or tag name
- * @returns Solid badge variant name
- */
-function getSolidBadgeVariant(text: string): 'kick-solid' | 'twitch-solid' | 'tag-solid' {
-  const normalized = text.toLowerCase();
-  if (normalized === 'kick') return 'kick-solid';
-  if (normalized === 'twitch') return 'twitch-solid';
-  return 'tag-solid';
-}
-
 export default function PlayerPage() {
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,11 +132,12 @@ export default function PlayerPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center text-center max-w-md px-4">
-          <div className="rounded-full bg-muted p-6 mb-4">
-            <PlayCircle className="w-16 h-16 text-muted-foreground" />
-          </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">No video selected</h2>
-          <p className="text-muted-foreground mb-6">
+          <span className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-4">
+            Archive · est. wubby.tv
+          </span>
+          <PlayCircle className="w-12 h-12 text-accent-green mb-4" />
+          <h2 className="font-display text-2xl md:text-3xl text-foreground mb-2">No video selected</h2>
+          <p className="text-ink-muted mb-6">
             Browse the VOD Diary to find and play Wubby stream content with subtitles and
             metadata.
           </p>
@@ -167,9 +156,9 @@ export default function PlayerPage() {
   const originalTitle = extractOriginalTitle(videoUrl);
 
   return (
-    <div className="space-y-6">
-      {/* Video Player */}
-      <div className="rounded-lg border border-border bg-card p-6">
+    <div className="space-y-8">
+      {/* Video Player — open, unboxed */}
+      <div>
         <VidstackPlayer
           videoUrl={videoUrl}
           subtitleUrl={subtitleUrl}
@@ -184,46 +173,52 @@ export default function PlayerPage() {
         />
 
         {subtitleUrl && (
-          <div className="rounded-lg bg-muted p-3 text-sm mt-4">
-            <p className="text-green-600 dark:text-green-400 font-medium">
-              ✓ Transcript loaded - Use the CC button in the player to toggle subtitles
-            </p>
-          </div>
+          <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-accent-green">
+            ✓ Transcript loaded — use the CC button in the player to toggle subtitles
+          </p>
         )}
       </div>
 
       {/* Video Information */}
       <div className="space-y-4">
-        {/* Title */}
+        {/* Title — Fraunces display */}
         <div>
-          <h2 className="text-2xl font-bold text-foreground mb-1">{video.title}</h2>
+          <h2 className="font-display text-2xl md:text-3xl leading-tight text-foreground mb-1">{video.title}</h2>
           {originalTitle && (
-            <h3 className="text-lg text-muted-foreground">{originalTitle}</h3>
+            <h3 className="font-mono text-sm text-ink-muted">{originalTitle}</h3>
           )}
         </div>
 
         {/* Date */}
         {formattedDate && (
-          <p className="text-muted-foreground">{formattedDate}</p>
+          <p className="text-ink-muted">{formattedDate}</p>
         )}
 
         {/* Tags */}
         {video.tags && video.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {video.tags.map((tag, index) => (
-              <Badge key={index} variant={getSolidBadgeVariant(tag)}>
+              <Badge
+                key={index}
+                variant="tag"
+                className="cursor-default transition-colors hover:border-accent-green hover:bg-accent-green hover:text-white"
+              >
                 {tag}
               </Badge>
             ))}
           </div>
         )}
 
-        {/* Summary */}
+        {/* Summary — minimal accent bar */}
         {video.summary && (
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Summary</h3>
-            <p className="text-card-foreground leading-relaxed">{video.summary}</p>
-          </div>
+          <section className="border-t border-rule pt-5">
+            <h3 className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted mb-3">
+              Summary
+            </h3>
+            <div className="border-l-2 border-accent-green/50 pl-4">
+              <p className="text-foreground/80 leading-relaxed whitespace-pre-line">{video.summary}</p>
+            </div>
+          </section>
         )}
       </div>
     </div>

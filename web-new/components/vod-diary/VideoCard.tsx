@@ -163,7 +163,7 @@ export const VideoCard = memo(function VideoCard({ video, index, onCardClick }: 
             e.stopPropagation();
             setIsExpanded(!isExpanded);
           }}
-          className="-mx-4 -mb-4 mt-auto flex w-full items-center justify-center gap-1 border-t border-rule px-4 py-2.5 font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent-green transition-colors hover:bg-accent-green/10 hover:text-foreground"
+          className="-mx-4 -mb-4 mt-auto flex w-[calc(100%+2rem)] items-center justify-center gap-1 border-t border-rule px-4 py-2.5 font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent-green transition-colors hover:bg-accent-green/10 hover:text-foreground"
         >
           {isExpanded ? (
             <>
