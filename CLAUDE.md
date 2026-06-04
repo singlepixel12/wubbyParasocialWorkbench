@@ -230,16 +230,42 @@ Other design details:
 
 ## Remaining Tasks
 
+### 🔜 Next Working Session — start here (cleanup + quality debt)
+
+Surfaced during the editorial-uplift session (2026-06-04). Small, well-scoped, and
+worth clearing before new features so `main` is genuinely solid.
+
+**Loose ends / tech debt**
+1. **Stale E2E specs (will fail)** - `tests/accessibility.spec.ts` and `tests/mobile.spec.ts`
+   still drive a removed `PlatformSlider` (`radiogroup` "platform filter"). Fix both,
+   then run `npm run test:e2e` — the suite's real state is currently **unverified**
+   (build + 125 unit tests + security review are green; e2e was not run).
+2. **`wubby-pleb-titles-extension/`** - an embedded git repo sitting untracked at the
+   repo root (shows in every `git status`). Decide: gitignore it, make it a submodule,
+   or move it out.
+3. **Lint not clean** - 11 pre-existing `no-explicit-any` **errors** in test files
+   (`hash.test.ts`, `video-helpers.test.ts`, etc.) + unused-var warnings. Don't block
+   the build, but worth holding a clean `npm run lint` gate.
+
+**Code quality**
+4. **Thumbnail not keyboard-accessible** - `VideoCard`'s play affordance is a
+   `<div onClick>` with `aria-label` but no `role`/`tabIndex`/key handler, so keyboard
+   + screen-reader users can't open `/watch` (WCAG 2.1.1). Make it a `<button>`/link.
+5. **`<img>` → `next/image`** in `VideoCard` (lint warns; slower LCP on the thumbnail grid).
+6. **Raw `console.*` in `VideoCard`** (tag-search TODO + missing-hash warning) should use
+   the existing `logger` utility.
+
 ### MEDIUM Priority
-1. **API Caching** - Add React Query/SWR to avoid re-fetching
-2. **VOD Diary Pagination** - Currently fetches up to 50–200 videos at once
-3. **Tag Search** - Tags are clickable but don't trigger search yet (TODO in `VideoCard`)
-4. **Mobile Date Picker UX** - `react-day-picker` touch improvements
+7. **Tag Search** - Tags are clickable but only `console.log` a TODO in `VideoCard`
+   (highest user-visible win; already half-wired)
+8. **API Caching** - Add React Query/SWR to avoid re-fetching
+9. **VOD Diary Pagination** - Currently fetches up to 50–200 videos at once
+10. **Mobile Date Picker UX** - `react-day-picker` touch improvements
 
 ### LOW Priority
-5. **Production Build Optimization** - Bundle analysis, code splitting
-6. **Keyboard Shortcuts** - Ctrl+K for search
-7. **Offline Support Indicator**
+11. **Production Build Optimization** - Bundle analysis, code splitting
+12. **Keyboard Shortcuts** - Ctrl+K for search
+13. **Offline Support Indicator**
 
 ---
 
