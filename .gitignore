@@ -28,4 +28,8 @@ Thumbs.db
 # Archive (already committed before)
 # archive/
 
+# Standalone browser extension with its own git history — not part of this project.
+# See CLAUDE.md ("Out of scope") before touching it.
+wubby-pleb-titles-extension/
+
 # Web-new has its own .gitignore

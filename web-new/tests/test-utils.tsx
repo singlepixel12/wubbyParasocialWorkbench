@@ -44,7 +44,9 @@ export function mockLocalStorage() {
 }
 
 /**
- * Create a mock video object for testing
+ * Create a mock video object for testing.
+ * Includes a videoHash by default — every video from the DB has one, and it is what
+ * makes a card navigable. Pass `{ videoHash: undefined }` to exercise the inert case.
  */
 export function createMockVideo(overrides = {}) {
   return {
@@ -55,6 +57,7 @@ export function createMockVideo(overrides = {}) {
     date: '2025-01-01',
     platform: 'twitch',
     tags: ['test', 'twitch'],
+    videoHash: 'a'.repeat(64),
     ...overrides,
   };
 }

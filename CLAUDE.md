@@ -8,6 +8,16 @@
 **Data Source:** archive.wubby.tv
 **Location:** `/web-new` directory
 
+### Out of scope — `wubby-pleb-titles-extension/`
+
+A **standalone browser extension with its own git history**, living at the repo root and
+gitignored. It is not part of the Next.js app and shares no build, deps, or tests with it.
+
+**Do not read, modify, or refactor it.** The only reason to touch it is a breaking change
+to core shared tech that the extension genuinely depends on (e.g. a Supabase schema or
+API contract change that would break it). Cleanups, lint sweeps, dependency bumps, and
+"while I'm here" edits do not qualify — leave it alone.
+
 ---
 
 ## Tech Stack
@@ -154,6 +164,16 @@ web-new/
 Rows are mapped to the `Video` type by `mapRowToVideo`, which also derives the
 thumbnail URL from `video_hash`.
 
+All four fetchers go through one module-private `supabaseFetch(queryUrl, context)` helper
+that owns the auth headers, a 10s `AbortController` timeout (cleared in `finally`),
+timeout-error mapping, and `describeHttpError(response, context)` for status-code
+messages (every message is context-prefixed so list failures never read like
+single-video lookups). **New fetchers must use `supabaseFetch`** — do not hand-wire
+`fetch` + timers. `fetchRecentVideos` takes a `PlatformFilter`
+(`'twitch' | 'kick' | 'both'` — `types/video.ts`; deliberately excludes `'unknown'`)
+plus a runtime whitelist that **throws** on anything else — `'both'` means "no platform
+constraint", not "an invalid value to ignore".
+
 ---
 
 ## Custom Hooks
@@ -226,46 +246,67 @@ Other design details:
 - Vitest + Testing Library; tests in `tests/unit/` (VideoCard, VideoSelector, hooks, hash, helpers)
 - npm scripts: `test`, `test:watch`, `test:coverage`, `test:e2e*`, `test:all`
 
+### ✅ Weakspots pass — API resilience + a11y (2026-07-10)
+- **API resilience:** `fetchRecentVideos` / `searchVideos` now share `getWubbySummary`'s
+  10s `AbortController` timeout (cleared in `finally`); the HTTP status-code switch is
+  extracted into one `describeHttpError(response, context)` helper used by all three;
+  the `platform` param is whitelisted and **throws** on an out-of-range value rather than
+  silently returning unfiltered data
+- **WCAG 2.1.1:** `VideoCard`'s play affordance is a real `<Link>` (new-tab behavior kept
+  via `target="_blank"` + `rel="noopener noreferrer"`), so it is keyboard/SR reachable
+- Removed the hand-rolled basePath prefix + `window.open` — `next/link` applies the
+  configured `basePath` automatically; raw `console.*` now routed through `logger`
+- Deleted two E2E tests that only drove the removed `PlatformSlider`; gitignored the
+  standalone extension
+
 ---
 
 ## Remaining Tasks
 
-### 🔜 Next Working Session — start here (cleanup + quality debt)
+A risk audit (2026-06-12) found the concrete defects now listed under Completed Work.
+What remains is a **thin verification layer**: the E2E suite has never been run
+end-to-end, and `lib/api/supabase.ts` has no unit tests.
 
-Surfaced during the editorial-uplift session (2026-06-04). Small, well-scoped, and
-worth clearing before new features so `main` is genuinely solid.
+### 🔜 Next Working Session — start here
 
-**Loose ends / tech debt**
-1. **Stale E2E specs (will fail)** - `tests/accessibility.spec.ts` and `tests/mobile.spec.ts`
-   still drive a removed `PlatformSlider` (`radiogroup` "platform filter"). Fix both,
-   then run `npm run test:e2e` — the suite's real state is currently **unverified**
-   (build + 125 unit tests + security review are green; e2e was not run).
-2. **`wubby-pleb-titles-extension/`** - an embedded git repo sitting untracked at the
-   repo root (shows in every `git status`). Decide: gitignore it, make it a submodule,
-   or move it out.
-3. **Lint not clean** - 11 pre-existing `no-explicit-any` **errors** in test files
-   (`hash.test.ts`, `video-helpers.test.ts`, etc.) + unused-var warnings. Don't block
-   the build, but worth holding a clean `npm run lint` gate.
-
-**Code quality**
-4. **Thumbnail not keyboard-accessible** - `VideoCard`'s play affordance is a
-   `<div onClick>` with `aria-label` but no `role`/`tabIndex`/key handler, so keyboard
-   + screen-reader users can't open `/watch` (WCAG 2.1.1). Make it a `<button>`/link.
-5. **`<img>` → `next/image`** in `VideoCard` (lint warns; slower LCP on the thumbnail grid).
-6. **Raw `console.*` in `VideoCard`** (tag-search TODO + missing-hash warning) should use
-   the existing `logger` utility.
+1. **Run `npm run test:e2e` once** and fix what falls out. Needs a dev server + live
+   Supabase; the suite's real state is currently unverified.
+2. **Unit-test `lib/api/supabase.ts`** (mock `fetch`) — the data backbone, and the most
+   logic-dense file, with zero coverage. The timeout and platform-whitelist paths are
+   easy first tests.
+3. **Lint/typecheck not clean** - pre-existing `no-explicit-any` errors and ~17 `tsc`
+   errors in test files (mock fixtures typing `platform` as a bare string). Don't block
+   the build, but they prevent holding a clean gate.
 
 ### MEDIUM Priority
-7. **Tag Search** - Tags are clickable but only `console.log` a TODO in `VideoCard`
-   (highest user-visible win; already half-wired)
-8. **API Caching** - Add React Query/SWR to avoid re-fetching
-9. **VOD Diary Pagination** - Currently fetches up to 50–200 videos at once
-10. **Mobile Date Picker UX** - `react-day-picker` touch improvements
+4. **Tag Search** - Tags are clickable but only log a TODO via `logger.debug` in
+   `VideoCard` (highest user-visible win; already half-wired)
+5. **API Caching** - Add React Query/SWR to avoid re-fetching
+6. **VOD Diary Pagination** - Currently fetches up to 50–200 videos at once
+7. **Mobile Date Picker UX** - `react-day-picker` touch improvements
+8. **`<img>` → `next/image`** in `VideoCard` (lint warns). Note `next.config.ts` sets
+   `images.unoptimized` for static export, so the win is smaller than it looks.
+9. **Dedupe the Supabase URL** - hardcoded in `VideoDetailView.tsx` instead of importing
+   `SUPABASE_URL` from `lib/constants.ts`.
+
+### ⛔ Settled — do not re-raise
+
+Decisions already made and false positives already investigated. Don't "discover" these
+again in the next audit:
+
+- **No CI is deliberate.** Not worth the setup cost at this project's size. Revisit if
+  more than one person starts committing, or if a regression ships unnoticed.
+- **`.env.local` is NOT committed.** Verified gitignored and absent from git history.
+- **The hardcoded Supabase URL + anon key are fine.** Both are *public by design* for a
+  PostgREST client. The only real nit is the duplication (item 9 above).
+- **`getSupabaseClient` in `lib/api/supabase.ts` is unused** and lint warns. The file
+  talks to PostgREST via raw `fetch` throughout. Wire it up or delete it — but it is not
+  a bug.
 
 ### LOW Priority
-11. **Production Build Optimization** - Bundle analysis, code splitting
-12. **Keyboard Shortcuts** - Ctrl+K for search
-13. **Offline Support Indicator**
+10. **Production Build Optimization** - Bundle analysis, code splitting
+11. **Keyboard Shortcuts** - Ctrl+K for search
+12. **Offline Support Indicator**
 
 ---
 
@@ -302,6 +343,10 @@ npm run test:watch      # watch mode
 npm run test:coverage   # coverage report
 ```
 - Located in `tests/unit/`: `VideoCard`, `VideoSelector`, `useToast`, `useLocalStorage`, `hash`, `video-helpers`
+- 126 tests, all passing. `createMockVideo` (`tests/test-utils.tsx`) includes a
+  `videoHash` by default — that's what makes a card navigable. Pass
+  `{ videoHash: undefined }` to exercise the inert, non-linked card.
+- **Not covered:** `lib/api/supabase.ts` — the data backbone has zero unit tests
 
 ### E2E Tests (Playwright)
 ```bash
@@ -316,8 +361,11 @@ npm run test:all        # vitest + playwright
 - E2E uses real Supabase data (fetches a video hash from the VOD diary)
 - Serial execution with `test.beforeAll` for shared state
 - Touch detection skips simulation on desktop
+- ⚠️ The E2E suite has **not been run end-to-end** since the editorial redesign. Unit
+  tests + production build are the only verified gates.
 
 ---
 
-**Last Updated:** 2026-06-02
-**Status:** Core complete. Editorial "Wubby Archive" redesign live. Unit + E2E suites in place.
+**Last Updated:** 2026-07-10
+**Status:** Core complete. Editorial "Wubby Archive" redesign live. API resilience + a11y
+fixes landed. Unit suite green (126); E2E suite present but unverified.

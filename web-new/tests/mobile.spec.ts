@@ -113,24 +113,6 @@ test.describe('Mobile Responsiveness', () => {
     await thisWeekPreset.tap();
   });
 
-  test('platform slider is usable with touch', async ({ page }) => {
-    await page.goto('/vod-diary');
-
-    // Platform slider should be visible
-    const platformSlider = page.getByRole('radiogroup', { name: /platform filter/i });
-    await expect(platformSlider).toBeVisible();
-
-    // Should be able to select platform
-    const twitchRadio = page.getByRole('radio', { name: /twitch/i });
-    await twitchRadio.tap();
-
-    // Wait for filter to apply
-    await page.waitForTimeout(1000);
-
-    // Radio should be checked
-    await expect(twitchRadio).toBeChecked();
-  });
-
   test('video card expand/collapse works with tap', async ({ page }) => {
     await page.goto('/vod-diary');
     await page.waitForTimeout(2000);
