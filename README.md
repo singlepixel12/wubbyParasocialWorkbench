@@ -7,10 +7,15 @@ Web tool for analyzing Wubby stream content with AI-powered video summaries, tra
 ```bash
 cd web-new
 npm install
+cp .env.example .env.local   # working defaults — no editing needed
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+> The anon key is **required** — the app throws at startup without it. It's a
+> read-only key protected by Row Level Security, so it's safe in client code.
+> `NEXT_PUBLIC_SUPABASE_URL` is optional (a default is built in).
 
 ---
 
@@ -43,7 +48,12 @@ Full-featured video playback at `/watch?id=HASH` and `/player`:
 ### Two-Tier UX
 Progressive disclosure for better browsing:
 1. **Browse View** - Scannable cards with a short hook; "Read more" expands the full summary in place
-2. **Detail View** - Full summary + player at `/watch?id=HASH` (open the card thumbnail)
+2. **Detail View** - Full summary + player at `/watch?id=HASH` (open the card thumbnail — a real link, opens in a new tab, fully keyboard accessible)
+
+### Resilient API layer
+All Supabase requests go through one `supabaseFetch` helper: shared auth headers, a
+10-second timeout on every call, and consistent, call-site-aware error messages. The
+platform filter is validated at both the type level (`PlatformFilter`) and runtime.
 
 ---
 
@@ -126,9 +136,26 @@ Colors are driven by HSL CSS variables in `app/globals.css` (e.g. `--accent-gree
 ## Environment Variables
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key   # required (read-only, RLS-protected)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url    # optional — defaults to the project URL
 ```
+
+See `web-new/.env.example` for a template. `.env.local` is gitignored.
+
+---
+
+## Building & Deployment
+
+The app is a **static export** (`output: 'export'` in `next.config.ts`) built for
+GitHub Pages:
+
+```bash
+cd web-new
+npm run build   # emits static site to out/
+```
+
+In production builds, `basePath` is set to `/wubbyParasocialWorkbench` automatically —
+never hand-prefix routes; `next/link` applies it for you.
 
 ---
 
@@ -149,9 +176,14 @@ npm run test:e2e:headed # headed browser
 npm run test:all        # vitest + playwright
 ```
 
-Unit tests live in `tests/unit/` (VideoCard, VideoSelector, hooks, hash, helpers).
-E2E suites cover navigation, VOD diary, player, player gestures, transcript,
-accessibility, and mobile. E2E tests use real Supabase data.
+Unit tests live in `tests/unit/` (VideoCard, VideoSelector, hooks, hash, helpers) —
+126 tests, all passing. E2E suites cover navigation, VOD diary, player, player
+gestures, transcript, accessibility, and mobile; they need a running dev server and
+use real Supabase data.
+
+> ⚠️ The E2E suite hasn't been run end-to-end since the editorial redesign — unit
+> tests + the production build are the verified gates. Running it once is the top
+> backlog item.
 
 ---
 
@@ -166,13 +198,26 @@ accessibility, and mobile. E2E tests use real Supabase data.
 
 | Priority | Task |
 |----------|------|
+| HIGH | Run the E2E suite end-to-end once and fix what falls out |
+| HIGH | Unit tests for `lib/api/supabase.ts` (the data backbone has zero coverage) |
+| MEDIUM | Tag search (tags are clickable but don't trigger search yet) |
 | MEDIUM | API caching (React Query/SWR) to avoid re-fetching |
 | MEDIUM | VOD diary pagination (currently fetches up to 50–200 at once) |
-| MEDIUM | Tag search (tags are clickable but don't trigger search yet) |
-| LOW | Production build optimization (bundle analysis, code splitting) |
+| MEDIUM | `<img>` → `next/image` in VideoCard; dedupe the Supabase URL in VideoDetailView |
+| LOW | Clean lint/type gate (pre-existing errors in test fixtures) |
 | LOW | Keyboard shortcuts (Ctrl+K for search) |
+
+See the "Remaining Tasks" section of [CLAUDE.md](./CLAUDE.md) for the full backlog,
+including decisions already settled (e.g. **no CI is deliberate** at this project's
+size — don't re-raise it).
+
+> `wubby-pleb-titles-extension/` at the repo root is a **separate, gitignored
+> project** with its own git history — not part of this app. See CLAUDE.md
+> "Out of scope".
 
 ---
 
-**Last Updated:** 2026-06-02
-**Status:** Core complete. Editorial "Wubby Archive" redesign live. Unit + E2E test suites in place.
+**Last Updated:** 2026-07-10
+**Status:** Core complete. Editorial "Wubby Archive" redesign live. API layer hardened
+(shared fetch helper, timeouts, typed platform filter) and VideoCard keyboard/screen-reader
+accessible. 126 unit tests green; E2E suite present but unverified.
