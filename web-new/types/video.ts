@@ -9,6 +9,13 @@
 export type Platform = 'twitch' | 'kick' | 'both' | 'unknown';
 
 /**
+ * Platform values that are valid as a *query filter*.
+ * 'unknown' is a legal stored Platform (rows without a platform) but not a
+ * meaningful filter, so it is excluded here — pass 'both' for "no constraint".
+ */
+export type PlatformFilter = 'twitch' | 'kick' | 'both';
+
+/**
  * Video object structure used throughout the application
  * Represents a single VOD with metadata
  */

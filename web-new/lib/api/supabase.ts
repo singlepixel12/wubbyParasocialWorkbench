@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { Video, Platform } from '@/types/video';
+import type { Video, Platform, PlatformFilter } from '@/types/video';
 import type {
   SupabaseVideoRow,
   FetchVideosParams,
@@ -40,6 +40,121 @@ function getSupabaseClient(): SupabaseClient {
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
   return supabaseClient;
+}
+
+/**
+ * Request timeout for all Supabase REST calls (milliseconds)
+ */
+const REQUEST_TIMEOUT_MS = 10000; // 10 second timeout
+
+/**
+ * User-facing message for an aborted (timed-out) request
+ */
+const TIMEOUT_MESSAGE =
+  'Request timed out. Please check your connection and try again.';
+
+/**
+ * Runtime guard mirroring the PlatformFilter type for untyped callers.
+ * 'both' is allowed but means "no platform constraint" (handled by callers).
+ * Anything outside this set is rejected rather than passed through.
+ */
+const ALLOWED_PLATFORM_FILTERS: readonly PlatformFilter[] = [
+  'both',
+  'twitch',
+  'kick',
+];
+
+/**
+ * Maps an HTTP error response to a clear, user-facing message.
+ *
+ * Every message is prefixed with the caller-provided `context` so the failing
+ * call site stays identifiable — a 404 from a list query must not read like a
+ * single-video lookup failure.
+ *
+ * @param response - The failed fetch Response
+ * @param context - Short description of the call site (e.g. 'Failed to load videos')
+ * @returns A user-facing error message string
+ */
+function describeHttpError(response: Response, context: string): string {
+  let detail: string;
+  switch (response.status) {
+    case 400:
+      detail = 'bad request (invalid query parameters)';
+      break;
+    case 401:
+      detail = 'authentication failed (check API key)';
+      break;
+    case 403:
+      detail = 'access denied (insufficient permissions)';
+      break;
+    case 404:
+      detail = 'not found';
+      break;
+    case 429:
+      detail = 'too many requests - please wait and try again';
+      break;
+    case 500:
+      detail = 'server error - please try again later';
+      break;
+    case 502:
+    case 503:
+    case 504:
+      detail = 'service temporarily unavailable - please try again later';
+      break;
+    default:
+      detail = `${response.status} - ${response.statusText}`;
+  }
+  return `${context}: ${detail}`;
+}
+
+/**
+ * Performs a GET against the Supabase REST API with the shared auth headers,
+ * a request timeout, and consistent error mapping.
+ *
+ * Every fetcher in this module must go through this helper — it owns the
+ * AbortController/timer lifecycle (cleared in `finally` so it can never leak),
+ * translates an abort into a clear timeout error, and maps HTTP failures via
+ * {@link describeHttpError}.
+ *
+ * @param queryUrl - Full REST query URL to fetch
+ * @param context - Call-site description used in error messages
+ * @returns The successful Response (guaranteed `response.ok`)
+ * @throws Error with a user-facing message on timeout or HTTP failure
+ */
+async function supabaseFetch(
+  queryUrl: string,
+  context: string
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(queryUrl, {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_ANON_KEY!,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(describeHttpError(response, context));
+    }
+
+    return response;
+  } catch (error) {
+    // Surface an aborted request as a clear timeout error. Checked via the
+    // name property (not instanceof Error) so a DOMException is caught even
+    // on engines where it doesn't subclass Error.
+    if ((error as { name?: string } | null)?.name === 'AbortError') {
+      throw new Error(TIMEOUT_MESSAGE);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
@@ -108,66 +223,12 @@ export async function getWubbySummary(
     const videoHash = await computeVideoHash(videoUrl);
     logger.log('Video hash:', videoHash);
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
     // Query Supabase using REST API directly for maximum control
     const queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?video_hash=eq.${videoHash}`;
     logger.log('Query URL:', queryUrl);
     logger.log('Making API request...');
 
-    const response = await fetch(queryUrl, {
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_ANON_KEY!,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    logger.log('API Response Status:', response.status, response.statusText);
-
-    // Handle HTTP errors with specific messages
-    if (!response.ok) {
-      let errorMessage = `Request failed: ${response.status}`;
-
-      switch (response.status) {
-        case 400:
-          errorMessage = 'Bad request - Invalid query parameters';
-          break;
-        case 401:
-          errorMessage = 'Authentication failed - Check API key';
-          break;
-        case 403:
-          errorMessage = 'Access denied - Insufficient permissions';
-          break;
-        case 404:
-          errorMessage = 'Video not found in database';
-          break;
-        case 429:
-          errorMessage = 'Too many requests - Please wait and try again';
-          break;
-        case 500:
-          errorMessage = 'Server error - Please try again later';
-          break;
-        case 502:
-        case 503:
-        case 504:
-          errorMessage =
-            'Service temporarily unavailable - Please try again later';
-          break;
-        default:
-          errorMessage = `Request failed: ${response.status} - ${response.statusText}`;
-      }
-
-      logger.error('❌ API Error:', errorMessage);
-      logger.groupEnd();
-      throw new Error(errorMessage);
-    }
+    const response = await supabaseFetch(queryUrl, 'Video lookup failed');
 
     logger.log('✅ API request successful');
     const data: SupabaseVideoRow[] = await response.json();
@@ -196,16 +257,9 @@ export async function getWubbySummary(
     logger.error('❌ Error fetching video summary:', error);
     logger.groupEnd();
 
-    // Handle specific error types
+    // Handle specific error types (timeouts are already mapped by supabaseFetch)
     if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        throw new Error(
-          'Request timed out. Please check your connection and try again.'
-        );
-      } else if (
-        error.name === 'TypeError' &&
-        error.message.includes('fetch')
-      ) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
         throw new Error('Network error. Please check your internet connection.');
       } else if (error.name === 'SyntaxError') {
         throw new Error('Invalid response from server. Please try again.');
@@ -254,31 +308,7 @@ export async function getWubbySummaryByHash(
     logger.log('Query URL:', queryUrl);
     logger.log('Making API request...');
 
-    const response = await fetch(queryUrl, {
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_ANON_KEY!,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    logger.log('API Response Status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      let errorMessage = `Request failed: ${response.status}`;
-      switch (response.status) {
-        case 404:
-          errorMessage = 'Video not found in database';
-          break;
-        case 500:
-          errorMessage = 'Server error - Please try again later';
-          break;
-      }
-      logger.error('❌ API Error:', errorMessage);
-      logger.groupEnd();
-      throw new Error(errorMessage);
-    }
+    const response = await supabaseFetch(queryUrl, 'Video lookup failed');
 
     logger.log('✅ API request successful');
     const data: SupabaseVideoRow[] = await response.json();
@@ -329,11 +359,19 @@ export async function fetchRecentVideos(
 ): Promise<Video[]> {
   const { limit = 50, platform = 'both', fromDate = null, toDate = null } = params;
 
+  // Validate the platform against a whitelist before interpolating it into the
+  // query string (runtime backstop for the PlatformFilter type). Rejecting
+  // (rather than ignoring) an out-of-range value means a caller can never
+  // silently receive results for the wrong platform.
+  if (!ALLOWED_PLATFORM_FILTERS.includes(platform)) {
+    throw new Error(`Invalid platform filter: ${platform}`);
+  }
+
   try {
     // Build query URL
     let queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?select=pleb_title,platform,tags,summary,upload_date,video_url,video_hash&order=upload_date.desc.nullslast&limit=${limit}`;
 
-    // Add platform filter if not 'both'
+    // Add platform filter if not 'both' ('both' means no platform constraint)
     if (platform !== 'both') {
       queryUrl += `&platform=eq.${platform}`;
     }
@@ -345,16 +383,7 @@ export async function fetchRecentVideos(
       queryUrl += `&upload_date=gte.${fromISO}&upload_date=lte.${toISO}`;
     }
 
-    const response = await fetch(queryUrl, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY!,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to load videos: ${response.status} - ${response.statusText}`);
-    }
+    const response = await supabaseFetch(queryUrl, 'Failed to load videos');
 
     const data: SupabaseVideoRow[] = await response.json();
 
@@ -397,16 +426,7 @@ export async function searchVideos(
     // PostgREST syntax for OR query with ilike (case-insensitive LIKE)
     queryUrl += `&or=(pleb_title.ilike.${encodedTerm},video_url.ilike.${encodedTerm})`;
 
-    const response = await fetch(queryUrl, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY!,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Search failed: ${response.status} - ${response.statusText}`);
-    }
+    const response = await supabaseFetch(queryUrl, 'Search failed');
 
     const data: SupabaseVideoRow[] = await response.json();
 
