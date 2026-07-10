@@ -9,10 +9,12 @@
  */
 
 import { memo, useState } from 'react';
+import Link from 'next/link';
 import { Play, FileText, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Video } from '@/types/video';
 import { formatDateDisplay, extractOriginalTitle, extractHook } from '@/lib/utils/video-helpers';
 import { Badge } from '@/components/ui/badge';
+import { logger } from '@/lib/utils/logger';
 import { cn } from '@/lib/utils';
 
 interface VideoCardProps {
@@ -36,25 +38,12 @@ export const VideoCard = memo(function VideoCard({ video, index, onCardClick }: 
 
   // If no hash, card won't be clickable (shouldn't happen with DB videos)
   if (!videoHash) {
-    console.warn('Video missing videoHash:', video.url);
+    logger.warn('Video missing videoHash:', video.url);
   }
 
   // Visible tags (drop the platform if it leaked into the tag list)
   const tags = video.tags?.filter((tag) => tag !== video.platform) ?? [];
   const recordNo = typeof index === 'number' ? String(index + 1).padStart(2, '0') : null;
-
-  const handleThumbnailClick = (e: React.MouseEvent) => {
-    // Prevent card expansion when clicking thumbnail
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Navigate to watch page with video hash (include basePath for GitHub Pages)
-    if (videoHash) {
-      const basePath = process.env.NODE_ENV === 'production' ? '/wubbyParasocialWorkbench' : '';
-      window.open(`${basePath}/watch?id=${videoHash}`, '_blank');
-      onCardClick?.(video);
-    }
-  };
 
   return (
     <article
@@ -65,42 +54,13 @@ export const VideoCard = memo(function VideoCard({ video, index, onCardClick }: 
         'hover:border-foreground/15 hover:bg-card'
       )}
     >
-      {/* Thumbnail with play button */}
-      <div
-        onClick={handleThumbnailClick}
-        className="group/thumb block w-full flex-shrink-0 cursor-pointer md:w-44"
-        aria-label={`Play ${video.title}`}
-      >
-        <div className="relative h-48 w-full overflow-hidden rounded bg-black md:h-full md:min-h-[100px]">
-          {/* Thumbnail image (with fallback to black box) */}
-          {video.thumbnailUrl && !thumbnailError ? (
-            <img
-              src={video.thumbnailUrl}
-              alt={`Thumbnail for ${video.title}`}
-              className="absolute inset-0 h-full w-full object-cover grayscale-[35%] transition-all duration-500 group-hover/thumb:grayscale-0"
-              onError={() => setThumbnailError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-black" />
-          )}
-
-          {/* Play button overlay with a single quiet-green accent */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-80 transition-all duration-300 group-hover/thumb:opacity-100">
-            <div
-              className={cn(
-                'flex h-16 w-16 items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300',
-                'bg-gradient-to-br from-black/90 to-black/70',
-                'animate-[playButtonPulse_2s_ease-in-out_infinite] group-hover/thumb:animate-none',
-                'group-hover/thumb:scale-110 group-hover/thumb:from-accent-green/95 group-hover/thumb:to-accent-green/80',
-                'group-hover/thumb:shadow-[0_0_24px_hsl(var(--accent-green)/0.55)]'
-              )}
-            >
-              <Play className="ml-0.5 h-7 w-7 fill-white text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Thumbnail with play button — a real link so it is keyboard reachable */}
+      <Thumbnail
+        video={video}
+        thumbnailError={thumbnailError}
+        onThumbnailError={() => setThumbnailError(true)}
+        onCardClick={onCardClick}
+      />
 
       {/* Info section */}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -180,6 +140,87 @@ export const VideoCard = memo(function VideoCard({ video, index, onCardClick }: 
   );
 });
 
+interface ThumbnailProps {
+  video: Video;
+  thumbnailError: boolean;
+  onThumbnailError: () => void;
+  onCardClick?: (video: Video) => void;
+}
+
+/**
+ * The thumbnail + play overlay. Renders as a `<Link>` when a hash is available so
+ * keyboard and screen-reader users can reach the watch page (WCAG 2.1.1). When the
+ * video has no hash to route to, it falls back to an inert `<div>` that keeps the
+ * image's accessible description and drops the play affordance — a play button that
+ * cannot be activated must not be shown. `next/link` applies the configured
+ * `basePath` automatically — do not prepend it by hand.
+ */
+function Thumbnail({
+  video,
+  thumbnailError,
+  onThumbnailError,
+  onCardClick,
+}: ThumbnailProps) {
+  const videoHash = video.videoHash;
+  const className = 'group/thumb block w-full flex-shrink-0 rounded md:w-44';
+
+  const visual = (
+    <div className="relative h-48 w-full overflow-hidden rounded bg-black md:h-full md:min-h-[100px]">
+      {/* Thumbnail image (with fallback to black box). When the Link carries the
+          accessible name, the image is decorative; on the inert branch the alt is
+          the only text a screen reader gets. */}
+      {video.thumbnailUrl && !thumbnailError ? (
+        <img
+          src={video.thumbnailUrl}
+          alt={videoHash ? '' : `Thumbnail for ${video.title}`}
+          className="absolute inset-0 h-full w-full object-cover grayscale-[35%] transition-all duration-500 group-hover/thumb:grayscale-0"
+          onError={onThumbnailError}
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-black" />
+      )}
+
+      {/* Play button overlay with a single quiet-green accent — only when playable */}
+      {videoHash && (
+        <div className="absolute inset-0 flex items-center justify-center opacity-80 transition-all duration-300 group-hover/thumb:opacity-100">
+          <div
+            className={cn(
+              'flex h-16 w-16 items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300',
+              'bg-gradient-to-br from-black/90 to-black/70',
+              'animate-[playButtonPulse_2s_ease-in-out_infinite] group-hover/thumb:animate-none',
+              'group-hover/thumb:scale-110 group-hover/thumb:from-accent-green/95 group-hover/thumb:to-accent-green/80',
+              'group-hover/thumb:shadow-[0_0_24px_hsl(var(--accent-green)/0.55)]'
+            )}
+          >
+            <Play className="ml-0.5 h-7 w-7 fill-white text-white" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (!videoHash) {
+    return <div className={className}>{visual}</div>;
+  }
+
+  return (
+    <Link
+      href={`/watch?id=${videoHash}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Play ${video.title}`}
+      onClick={() => onCardClick?.(video)}
+      className={cn(
+        className,
+        'cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+      )}
+    >
+      {visual}
+    </Link>
+  );
+}
+
 /** A single clickable topic tag. */
 function TagBadge({ tag }: { tag: string }) {
   return (
@@ -190,7 +231,7 @@ function TagBadge({ tag }: { tag: string }) {
         e.preventDefault();
         e.stopPropagation();
         // TODO: Implement tag search
-        console.log('Search for tag:', tag);
+        logger.debug('Search for tag:', tag);
       }}
     >
       {tag}

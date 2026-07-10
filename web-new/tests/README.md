@@ -104,12 +104,13 @@ tests/
 - ✅ Clear button functionality
 - ✅ Accessibility (ARIA labels, descriptions)
 
-#### `VideoCard` (17 tests)
+#### `VideoCard` (18 tests)
 - ✅ Rendering (title, summary hook, date, record number)
 - ✅ No platform badge (single accent, per the editorial redesign)
 - ✅ Read more / Show less expand-in-place
 - ✅ Topic tags, filtering a tag that duplicates the platform
-- ✅ Thumbnail opens `/watch?id=HASH` in a new tab (via `window.open`)
+- ✅ Thumbnail is a real link (`<a href="/watch?id=HASH" target="_blank" rel="noopener">`)
+- ✅ Hashless video → inert thumbnail: no link, no play affordance, labelled `img`
 - ✅ Accessibility (play affordance label, expand button)
 
 ### Utilities (56 tests)

@@ -3,7 +3,7 @@
  * Table: wubby_summary
  */
 
-import { Platform } from './video';
+import { PlatformFilter } from './video';
 
 /**
  * Raw row from Supabase wubby_summary table
@@ -51,7 +51,7 @@ export interface FetchVideosParams {
   limit?: number;
 
   /** Filter by platform (twitch, kick, both) */
-  platform?: Platform;
+  platform?: PlatformFilter;
 
   /** Start date for date range filter */
   fromDate?: Date | null;

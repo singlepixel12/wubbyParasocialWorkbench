@@ -8,7 +8,7 @@
  * on click — the card navigates via the video hash.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VideoCard } from '@/components/vod-diary/VideoCard';
@@ -130,27 +130,30 @@ describe('VideoCard', () => {
   });
 
   describe('Thumbnail interaction', () => {
-    let openSpy: ReturnType<typeof vi.spyOn>;
-
-    beforeEach(() => {
-      openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-    });
-
-    afterEach(() => {
-      openSpy.mockRestore();
-    });
-
-    it('should open the watch page in a new tab using the video hash', async () => {
-      const user = userEvent.setup();
+    it('should link to the watch page in a new tab using the video hash', () => {
       const video = createMockVideo({ videoHash: 'abc123' });
       renderWithProviders(<VideoCard video={video} />);
 
-      await user.click(screen.getByLabelText(`Play ${video.title}`));
+      const link = screen.getByRole('link', { name: `Play ${video.title}` });
+      expect(link).toHaveAttribute('href', '/watch?id=abc123');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    });
 
-      expect(openSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/watch?id=abc123'),
-        '_blank'
-      );
+    it('should render an inert thumbnail when the video has no hash', () => {
+      const video = createMockVideo({
+        videoHash: undefined,
+        thumbnailUrl: 'https://example.com/thumb.webp',
+      });
+      renderWithProviders(<VideoCard video={video} />);
+
+      // No link and no play affordance — a play button that can't be activated
+      // must not be shown.
+      expect(screen.queryByRole('link', { name: `Play ${video.title}` })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(`Play ${video.title}`)).not.toBeInTheDocument();
+
+      // But the thumbnail must keep an accessible description via the img alt.
+      expect(screen.getByAltText(`Thumbnail for ${video.title}`)).toBeInTheDocument();
     });
 
     it('should call onCardClick when the thumbnail is clicked', async () => {

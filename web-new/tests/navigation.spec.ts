@@ -251,20 +251,17 @@ test.describe('Navigation', () => {
     expect(value).toBe('test-value');
   });
 
-  test('can open player in new tab from VOD diary', async ({ page, context }) => {
+  test('can open watch page in new tab from VOD diary', async ({ page }) => {
     await page.goto('/vod-diary');
-    await page.waitForTimeout(2000);
 
-    // Check if any video cards are loaded
-    const playLinks = page.locator('a[href="/player"]');
-    const linkCount = await playLinks.count();
+    // Card thumbnails link to /watch?id=HASH; wait for the diary to load them
+    const playLinks = page.locator('a[href*="/watch?id="]');
+    await expect(playLinks.first()).toBeVisible({ timeout: 15000 });
 
-    if (linkCount > 0) {
-      // First play link should have target="_blank"
-      const firstPlayLink = playLinks.first();
-      const target = await firstPlayLink.getAttribute('target');
-      expect(target).toBe('_blank');
-    }
+    // Play links must open in a new tab without leaking the opener
+    const firstPlayLink = playLinks.first();
+    await expect(firstPlayLink).toHaveAttribute('target', '_blank');
+    await expect(firstPlayLink).toHaveAttribute('rel', /noopener/);
   });
 
   test('navigation does not cause page flash or flicker', async ({ page }) => {

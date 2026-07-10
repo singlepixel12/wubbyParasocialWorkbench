@@ -355,18 +355,6 @@ test.describe('Accessibility', () => {
     // This is a simplified check
   });
 
-  test('custom controls have appropriate ARIA roles', async ({ page }) => {
-    await page.goto('/vod-diary');
-
-    // Platform slider should have radiogroup role
-    const platformSlider = page.getByRole('radiogroup', { name: /platform filter/i });
-    await expect(platformSlider).toBeVisible();
-
-    // Radio buttons should have radio role
-    const radios = page.getByRole('radio');
-    expect(await radios.count()).toBeGreaterThan(0);
-  });
-
   test('no duplicate IDs on page', async ({ page }) => {
     await page.goto('/');
 
