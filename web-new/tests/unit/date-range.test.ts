@@ -13,7 +13,13 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { differenceInCalendarDays } from 'date-fns';
-import { lastNDays, lastNMonths, toUploadDateBounds } from '@/lib/utils/date-range';
+import {
+  formatDayParam,
+  lastNDays,
+  lastNMonths,
+  parseDayParam,
+  toUploadDateBounds,
+} from '@/lib/utils/date-range';
 
 const originalTZ = process.env.TZ;
 
@@ -93,5 +99,19 @@ describe.each([
     expect(toUploadDateBounds(preset.from, preset.to)).toEqual(
       toUploadDateBounds(handPicked.from, handPicked.to)
     );
+  });
+
+  it('round-trips a day through the URL param without shifting it', () => {
+    const day = new Date(2026, 9, 4, 23, 30); // late on the DST-change day
+    const param = formatDayParam(day);
+
+    expect(param).toBe('2026-10-04');
+    expect(parseDayParam(param)).toEqual(new Date(2026, 9, 4));
+  });
+
+  it('rejects malformed or impossible URL days instead of producing Invalid Date', () => {
+    for (const bad of [null, '', 'not-a-date', '2026-9-1', '2026-02-30', '2026-13-01', '2026-09-01T00:00']) {
+      expect(parseDayParam(bad)).toBeNull();
+    }
   });
 });

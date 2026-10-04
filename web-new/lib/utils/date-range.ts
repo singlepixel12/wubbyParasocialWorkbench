@@ -12,7 +12,26 @@
  * never shift a boundary.
  */
 
-import { addDays, startOfDay, subDays, subMonths } from 'date-fns';
+import { addDays, format, isValid, parse, startOfDay, subDays, subMonths } from 'date-fns';
+
+/** Day format used in the diary URL (`?from=2026-09-01&to=2026-09-30`). */
+const DAY_PARAM_FORMAT = 'yyyy-MM-dd';
+
+/** Serialises a local calendar day for the URL (no time, no timezone). */
+export function formatDayParam(date: Date): string {
+  return format(date, DAY_PARAM_FORMAT);
+}
+
+/**
+ * Parses a `yyyy-MM-dd` URL param back to that local day's midnight.
+ * Returns null for a missing or malformed value (e.g. a hand-edited URL), so
+ * callers fall back to their default instead of querying an Invalid Date.
+ */
+export function parseDayParam(value: string | null | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = parse(value, DAY_PARAM_FORMAT, new Date());
+  return isValid(date) ? date : null;
+}
 
 export interface DayRange {
   from: Date;

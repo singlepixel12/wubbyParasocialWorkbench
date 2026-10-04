@@ -15,14 +15,16 @@ import { cn } from '@/lib/utils';
 
 interface SearchInputProps {
   onSearch: (searchTerm: string) => void;
+  /** Term to start with (e.g. restored from the URL); read once on mount */
+  initialValue?: string;
   isVisible?: boolean;
   onToggle?: (visible: boolean) => void;
   className?: string;
 }
 
-export function SearchInput({ onSearch, isVisible: controlledVisible, onToggle, className }: SearchInputProps) {
+export function SearchInput({ onSearch, initialValue = '', isVisible: controlledVisible, onToggle, className }: SearchInputProps) {
   const [internalVisible, setInternalVisible] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialValue);
 
   // Use controlled visibility if provided, otherwise use internal state
   const isVisible = controlledVisible !== undefined ? controlledVisible : internalVisible;
