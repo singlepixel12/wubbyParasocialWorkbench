@@ -22,11 +22,13 @@ Open [http://localhost:3000](http://localhost:3000)
 ## Features
 
 ### VOD Diary (Browse)
-Browse Wubby's VOD archive. Both `/` (home) and `/vod-diary` render the same
-`VodDiaryScreen`, so the two routes can never drift.
-- **Editorial masthead** - "The Wubby Archive" wordmark with an issue number (record count) and date-range meta line
-- **Date Range Picker** - Filter by date (`react-day-picker`), with locale-aware formatting
-- **Search** - Toggleable, debounced, real-time search across title / URL / tags
+Browse Wubby's VOD archive at `/` (`VodDiaryScreen`). The legacy `/vod-diary` URL
+redirects there. Search and date range live in the URL, so links like
+`/?q=cooking` or `/?from=2026-09-01&to=2026-09-30` are shareable.
+- **Editorial masthead** - "The Wubby Archive" wordmark with an issue number (total records in the range) and date-range meta line
+- **Date Range Picker** - Filter by whole local days (`react-day-picker`), with locale-aware formatting
+- **Paging** - 50 at a time; "Showing N of M records" + Load more
+- **Search** - Toggleable, debounced, real-time search across title / URL
 - **Archive-record cards** - Each VOD is a hairline-ruled entry with a running `№` number, a Fraunces display title, a 1-2 line hook, and an expand-in-place full summary
 
 > Note: the old Twitch/Kick **platform toggle** was removed — the diary now shows
@@ -39,9 +41,9 @@ Every video includes AI-generated metadata:
 - **Title Cleaning** - AI-cleaned `pleb_title` shown alongside the original filename from the URL
 
 ### Video Player
-Full-featured video playback at `/watch?id=HASH` and `/player`:
+Full-featured video playback at `/watch?id=HASH`:
 - **Subtitles/Transcripts** - VTT files from Supabase storage
-- **Playback Position** - Saves every 10s (after a 30s threshold), restores on reload
+- **Playback Position** - Supported by the player (saves every 10s after a 30s threshold), but not yet wired up on `/watch`
 - **Lock Screen Controls** - Media Session API for background playback
 - **Touch Gestures** - Drag up = fullscreen, drag down = PiP (mobile)
 
@@ -79,9 +81,8 @@ wubbyParasocialWorkbench/
 ├── web-new/                    # Next.js app
 │   ├── app/                    # App router pages
 │   │   ├── page.tsx           # Home — renders <VodDiaryScreen>
-│   │   ├── vod-diary/         # VOD diary — also renders <VodDiaryScreen>
-│   │   ├── watch/             # Detail view (/watch?id=HASH)
-│   │   ├── player/            # Dedicated player
+│   │   ├── vod-diary/         # Legacy route — redirects to /
+│   │   ├── watch/             # Detail view + player (/watch?id=HASH)
 │   │   └── transcript/        # Transcript extraction
 │   ├── components/
 │   │   ├── ui/                # shadcn components
@@ -107,10 +108,9 @@ wubbyParasocialWorkbench/
 
 | Route | Description |
 |-------|-------------|
-| `/` | Home — VOD browse (shared `VodDiaryScreen`) |
-| `/vod-diary` | VOD diary — shared `VodDiaryScreen` |
+| `/` | Home — VOD browse (`VodDiaryScreen`) |
+| `/vod-diary` | Legacy — redirects to `/`, keeping the query string |
 | `/watch?id=HASH` | Full video detail view + player |
-| `/player` | Dedicated video player |
 | `/transcript` | Transcript extraction tool |
 
 ---
@@ -176,9 +176,9 @@ npm run test:e2e:headed # headed browser
 npm run test:all        # vitest + playwright
 ```
 
-Unit tests live in `tests/unit/` (VideoCard, VideoSelector, hooks, hash, helpers) —
-126 tests, all passing. E2E suites cover navigation, VOD diary, player, player
-gestures, transcript, accessibility, and mobile; they need a running dev server and
+Unit tests live in `tests/unit/` (VodDiaryScreen, supabase API, date ranges, VideoCard,
+VideoSelector, hooks, hash, helpers) — 173 tests, all passing. E2E suites cover
+navigation, VOD diary, player gestures, transcript, accessibility, and mobile; they need a running dev server and
 use real Supabase data.
 
 > ⚠️ The E2E suite hasn't been run end-to-end since the editorial redesign — unit

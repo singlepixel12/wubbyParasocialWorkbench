@@ -37,10 +37,21 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 ## Core Features
 
 ### 1. VOD Diary (Browse)
-- Single shared `VodDiaryScreen` rendered by both `/` and `/vod-diary` (one source of truth)
-- Editorial `Masthead` — wordmark, issue/record count, date-range meta line
-- Date range filtering via `react-day-picker` (`DateRangePicker`)
-- Toggleable, debounced real-time search (`SearchInput`) across title / URL / tags
+- `VodDiaryScreen` rendered at `/`; the legacy `/vod-diary` route is a client-side
+  redirect to `/` that keeps the query string (static export can't redirect server-side)
+- **Filters live in the URL** — `/?q=cooking`, `/?from=2026-09-01&to=2026-09-30`. No
+  `from` means "This Week". Search writes with `router.replace`, a completed date range
+  with `router.push`. `useSearchParams` needs the `<Suspense>` in `app/page.tsx`.
+- Editorial `Masthead` — wordmark, issue number (= total records in the range, not the
+  page loaded), date-range meta line
+- Date range filtering via `react-day-picker` (`DateRangePicker`). Ranges are **whole
+  local calendar days**, queried `gte` start-of-from / `lt` start-of-day-after-to
+  (`lib/utils/date-range.ts`) — never `lte` a midnight
+- Paging: 50 per page, "Showing N of M records" + "Load more" at the list foot
+- Toggleable, debounced real-time search (`SearchInput`) across title / URL (tags only
+  narrow server matches — see Remaining Tasks)
+- Superseded loads are aborted (`AbortController` per filter change), so a slow old
+  response can never overwrite newer results
 - Archive-record cards: running `№` number, Fraunces title, 1-2 line hook, expand-in-place full summary
 - Lazy-loaded thumbnails, grayscale by default and colorizing on hover, with black-box fallback
 
@@ -55,10 +66,11 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 - Tag display (3 mobile, 6 desktop) with click handlers
 
 ### 3. Video Player
-- Vidstack player with custom community skin
+- Vidstack player with custom community skin; `/watch?id=HASH` is the only player route
 - Subtitle/transcript support (VTT files from Supabase)
-- Playback position saving (every 10s after 30s threshold)
-- Position restoration on page reload
+- Playback position saving (every 10s after 30s threshold) and restoration — **only when
+  `storageKey` is passed**, which `/watch` (`VideoDetailView`) does not yet do (see
+  Remaining Tasks)
 - Media Session API (lock screen controls, background playback)
 - Touch gestures (mobile only): drag up = fullscreen, drag down = PiP
 
@@ -81,12 +93,10 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 ```
 web-new/
 ├── app/
-│   ├── page.tsx              # Home — renders <VodDiaryScreen>
-│   ├── vod-diary/page.tsx    # VOD diary — also renders <VodDiaryScreen>
-│   ├── watch/page.tsx        # Detail view (/watch?id=HASH, query param)
-│   ├── player/page.tsx       # Dedicated player
+│   ├── page.tsx              # Home — <Suspense> + <VodDiaryScreen>
+│   ├── vod-diary/page.tsx    # Legacy route — client redirect to / (keeps query)
+│   ├── watch/page.tsx        # Detail view + player (/watch?id=HASH, query param)
 │   ├── transcript/page.tsx   # Transcript extraction
-│   ├── player-test/page.tsx  # Player sandbox
 │   ├── layout.tsx            # Root layout — fonts, Header, PageTransition, Toaster
 │   ├── error.tsx             # Global error boundary
 │   ├── not-found.tsx         # 404 page
@@ -105,7 +115,7 @@ web-new/
 │   │   ├── VideoDetailView.tsx   # Full detail view
 │   │   └── HashDisplay.tsx       # Hash status display
 │   ├── vod-diary/
-│   │   ├── VodDiaryScreen.tsx    # Shared browse screen (masthead + filters + list)
+│   │   ├── VodDiaryScreen.tsx    # Browse screen: URL filters, paging, abortable loads
 │   │   ├── VideoCard.tsx         # Archive-record browse card (React.memo)
 │   │   ├── VideoList.tsx         # Card container, staggered reveal (React.memo)
 │   │   ├── SkeletonVideoCard.tsx # Loading placeholder
@@ -115,7 +125,7 @@ web-new/
 │   └── Header.tsx                # Sticky editorial wordmark + hamburger Sheet
 ├── lib/
 │   ├── api/
-│   │   └── supabase.ts           # API client (4 functions)
+│   │   └── supabase.ts           # API client (see API Functions)
 │   ├── hooks/
 │   │   ├── useTouchGestures.ts   # Mobile gestures (PiP/fullscreen)
 │   │   ├── useLocalStorage.ts    # SSR-safe storage
@@ -123,6 +133,7 @@ web-new/
 │   │   └── useDebounce.ts        # Debounce utility
 │   ├── utils/
 │   │   ├── hash.ts               # SHA-256 computation + isValidHash
+│   │   ├── date-range.ts         # Whole-local-day ranges, query bounds, URL day params
 │   │   ├── video-helpers.ts      # Format/extract utilities (extractHook, etc.)
 │   │   ├── logger.ts             # Environment-aware logging
 │   │   └── storage-cleanup.ts    # Vidstack position cleanup
@@ -132,6 +143,9 @@ web-new/
 │   └── supabase.ts               # DB types
 └── tests/
     ├── unit/                     # Vitest unit tests
+    │   ├── VodDiaryScreen.test.tsx
+    │   ├── supabase.test.ts
+    │   ├── date-range.test.ts
     │   ├── VideoCard.test.tsx
     │   ├── VideoSelector.test.tsx
     │   ├── useToast.test.tsx
@@ -141,7 +155,6 @@ web-new/
     ├── player-gestures.spec.ts   # Touch gesture E2E tests
     ├── navigation.spec.ts        # Page navigation
     ├── vod-diary.spec.ts         # Filter functionality
-    ├── player.spec.ts            # Player E2E
     ├── transcript.spec.ts        # Transcript E2E
     ├── index.spec.ts             # Home E2E
     ├── accessibility.spec.ts     # WCAG compliance
@@ -158,16 +171,19 @@ web-new/
 |----------|---------|
 | `getWubbySummary(url)` | Fetch metadata by URL (computes hash) |
 | `getWubbySummaryByHash(hash)` | Fetch metadata by pre-computed hash (validated via `isValidHash`) |
-| `fetchRecentVideos(params)` | Query videos with filters (limit, optional platform, date range) |
-| `searchVideos(params)` | Search by title, URL, tags (PostgREST `ilike` + client-side tag filter) |
+| `fetchRecentVideosPage(params)` | One page (`limit`, `offset`, platform, date range, `signal`) + `total` from `Prefer: count=exact` |
+| `fetchRecentVideos(params)` | Rows-only wrapper over `fetchRecentVideosPage` |
+| `searchVideos(params)` | Search by title, URL (PostgREST `ilike`; client-side tag check only narrows) |
+| `isAbortError(error)` | True for a caller cancellation — callers ignore it rather than toast |
 
 Rows are mapped to the `Video` type by `mapRowToVideo`, which also derives the
 thumbnail URL from `video_hash`.
 
-All four fetchers go through one module-private `supabaseFetch(queryUrl, context)` helper
-that owns the auth headers, a 10s `AbortController` timeout (cleared in `finally`),
+All fetchers go through one module-private `supabaseFetch(queryUrl, context, { signal, headers })`
+helper that owns the auth headers, a 10s `AbortController` timeout (cleared in `finally`),
 timeout-error mapping, and `describeHttpError(response, context)` for status-code
-messages (every message is context-prefixed so list failures never read like
+messages. A caller `signal` is chained in; a caller abort rethrows the `AbortError`
+untouched (only the internal timer maps to the timeout message) (every message is context-prefixed so list failures never read like
 single-video lookups). **New fetchers must use `supabaseFetch`** — do not hand-wire
 `fetch` + timers. `fetchRecentVideos` takes a `PlatformFilter`
 (`'twitch' | 'kick' | 'both'` — `types/video.ts`; deliberately excludes `'unknown'`)
@@ -259,35 +275,45 @@ Other design details:
 - Deleted two E2E tests that only drove the removed `PlatformSlider`; gitignored the
   standalone extension
 
+### ✅ Diary hardening (2026-10-04)
+- Removed dead code + 70 tracked `.playwright-mcp` screenshots; `/player` (unreachable —
+  nothing wrote `selectedVideoUrl`) and `/player-test` deleted; `/vod-diary` redirects
+- Superseded diary loads are aborted; Retry re-runs the *current* filters
+- Date ranges are whole local days, end-exclusive (fixed the dropped last day and a DST
+  test failure); search + date range live in the URL; "Load more" paging with an honest
+  total in the masthead
+- `lib/api/supabase.ts` now has unit tests; 173 unit tests pass
+
 ---
 
 ## Remaining Tasks
 
-A risk audit (2026-06-12) found the concrete defects now listed under Completed Work.
-What remains is a **thin verification layer**: the E2E suite has never been run
-end-to-end, and `lib/api/supabase.ts` has no unit tests.
-
 ### 🔜 Next Working Session — start here
 
-1. **Run `npm run test:e2e` once** and fix what falls out. Needs a dev server + live
-   Supabase; the suite's real state is currently unverified.
-2. **Unit-test `lib/api/supabase.ts`** (mock `fetch`) — the data backbone, and the most
-   logic-dense file, with zero coverage. The timeout and platform-whitelist paths are
-   easy first tests.
-3. **Lint/typecheck not clean** - pre-existing `no-explicit-any` errors and ~17 `tsc`
+1. **The E2E suite is mostly stale.** A Chromium run of navigation / vod-diary /
+   accessibility / mobile on 2026-10-04: 33 of 73 pass (every `mobile.spec` test fails). Most failures assert the old
+   vanilla-site UI (a "Home"/"VOD Diary"/"Player" header nav, `index.spec`'s URL-input
+   homepage) — rewrite against the current UI rather than "fix". The full 5-browser run
+   exceeds 10 minutes because stale tests wait out their timeouts.
+2. **`/watch` doesn't save or resume playback position** — `VideoDetailView` passes no
+   `storageKey`/`title`/`artist` to `VidstackPlayer`, so position + Media Session only
+   ever worked on the now-deleted `/player`. `cleanupOldPlaybackPositions` is unused
+   until this lands.
+3. **Search can't find by tag or summary** — the server `or=` only matches title/URL; the
+   client tag check can only narrow. Prerequisite for tag search (item 4).
+4. **Lint/typecheck not clean** - pre-existing `no-explicit-any` errors and ~17 `tsc`
    errors in test files (mock fixtures typing `platform` as a bare string). Don't block
    the build, but they prevent holding a clean gate.
 
 ### MEDIUM Priority
-4. **Tag Search** - Tags are clickable but only log a TODO via `logger.debug` in
-   `VideoCard` (highest user-visible win; already half-wired)
-5. **API Caching** - Add React Query/SWR to avoid re-fetching
-6. **VOD Diary Pagination** - Currently fetches up to 50–200 videos at once
+5. **Tag Search** - Tags are clickable but only log a TODO via `logger.debug` in
+   `VideoCard`. Now just `/?q=<tag>` once item 3 lands.
+6. **API Caching** - Add React Query/SWR to avoid re-fetching
 7. **Mobile Date Picker UX** - `react-day-picker` touch improvements
 8. **`<img>` → `next/image`** in `VideoCard` (lint warns). Note `next.config.ts` sets
    `images.unoptimized` for static export, so the win is smaller than it looks.
-9. **Dedupe the Supabase URL** - hardcoded in `VideoDetailView.tsx` instead of importing
-   `SUPABASE_URL` from `lib/constants.ts`.
+9. **Search paging** - search is capped at 200 (the UI says so when hit); diary paging
+   doesn't cover it.
 
 ### ⛔ Settled — do not re-raise
 
@@ -298,10 +324,10 @@ again in the next audit:
   more than one person starts committing, or if a regression ships unnoticed.
 - **`.env.local` is NOT committed.** Verified gitignored and absent from git history.
 - **The hardcoded Supabase URL + anon key are fine.** Both are *public by design* for a
-  PostgREST client. The only real nit is the duplication (item 9 above).
-- **`getSupabaseClient` in `lib/api/supabase.ts` is unused** and lint warns. The file
-  talks to PostgREST via raw `fetch` throughout. Wire it up or delete it — but it is not
-  a bug.
+  PostgREST client.
+- **`@supabase/supabase-js` is still a dependency but unused** (the unused client was
+  deleted; the API layer is raw `fetch` to PostgREST). Dropping the package is a
+  dependency change, so it's its own decision.
 
 ### LOW Priority
 10. **Production Build Optimization** - Bundle analysis, code splitting
@@ -329,7 +355,6 @@ interface Video {
 ```
 
 ### Storage Keys
-- `selectedVideoUrl` - Current video URL
 - `vds-{hash}` - Playback position (Vidstack format)
 
 ---
@@ -342,11 +367,12 @@ npm run test            # run once
 npm run test:watch      # watch mode
 npm run test:coverage   # coverage report
 ```
-- Located in `tests/unit/`: `VideoCard`, `VideoSelector`, `useToast`, `useLocalStorage`, `hash`, `video-helpers`
-- 126 tests, all passing. `createMockVideo` (`tests/test-utils.tsx`) includes a
+- Located in `tests/unit/`: `VodDiaryScreen`, `supabase`, `date-range`, `VideoCard`,
+  `VideoSelector`, `useToast`, `useLocalStorage`, `hash`, `video-helpers`
+- 173 tests, all passing. `date-range.test.ts` pins `process.env.TZ` (Sydney + New York).
+  `VodDiaryScreen.test.tsx` mocks `next/navigation` with a store backed by jsdom's URL. `createMockVideo` (`tests/test-utils.tsx`) includes a
   `videoHash` by default — that's what makes a card navigable. Pass
   `{ videoHash: undefined }` to exercise the inert, non-linked card.
-- **Not covered:** `lib/api/supabase.ts` — the data backbone has zero unit tests
 
 ### E2E Tests (Playwright)
 ```bash
@@ -355,17 +381,17 @@ npm run test:e2e:ui     # interactive UI
 npm run test:e2e:headed # headed browser
 npm run test:all        # vitest + playwright
 ```
-- Suites: `player-gestures`, `navigation`, `vod-diary`, `player`, `transcript`, `index`, `accessibility`, `mobile`
+- Suites: `player-gestures`, `navigation`, `vod-diary`, `transcript`, `index`, `accessibility`, `mobile`
 
 ### Test Strategy
 - E2E uses real Supabase data (fetches a video hash from the VOD diary)
 - Serial execution with `test.beforeAll` for shared state
 - Touch detection skips simulation on desktop
-- ⚠️ The E2E suite has **not been run end-to-end** since the editorial redesign. Unit
-  tests + production build are the only verified gates.
+- ⚠️ The E2E suite is largely stale (see Remaining Tasks 1). Unit tests + production
+  build are the reliable gates; compare E2E runs before/after rather than expecting green.
 
 ---
 
-**Last Updated:** 2026-07-10
-**Status:** Core complete. Editorial "Wubby Archive" redesign live. API resilience + a11y
-fixes landed. Unit suite green (126); E2E suite present but unverified.
+**Last Updated:** 2026-10-04
+**Status:** Core complete. Diary hardening landed (abortable loads, whole-day ranges, URL
+filters, paging). Unit suite green (173); E2E suite largely stale.
