@@ -3,7 +3,6 @@
  * Handles all communication with the Supabase backend
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Video, Platform, PlatformFilter } from '@/types/video';
 import type {
   SupabaseVideoRow,
@@ -22,24 +21,6 @@ if (!SUPABASE_ANON_KEY) {
   throw new Error(
     'Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable. Please check your .env.local file.'
   );
-}
-
-/**
- * Initialize Supabase client
- * This key is safe to expose as it's read-only with RLS protection
- */
-let supabaseClient: SupabaseClient | null = null;
-
-function getSupabaseClient(): SupabaseClient {
-  if (!supabaseClient) {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      throw new Error(
-        'Supabase configuration is missing. Please check your environment variables.'
-      );
-    }
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-  return supabaseClient;
 }
 
 /**
@@ -447,27 +428,3 @@ export async function searchVideos(
     throw error;
   }
 }
-
-/**
- * Sample videos for fallback/testing
- */
-export const SAMPLE_VIDEOS: Video[] = [
-  {
-    url: 'https://archive.wubby.tv/vods/public/jul_2025/27_MEDIA%20SHARE%20NIGHT.mp4',
-    title: 'Kick Friday Madness',
-    platform: 'kick',
-    summary:
-      'A wild Friday stream with community games, random antics, and spicy takes that had chat popping off all night long.',
-    tags: ['kick', 'community', 'games'],
-    date: '2025-07-18T20:00:00Z',
-  },
-  {
-    url: '#',
-    title: 'Cooking IRL – Chaos in the Kitchen',
-    platform: 'twitch',
-    summary:
-      'Attempted to bake a 12-layer cake; only 8 survived. Fire alarm cameo. A masterpiece of disaster.',
-    tags: ['twitch', 'cooking', 'irl'],
-    date: '2025-07-17T18:00:00Z',
-  },
-];
