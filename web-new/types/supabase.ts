@@ -50,6 +50,9 @@ export interface FetchVideosParams {
   /** Maximum number of videos to return */
   limit?: number;
 
+  /** Number of rows to skip (for paging) */
+  offset?: number;
+
   /** Filter by platform (twitch, kick, both) */
   platform?: PlatformFilter;
 

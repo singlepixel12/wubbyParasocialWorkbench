@@ -13,6 +13,10 @@
  * - That the staggered card reveal still plays cleanly when results swap mid-animation.
  * - Real App Router behaviour: Back/Forward through date-range history, the static
  *   export's Suspense fallback, and basePath on GitHub Pages.
+ * - That the "Showing N of M" foot and Load more button read as part of the
+ *   editorial list (type, spacing, green accent) rather than a bolted-on control,
+ *   and that newly appended cards stagger in without the existing ones re-animating.
+ * - That the masthead "No. NN" still looks right with a three-digit total.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -28,6 +32,13 @@ const toast = vi.hoisted(() => ({ showError: vi.fn() }));
 
 vi.mock('@/lib/api/supabase', () => ({
   ...api,
+  // The screen pages through fetchRecentVideosPage; route it through the
+  // fetchRecentVideos mock so tests can return either a bare array (total
+  // unknown) or a full { videos, total } page.
+  fetchRecentVideosPage: (params: unknown) =>
+    Promise.resolve(api.fetchRecentVideos(params)).then((r) =>
+      Array.isArray(r) ? { videos: r, total: null } : r
+    ),
   isAbortError: (e: unknown) => (e as { name?: string } | null)?.name === 'AbortError',
 }));
 vi.mock('@/lib/hooks/useToast', () => ({ useToast: () => toast }));
@@ -250,4 +261,92 @@ describe('VodDiaryScreen — filters live in the URL', () => {
     expect(nav.router.replace).not.toHaveBeenCalled();
     expect(nav.router.push).not.toHaveBeenCalled();
   });
+});
+
+/** n distinct mock videos, numbered from `start`. */
+function videosFrom(start: number, n: number) {
+  return Array.from({ length: n }, (_, i) =>
+    createMockVideo({
+      title: `Record ${start + i}`,
+      url: `https://archive.wubby.tv/${start + i}.mp4`,
+      videoHash: (start + i).toString(16).padStart(64, '0'),
+    })
+  );
+}
+
+describe('VodDiaryScreen — paging and the honest count', () => {
+  it('says how many of the range are shown and loads the next page on demand', async () => {
+    api.fetchRecentVideos
+      .mockResolvedValueOnce({ videos: videosFrom(0, 50), total: 92 })
+      .mockResolvedValueOnce({ videos: videosFrom(50, 42), total: 92 });
+    const user = userEvent.setup();
+
+    renderWithProviders(<VodDiaryScreen />);
+
+    expect(await screen.findByText('Showing 50 of 92 records')).toBeInTheDocument();
+    // The masthead issue number is the whole range, not the page
+    expect(screen.getByText('No. 92')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Load 42 more' }));
+
+    await waitFor(() => expect(screen.getByText('Record 91')).toBeInTheDocument());
+    expect(api.fetchRecentVideos.mock.calls[1][0]).toMatchObject({ offset: 50, limit: 50 });
+    expect(screen.getByText('Record 0')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).not.toBeInTheDocument();
+  }, 20_000); // renders 92 / 200 cards in jsdom — slow, not logic
+
+  it('shows no Load more when the whole range fits on one page', async () => {
+    api.fetchRecentVideos.mockResolvedValueOnce({ videos: videosFrom(0, 7), total: 7 });
+
+    renderWithProviders(<VodDiaryScreen />);
+
+    expect(await screen.findByText('Record 6')).toBeInTheDocument();
+    expect(screen.queryByText(/Showing \d+ of/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).not.toBeInTheDocument();
+  });
+
+  it('drops a duplicate at the page seam when a new upload shifts the offsets', async () => {
+    api.fetchRecentVideos
+      .mockResolvedValueOnce({ videos: videosFrom(0, 50), total: 60 })
+      // One new upload arrived, so the next page starts with the last row already shown
+      .mockResolvedValueOnce({ videos: videosFrom(49, 11), total: 61 });
+    const user = userEvent.setup();
+
+    renderWithProviders(<VodDiaryScreen />);
+    await user.click(await screen.findByRole('button', { name: 'Load 10 more' }));
+
+    await waitFor(() => expect(screen.getByText('Record 59')).toBeInTheDocument());
+    expect(screen.getAllByText('Record 49')).toHaveLength(1);
+  });
+
+  it('cancels an in-flight Load more when the filters change, so it never appends', async () => {
+    const more = deferred<{ videos: ReturnType<typeof createMockVideo>[]; total: number }>();
+    api.fetchRecentVideos
+      .mockResolvedValueOnce({ videos: videosFrom(0, 50), total: 92 })
+      .mockReturnValueOnce(more.promise);
+    api.searchVideos.mockResolvedValue(videosFrom(500, 1));
+    const user = userEvent.setup();
+
+    renderWithProviders(<VodDiaryScreen />);
+    await user.click(await screen.findByRole('button', { name: 'Load 42 more' }));
+    const loadMoreSignal: AbortSignal = api.fetchRecentVideos.mock.calls[1][0].signal;
+
+    // Filters change under the pending page (as a search or Back would do)
+    await act(async () => nav.navigate('/?q=cooking'));
+    await screen.findByText('Record 500');
+    expect(loadMoreSignal.aborted).toBe(true);
+
+    await act(async () => more.resolve({ videos: videosFrom(50, 42), total: 92 }));
+    expect(screen.queryByText('Record 50')).not.toBeInTheDocument();
+  });
+
+  it('says when a search hit the result cap instead of implying that is everything', async () => {
+    api.searchVideos.mockResolvedValue(videosFrom(0, 200));
+    window.history.replaceState(null, '', '/?q=a');
+
+    renderWithProviders(<VodDiaryScreen />);
+
+    expect(await screen.findByText(/Showing the first 200 matches/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).not.toBeInTheDocument();
+  }, 20_000); // renders 92 / 200 cards in jsdom — slow, not logic
 });

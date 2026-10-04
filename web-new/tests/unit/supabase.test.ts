@@ -161,3 +161,51 @@ describe('fetchRecentVideos', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('fetchRecentVideosPage', () => {
+  function pageResponse(rows: unknown[], contentRange: string | null) {
+    const headers = new Headers();
+    if (contentRange) headers.set('Content-Range', contentRange);
+    return new Response(JSON.stringify(rows), { status: 200, headers });
+  }
+
+  it('asks PostgREST for an exact count and reads the total from Content-Range', async () => {
+    fetchMock.mockResolvedValue(pageResponse([], '0-49/92'));
+
+    const page = await api.fetchRecentVideosPage({});
+
+    expect(page.total).toBe(92);
+    const init: RequestInit = fetchMock.mock.calls[0][1];
+    expect((init.headers as Record<string, string>).Prefer).toBe('count=exact');
+  });
+
+  it('reports 0 for an empty range and null when the server gives no count', async () => {
+    fetchMock.mockResolvedValueOnce(pageResponse([], '*/0'));
+    expect((await api.fetchRecentVideosPage({})).total).toBe(0);
+
+    fetchMock.mockResolvedValueOnce(pageResponse([], '0-49/*'));
+    expect((await api.fetchRecentVideosPage({})).total).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(pageResponse([], null));
+    expect((await api.fetchRecentVideosPage({})).total).toBeNull();
+  });
+
+  it('pages with offset and a stable tiebreaker order', async () => {
+    fetchMock.mockResolvedValue(pageResponse([], '50-91/92'));
+
+    await api.fetchRecentVideosPage({ limit: 50, offset: 50 });
+
+    const url = decodeURIComponent(fetchMock.mock.calls[0][0]);
+    expect(url).toContain('limit=50');
+    expect(url).toContain('offset=50');
+    expect(url).toContain('order=upload_date.desc.nullslast,video_hash.asc');
+  });
+
+  it('omits offset on the first page', async () => {
+    fetchMock.mockResolvedValue(pageResponse([], '0-49/92'));
+
+    await api.fetchRecentVideosPage({ limit: 50 });
+
+    expect(fetchMock.mock.calls[0][0]).not.toContain('offset=');
+  });
+});

@@ -105,14 +105,15 @@ function describeHttpError(response: Response, context: string): string {
  *
  * @param queryUrl - Full REST query URL to fetch
  * @param context - Call-site description used in error messages
- * @param signal - Optional caller cancellation signal
+ * @param options.signal - Optional caller cancellation signal
+ * @param options.headers - Extra request headers (e.g. `Prefer: count=exact`)
  * @returns The successful Response (guaranteed `response.ok`)
  * @throws Error with a user-facing message on timeout or HTTP failure
  */
 async function supabaseFetch(
   queryUrl: string,
   context: string,
-  signal?: AbortSignal
+  { signal, headers }: { signal?: AbortSignal; headers?: Record<string, string> } = {}
 ): Promise<Response> {
   signal?.throwIfAborted();
 
@@ -128,6 +129,7 @@ async function supabaseFetch(
         apikey: SUPABASE_ANON_KEY!,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
+        ...headers,
       },
       signal: controller.signal,
     });
@@ -341,25 +343,56 @@ export async function getWubbySummaryByHash(
 }
 
 /**
- * Fetches recent videos with optional filtering
+ * Parses the total row count from a PostgREST `Content-Range` header: the part
+ * after the slash, e.g. `0-49/92`, or a `*` range then `/0` for an empty result.
+ * Returns null when the server reported no count (a `*` after the slash) or the
+ * header is missing.
+ */
+function parseTotalCount(contentRange: string | null): number | null {
+  const total = contentRange?.split('/')[1];
+  if (!total || total === '*') return null;
+  const n = Number(total);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+/** One page of the diary plus the total number of rows matching the filters. */
+export interface VideoPage {
+  videos: Video[];
+  /** Rows matching the filters across all pages; null if the server didn't say */
+  total: number | null;
+}
+
+/**
+ * Fetches one page of recent videos, plus the total matching the filters
  *
- * @param params - Query parameters (limit, platform, date range)
- * @returns Array of videos matching the filters
+ * The total comes from PostgREST's `Prefer: count=exact` (returned in the
+ * `Content-Range` header), so the UI can say "50 of 92" and offer the rest
+ * instead of silently capping at the page size.
+ *
+ * @param params - Query parameters (limit, offset, platform, date range, signal)
+ * @returns The page of videos and the total matching row count
  *
  * @example
  * ```ts
- * const videos = await fetchRecentVideos({
+ * const { videos, total } = await fetchRecentVideosPage({
  *   limit: 50,
- *   platform: 'twitch',
- *   fromDate: new Date('2025-01-01'),
- *   toDate: new Date('2025-01-31')
+ *   offset: 50, // second page
+ *   fromDate: new Date(2025, 0, 1),
+ *   toDate: new Date(2025, 0, 31),
  * });
  * ```
  */
-export async function fetchRecentVideos(
+export async function fetchRecentVideosPage(
   params: FetchVideosParams = {}
-): Promise<Video[]> {
-  const { limit = 50, platform = 'both', fromDate = null, toDate = null, signal } = params;
+): Promise<VideoPage> {
+  const {
+    limit = 50,
+    offset = 0,
+    platform = 'both',
+    fromDate = null,
+    toDate = null,
+    signal,
+  } = params;
 
   // Validate the platform against a whitelist before interpolating it into the
   // query string (runtime backstop for the PlatformFilter type). Rejecting
@@ -370,8 +403,13 @@ export async function fetchRecentVideos(
   }
 
   try {
-    // Build query URL
-    let queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?select=pleb_title,platform,tags,summary,upload_date,video_url,video_hash&order=upload_date.desc.nullslast&limit=${limit}`;
+    // Build query URL. video_hash is the tiebreaker so offset paging is stable
+    // when several rows share an upload_date.
+    let queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?select=pleb_title,platform,tags,summary,upload_date,video_url,video_hash&order=upload_date.desc.nullslast,video_hash.asc&limit=${limit}`;
+
+    if (offset > 0) {
+      queryUrl += `&offset=${offset}`;
+    }
 
     // Add platform filter if not 'both' ('both' means no platform constraint)
     if (platform !== 'both') {
@@ -385,15 +423,34 @@ export async function fetchRecentVideos(
       queryUrl += `&upload_date=gte.${encodeURIComponent(gte)}&upload_date=lt.${encodeURIComponent(lt)}`;
     }
 
-    const response = await supabaseFetch(queryUrl, 'Failed to load videos', signal);
+    const response = await supabaseFetch(queryUrl, 'Failed to load videos', {
+      signal,
+      headers: { Prefer: 'count=exact' },
+    });
 
     const data: SupabaseVideoRow[] = await response.json();
 
-    return data.map(mapRowToVideo);
+    return {
+      videos: data.map(mapRowToVideo),
+      total: parseTotalCount(response.headers.get('Content-Range')),
+    };
   } catch (error) {
     if (!isAbortError(error)) logger.error('Error fetching recent videos:', error);
     throw error;
   }
+}
+
+/**
+ * Fetches recent videos with optional filtering — {@link fetchRecentVideosPage}
+ * without the total, for callers that only want the rows.
+ *
+ * @param params - Query parameters (limit, offset, platform, date range)
+ * @returns Array of videos matching the filters
+ */
+export async function fetchRecentVideos(
+  params: FetchVideosParams = {}
+): Promise<Video[]> {
+  return (await fetchRecentVideosPage(params)).videos;
 }
 
 /**
@@ -428,7 +485,7 @@ export async function searchVideos(
     // PostgREST syntax for OR query with ilike (case-insensitive LIKE)
     queryUrl += `&or=(pleb_title.ilike.${encodedTerm},video_url.ilike.${encodedTerm})`;
 
-    const response = await supabaseFetch(queryUrl, 'Search failed', signal);
+    const response = await supabaseFetch(queryUrl, 'Search failed', { signal });
 
     const data: SupabaseVideoRow[] = await response.json();
 

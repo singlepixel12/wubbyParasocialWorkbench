@@ -15,7 +15,7 @@
  * see app/page.tsx.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { Video } from '@/types/video';
@@ -23,12 +23,19 @@ import { DateRangePicker } from '@/components/vod-diary/DateRangePicker';
 import { SearchInput } from '@/components/vod-diary/SearchInput';
 import { VideoList } from '@/components/vod-diary/VideoList';
 import { Masthead } from '@/components/layout/Masthead';
-import { fetchRecentVideos, searchVideos, isAbortError } from '@/lib/api/supabase';
+import { fetchRecentVideosPage, searchVideos, isAbortError } from '@/lib/api/supabase';
 import { getThisWeekRange } from '@/lib/utils/video-helpers';
 import { formatDayParam, parseDayParam } from '@/lib/utils/date-range';
 import { useToast } from '@/lib/hooks/useToast';
 import { logger } from '@/lib/utils/logger';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+/** Diary page size. "Load more" fetches the next page of the same filters. */
+const PAGE_SIZE = 50;
+
+/** Search returns at most this many matches (there is no search paging yet). */
+const SEARCH_LIMIT = 200;
 
 /** Short "12 Nov" style label for the masthead date range. */
 function formatDateLabel(date: Date): string {
@@ -63,7 +70,12 @@ export function VodDiaryScreen() {
 
   // Data states
   const [videos, setVideos] = useState<Video[]>([]);
+  // Rows matching the date filter across all pages (null: search mode, or unknown)
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Cancels an in-flight "Load more" when the filters change under it
+  const loadMoreController = useRef<AbortController | null>(null);
 
   const { showError } = useToast();
 
@@ -88,24 +100,28 @@ export function VodDiaryScreen() {
 
       try {
         let results: Video[];
+        let resultTotal: number | null = null;
 
         if (isSearchMode) {
           logger.log('Searching videos:', searchTerm);
-          results = await searchVideos({ searchTerm, limit: 200, signal });
+          results = await searchVideos({ searchTerm, limit: SEARCH_LIMIT, signal });
         } else {
           // Normal filter mode (both platforms)
           logger.log('Fetching recent videos:', { dateRange });
-          results = await fetchRecentVideos({
-            limit: 50,
+          const page = await fetchRecentVideosPage({
+            limit: PAGE_SIZE,
             fromDate: dateRange.from || null,
             toDate: dateRange.to || null,
             signal,
           });
+          results = page.videos;
+          resultTotal = page.total;
         }
 
         // Belt and braces: never render a superseded result, even if it resolved
         if (signal.aborted) return;
         setVideos(results);
+        setTotal(resultTotal);
         logger.log(`✅ Loaded ${results.length} videos`);
       } catch (error) {
         // Superseded by a newer query — not a failure, and the newer run owns the UI
@@ -130,8 +146,45 @@ export function VodDiaryScreen() {
     }
 
     load();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      // A "Load more" for the old filters must not append to the new results
+      loadMoreController.current?.abort();
+    };
   }, [dateRange, searchTerm, isSearchMode, reloadToken, showError]);
+
+  // Fetch the next page of the current date filter and append it
+  const loadMore = useCallback(async () => {
+    loadMoreController.current?.abort();
+    const controller = new AbortController();
+    loadMoreController.current = controller;
+    setLoadingMore(true);
+
+    try {
+      const page = await fetchRecentVideosPage({
+        limit: PAGE_SIZE,
+        offset: videos.length,
+        fromDate: dateRange.from || null,
+        toDate: dateRange.to || null,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+
+      // An upload landing between pages shifts every offset by one; drop the
+      // row that would otherwise repeat at the page seam
+      setVideos((prev) => {
+        const seen = new Set(prev.map((v) => v.url));
+        return [...prev, ...page.videos.filter((v) => !seen.has(v.url))];
+      });
+      setTotal(page.total);
+    } catch (error) {
+      if (isAbortError(error)) return;
+      logger.error('Error loading more videos:', error);
+      showError('Failed to load more videos. Please try again.');
+    } finally {
+      if (!controller.signal.aborted) setLoadingMore(false);
+    }
+  }, [videos.length, dateRange, showError]);
 
   /**
    * Writes filter changes into the URL. Reads the *live* query string rather than
@@ -178,6 +231,9 @@ export function VodDiaryScreen() {
     [updateParams]
   );
 
+  const hasMore = !isSearchMode && !loading && total !== null && videos.length < total;
+  const searchCapped = isSearchMode && videos.length >= SEARCH_LIMIT;
+
   // Human-readable date-range label for the masthead meta line
   const dateLabel = dateRange.from
     ? dateRange.to
@@ -188,7 +244,9 @@ export function VodDiaryScreen() {
   return (
     <div className="space-y-6">
       {/* Editorial masthead */}
-      <Masthead edition="VOD Diary" count={videos.length} dateLabel={dateLabel} />
+      {/* The issue number is the honest record count for the range — every
+          matching VOD, not just the page loaded so far */}
+      <Masthead edition="VOD Diary" count={total ?? videos.length} dateLabel={dateLabel} />
 
       {/* Filters section */}
       <div className={cn(
@@ -222,6 +280,29 @@ export function VodDiaryScreen() {
         loading={loading}
         isSearchMode={isSearchMode}
       />
+
+      {/* Foot of the list: how much of the range is shown, and the rest on demand */}
+      {hasMore && (
+        <div className="flex flex-col items-center gap-3 border-t border-rule pt-5">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+            Showing {videos.length} of {total} records
+          </p>
+          <Button
+            variant="outline"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent-green hover:text-foreground"
+          >
+            {loadingMore ? 'Loading…' : `Load ${Math.min(PAGE_SIZE, total - videos.length)} more`}
+          </Button>
+        </div>
+      )}
+
+      {searchCapped && (
+        <p className="border-t border-rule pt-5 text-center font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+          Showing the first {SEARCH_LIMIT} matches — refine the search to narrow it
+        </p>
+      )}
     </div>
   );
 }
