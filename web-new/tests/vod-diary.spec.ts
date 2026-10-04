@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
 test.describe('VOD Diary Page', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to VOD Diary page before each test
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Wait for the editorial masthead to render
     await page.waitForSelector('h1:has-text("The Wubby")');

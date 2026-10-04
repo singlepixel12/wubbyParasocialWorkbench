@@ -17,7 +17,6 @@ test.describe('Navigation', () => {
     await expect(page.getByRole('link', { name: /home|index/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /transcript/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /vod diary/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /player/i })).toBeVisible();
   });
 
   test('can navigate from home to transcript page', async ({ page }) => {
@@ -42,17 +41,6 @@ test.describe('Navigation', () => {
     await expect(page.getByRole('heading', { name: 'VOD Diary' })).toBeVisible();
   });
 
-  test('can navigate from home to player page', async ({ page }) => {
-    await page.goto('/');
-
-    // Click Player link
-    await page.getByRole('link', { name: /player/i }).click();
-
-    // Should navigate to Player page
-    await page.waitForURL('**/player');
-    await expect(page.getByRole('heading', { name: 'Video Player' })).toBeVisible();
-  });
-
   test('can navigate back to home from transcript page', async ({ page }) => {
     await page.goto('/transcript');
 
@@ -75,10 +63,7 @@ test.describe('Navigation', () => {
     await page.goto('/transcript');
     await expect(header).toBeVisible();
 
-    await page.goto('/vod-diary');
-    await expect(header).toBeVisible();
-
-    await page.goto('/player');
+    await page.goto('/');
     await expect(header).toBeVisible();
   });
 
@@ -149,11 +134,8 @@ test.describe('Navigation', () => {
     await page.goto('/transcript');
     await expect(page.getByRole('heading', { name: 'Video Transcripts' })).toBeVisible();
 
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await expect(page.getByRole('heading', { name: 'VOD Diary' })).toBeVisible();
-
-    await page.goto('/player');
-    await expect(page.getByRole('heading', { name: 'Video Player' })).toBeVisible();
   });
 
   test('404 page does not exist (Next.js handles gracefully)', async ({ page }) => {
@@ -173,11 +155,7 @@ test.describe('Navigation', () => {
     title = await page.title();
     expect(title).toBeTruthy();
 
-    await page.goto('/vod-diary');
-    title = await page.title();
-    expect(title).toBeTruthy();
-
-    await page.goto('/player');
+    await page.goto('/');
     title = await page.title();
     expect(title).toBeTruthy();
   });
@@ -252,7 +230,7 @@ test.describe('Navigation', () => {
   });
 
   test('can open watch page in new tab from VOD diary', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Card thumbnails link to /watch?id=HASH; wait for the diary to load them
     const playLinks = page.locator('a[href*="/watch?id="]');

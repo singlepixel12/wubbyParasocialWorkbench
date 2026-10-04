@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Accessibility', () => {
   test('all pages have proper document structure', async ({ page }) => {
-    const pages = ['/', '/transcript', '/vod-diary', '/player'];
+    const pages = ['/', '/transcript'];
 
     for (const pagePath of pages) {
       await page.goto(pagePath);
@@ -98,7 +98,7 @@ test.describe('Accessibility', () => {
   });
 
   test('buttons are activatable with Space key', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(1000);
 
     // Find search toggle button
@@ -233,7 +233,7 @@ test.describe('Accessibility', () => {
   });
 
   test('dynamic content updates are announced', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Click search toggle
     const searchToggle = page.getByRole('button', { name: /toggle search/i });
@@ -270,7 +270,7 @@ test.describe('Accessibility', () => {
   });
 
   test('collapsible regions have proper ARIA attributes', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Check if any video cards are loaded
@@ -293,7 +293,7 @@ test.describe('Accessibility', () => {
   });
 
   test('focus is managed when modals or overlays open', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Open date picker (popover)
     const dateButton = page.getByRole('button', { name: /\d{2}\/\d{2}\/\d{4}/ });
@@ -308,7 +308,7 @@ test.describe('Accessibility', () => {
   });
 
   test('Escape key closes modals and popovers', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Open date picker
     const dateButton = page.getByRole('button', { name: /\d{2}\/\d{2}\/\d{4}/ });

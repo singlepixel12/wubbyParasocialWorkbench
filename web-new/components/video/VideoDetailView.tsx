@@ -53,7 +53,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
     <div className="space-y-4 md:space-y-6 px-0 md:px-4 py-4 md:py-6">
       {/* Back to VOD Diary */}
       <div className="px-2 md:px-0">
-        <Link href="/vod-diary">
+        <Link href="/">
           <Button variant="ghost" size="sm" className="text-ink-muted hover:text-foreground">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to VOD Diary

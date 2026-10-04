@@ -60,7 +60,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('VOD Diary cards stack vertically on mobile', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Check if cards are stacked (viewport is narrow)
@@ -69,7 +69,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('video cards are fully visible without horizontal scroll', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Page should not have horizontal scroll
@@ -80,7 +80,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('search input is usable on mobile', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Open search
     const searchToggle = page.getByRole('button', { name: /toggle search/i });
@@ -96,7 +96,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('date picker is usable on mobile', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Open date picker
     const dateButton = page.getByRole('button', { name: /\d{2}\/\d{2}\/\d{4}/ });
@@ -114,7 +114,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('video card expand/collapse works with tap', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Find first expand button
@@ -197,7 +197,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('error messages are visible on mobile', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
 
     // Open search
     const searchToggle = page.getByRole('button', { name: /toggle search/i });
@@ -216,11 +216,11 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('player link works on mobile', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Find first play link
-    const playLinks = page.locator('a[href="/player"]');
+    const playLinks = page.locator('a[href*="/watch?id="]');
 
     if ((await playLinks.count()) > 0) {
       const firstPlayLink = playLinks.first();
@@ -233,7 +233,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('header remains accessible while scrolling on mobile', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Scroll down
@@ -250,7 +250,7 @@ test.describe('Tablet Responsiveness', () => {
   test.use({ ...devices['iPad Pro'] });
 
   test('tablet layout is appropriate', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Viewport should be tablet size
@@ -264,7 +264,7 @@ test.describe('Tablet Responsiveness', () => {
   });
 
   test('video cards use appropriate layout on tablet', async ({ page }) => {
-    await page.goto('/vod-diary');
+    await page.goto('/');
     await page.waitForTimeout(2000);
 
     // Page should load without issues
@@ -284,7 +284,6 @@ test.describe('Tablet Responsiveness', () => {
     // All nav links should be visible
     await expect(page.getByRole('link', { name: /transcript/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /vod diary/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /player/i })).toBeVisible();
   });
 });
 

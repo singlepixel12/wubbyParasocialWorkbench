@@ -3,7 +3,7 @@
 /**
  * VodDiaryScreen
  * The single source of truth for the VOD Diary browse experience.
- * Rendered by both `/` (landing) and `/vod-diary` so the two routes can never drift.
+ * Rendered at `/` (the legacy `/vod-diary` route redirects there).
  * Editorial masthead + date/search filters + staggered VideoList.
  */
 
