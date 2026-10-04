@@ -132,6 +132,29 @@ describe('fetchRecentVideos', () => {
     expect(videos[0].thumbnailUrl).toContain(`${'a'.repeat(64)}/thumbnail.webp`);
   });
 
+  it('queries whole local days: gte start-of-from, lt start-of-day-after-to', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]));
+    const from = new Date(2026, 8, 1, 14, 0); // time-of-day must not leak into the query
+    const to = new Date(2026, 8, 30);
+
+    await api.fetchRecentVideos({ fromDate: from, toDate: to });
+
+    const url = decodeURIComponent(fetchMock.mock.calls[0][0]);
+    expect(url).toContain(`upload_date=gte.${new Date(2026, 8, 1).toISOString()}`);
+    expect(url).toContain(`upload_date=lt.${new Date(2026, 9, 1).toISOString()}`);
+    expect(url).not.toContain('upload_date=lte.');
+  });
+
+  it('filters a from-only range to that single day', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]));
+
+    await api.fetchRecentVideos({ fromDate: new Date(2026, 8, 15) });
+
+    const url = decodeURIComponent(fetchMock.mock.calls[0][0]);
+    expect(url).toContain(`upload_date=gte.${new Date(2026, 8, 15).toISOString()}`);
+    expect(url).toContain(`upload_date=lt.${new Date(2026, 8, 16).toISOString()}`);
+  });
+
   it('throws on an out-of-range platform instead of returning unfiltered data', async () => {
     // @ts-expect-error — exercising the runtime whitelist for untyped callers
     await expect(api.fetchRecentVideos({ platform: 'youtube' })).rejects.toThrow(/Invalid platform/);

@@ -6,6 +6,7 @@
 
 import { format, parseISO } from 'date-fns';
 import { logger } from './logger';
+import { lastNDays } from './date-range';
 
 /**
  * Determine date format based on locale/timezone
@@ -66,13 +67,10 @@ export function extractOriginalTitle(videoUrl: string): string {
 
 /**
  * Get date range for "This Week" preset
- * Returns { from: 7 days ago, to: today }
+ * Returns { from: 7 days ago, to: today } as whole local days (see date-range.ts)
  */
 export function getThisWeekRange(): { from: Date; to: Date } {
-  const to = new Date();
-  const from = new Date();
-  from.setDate(to.getDate() - 7);
-  return { from, to };
+  return lastNDays(7);
 }
 
 /**

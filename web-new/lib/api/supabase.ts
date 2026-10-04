@@ -10,6 +10,7 @@ import type {
   SearchVideosParams,
 } from '@/types/supabase';
 import { computeVideoHash, isValidHash } from '@/lib/utils/hash';
+import { toUploadDateBounds } from '@/lib/utils/date-range';
 import { SUPABASE_URL } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
 
@@ -377,11 +378,11 @@ export async function fetchRecentVideos(
       queryUrl += `&platform=eq.${platform}`;
     }
 
-    // Add date range filter
-    if (fromDate && toDate) {
-      const fromISO = fromDate.toISOString();
-      const toISO = toDate.toISOString();
-      queryUrl += `&upload_date=gte.${fromISO}&upload_date=lte.${toISO}`;
+    // Add date range filter: whole local days, end-exclusive (see date-range.ts).
+    // A from-only range (mid-selection in the calendar) is that single day.
+    if (fromDate) {
+      const { gte, lt } = toUploadDateBounds(fromDate, toDate);
+      queryUrl += `&upload_date=gte.${encodeURIComponent(gte)}&upload_date=lt.${encodeURIComponent(lt)}`;
     }
 
     const response = await supabaseFetch(queryUrl, 'Failed to load videos', signal);
