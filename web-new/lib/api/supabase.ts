@@ -94,20 +94,31 @@ function describeHttpError(response: Response, context: string): string {
  *
  * Every fetcher in this module must go through this helper — it owns the
  * AbortController/timer lifecycle (cleared in `finally` so it can never leak),
- * translates an abort into a clear timeout error, and maps HTTP failures via
- * {@link describeHttpError}.
+ * translates a timeout abort into a clear timeout error, and maps HTTP failures
+ * via {@link describeHttpError}.
+ *
+ * A caller-supplied `signal` is chained into the same controller. When the
+ * caller cancels, the original AbortError is rethrown untouched (never mapped
+ * to the timeout message) so callers can tell "superseded" from "failed" with
+ * {@link isAbortError}.
  *
  * @param queryUrl - Full REST query URL to fetch
  * @param context - Call-site description used in error messages
+ * @param signal - Optional caller cancellation signal
  * @returns The successful Response (guaranteed `response.ok`)
  * @throws Error with a user-facing message on timeout or HTTP failure
  */
 async function supabaseFetch(
   queryUrl: string,
-  context: string
+  context: string,
+  signal?: AbortSignal
 ): Promise<Response> {
+  signal?.throwIfAborted();
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const forwardAbort = () => controller.abort();
+  signal?.addEventListener('abort', forwardAbort, { once: true });
 
   try {
     const response = await fetch(queryUrl, {
@@ -126,16 +137,25 @@ async function supabaseFetch(
 
     return response;
   } catch (error) {
-    // Surface an aborted request as a clear timeout error. Checked via the
-    // name property (not instanceof Error) so a DOMException is caught even
-    // on engines where it doesn't subclass Error.
-    if ((error as { name?: string } | null)?.name === 'AbortError') {
+    // A caller cancellation passes through as-is; any other abort can only be
+    // our timer, so surface it as a clear timeout error.
+    if (isAbortError(error) && !signal?.aborted) {
       throw new Error(TIMEOUT_MESSAGE);
     }
     throw error;
   } finally {
     clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', forwardAbort);
   }
+}
+
+/**
+ * True for the error a cancelled request rejects with. Checked via the name
+ * property (not instanceof Error) so a DOMException is caught even on engines
+ * where it doesn't subclass Error.
+ */
+export function isAbortError(error: unknown): boolean {
+  return (error as { name?: string } | null)?.name === 'AbortError';
 }
 
 /**
@@ -338,7 +358,7 @@ export async function getWubbySummaryByHash(
 export async function fetchRecentVideos(
   params: FetchVideosParams = {}
 ): Promise<Video[]> {
-  const { limit = 50, platform = 'both', fromDate = null, toDate = null } = params;
+  const { limit = 50, platform = 'both', fromDate = null, toDate = null, signal } = params;
 
   // Validate the platform against a whitelist before interpolating it into the
   // query string (runtime backstop for the PlatformFilter type). Rejecting
@@ -364,13 +384,13 @@ export async function fetchRecentVideos(
       queryUrl += `&upload_date=gte.${fromISO}&upload_date=lte.${toISO}`;
     }
 
-    const response = await supabaseFetch(queryUrl, 'Failed to load videos');
+    const response = await supabaseFetch(queryUrl, 'Failed to load videos', signal);
 
     const data: SupabaseVideoRow[] = await response.json();
 
     return data.map(mapRowToVideo);
   } catch (error) {
-    logger.error('Error fetching recent videos:', error);
+    if (!isAbortError(error)) logger.error('Error fetching recent videos:', error);
     throw error;
   }
 }
@@ -391,7 +411,7 @@ export async function fetchRecentVideos(
 export async function searchVideos(
   params: SearchVideosParams
 ): Promise<Video[]> {
-  const { searchTerm, limit = 200 } = params;
+  const { searchTerm, limit = 200, signal } = params;
 
   if (!searchTerm || searchTerm.trim() === '') {
     return [];
@@ -407,7 +427,7 @@ export async function searchVideos(
     // PostgREST syntax for OR query with ilike (case-insensitive LIKE)
     queryUrl += `&or=(pleb_title.ilike.${encodedTerm},video_url.ilike.${encodedTerm})`;
 
-    const response = await supabaseFetch(queryUrl, 'Search failed');
+    const response = await supabaseFetch(queryUrl, 'Search failed', signal);
 
     const data: SupabaseVideoRow[] = await response.json();
 
@@ -424,7 +444,7 @@ export async function searchVideos(
 
     return filteredData.map(mapRowToVideo);
   } catch (error) {
-    logger.error('Error searching videos:', error);
+    if (!isAbortError(error)) logger.error('Error searching videos:', error);
     throw error;
   }
 }

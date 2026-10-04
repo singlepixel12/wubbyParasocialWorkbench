@@ -14,7 +14,7 @@ import { DateRangePicker } from '@/components/vod-diary/DateRangePicker';
 import { SearchInput } from '@/components/vod-diary/SearchInput';
 import { VideoList } from '@/components/vod-diary/VideoList';
 import { Masthead } from '@/components/layout/Masthead';
-import { fetchRecentVideos, searchVideos } from '@/lib/api/supabase';
+import { fetchRecentVideos, searchVideos, isAbortError } from '@/lib/api/supabase';
 import { getThisWeekRange } from '@/lib/utils/video-helpers';
 import { useToast } from '@/lib/hooks/useToast';
 import { logger } from '@/lib/utils/logger';
@@ -49,52 +49,66 @@ export function VodDiaryScreen() {
     setIsMounted(true);
   }, []);
 
-  // Fetch videos based on current filters
-  const loadVideos = useCallback(async () => {
-    setLoading(true);
+  // Bumped by the error toast's Retry to re-run the load with the *current* filters
+  const [reloadToken, setReloadToken] = useState(0);
 
-    try {
-      let results: Video[];
-
-      if (isSearchMode && searchTerm) {
-        // Search mode
-        logger.log('Searching videos:', searchTerm);
-        results = await searchVideos({ searchTerm, limit: 200 });
-      } else {
-        // Normal filter mode (both platforms)
-        logger.log('Fetching recent videos:', { dateRange });
-
-        results = await fetchRecentVideos({
-          limit: 50,
-          fromDate: dateRange?.from || null,
-          toDate: dateRange?.to || null,
-        });
-      }
-
-      setVideos(results);
-      logger.log(`✅ Loaded ${results.length} videos`);
-    } catch (error) {
-      logger.error('Error loading videos:', error);
-      showError('Failed to load videos. Please try again.', {
-        action: {
-          label: 'Retry',
-          onClick: () => {
-            logger.log('Retrying video load...');
-            loadVideos();
-          },
-        },
-      });
-      // Don't clear videos on error - keep showing previous results
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, searchTerm, isSearchMode]);
-
-  // Load videos on mount and when filters change
+  // Load videos on mount and whenever the filters change. Each run owns an
+  // AbortController and the cleanup aborts it, so a slow, superseded response
+  // (e.g. a search for "co" landing after one for "cooking") can never
+  // overwrite the results of the newer query.
   useEffect(() => {
-    loadVideos();
-  }, [loadVideos]);
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    async function load() {
+      setLoading(true);
+
+      try {
+        let results: Video[];
+
+        if (isSearchMode && searchTerm) {
+          logger.log('Searching videos:', searchTerm);
+          results = await searchVideos({ searchTerm, limit: 200, signal });
+        } else {
+          // Normal filter mode (both platforms)
+          logger.log('Fetching recent videos:', { dateRange });
+          results = await fetchRecentVideos({
+            limit: 50,
+            fromDate: dateRange?.from || null,
+            toDate: dateRange?.to || null,
+            signal,
+          });
+        }
+
+        // Belt and braces: never render a superseded result, even if it resolved
+        if (signal.aborted) return;
+        setVideos(results);
+        logger.log(`✅ Loaded ${results.length} videos`);
+      } catch (error) {
+        // Superseded by a newer query — not a failure, and the newer run owns the UI
+        if (isAbortError(error)) return;
+
+        logger.error('Error loading videos:', error);
+        showError('Failed to load videos. Please try again.', {
+          action: {
+            label: 'Retry',
+            onClick: () => {
+              logger.log('Retrying video load...');
+              setReloadToken((n) => n + 1);
+            },
+          },
+        });
+        // Don't clear videos on error - keep showing previous results
+      } finally {
+        // Only the live run may clear the loading state; an aborted run's
+        // successor has already set it
+        if (!signal.aborted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => controller.abort();
+  }, [dateRange, searchTerm, isSearchMode, reloadToken, showError]);
 
   // Handle search input changes
   const handleSearch = useCallback((term: string) => {
