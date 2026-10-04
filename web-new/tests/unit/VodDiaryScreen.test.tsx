@@ -4,8 +4,9 @@
  * filters) and the URL as the source of truth for search + date range.
  *
  * The API module and toast hook are mocked so each request can be resolved or
- * rejected by hand, in any order. `next/navigation` is replaced by a tiny store
- * backed by jsdom's URL so router.push/replace re-render the screen.
+ * rejected by hand, in any order. `next/navigation`'s useSearchParams reads jsdom's
+ * URL, and history.pushState/replaceState are wrapped to notify it — the same
+ * integration Next.js provides for the native History API the screen uses.
  *
  * WHAT THIS FILE CANNOT COVER (needs a human in a real browser):
  * - That typing quickly against live Supabase never flashes an error toast or a
@@ -43,29 +44,41 @@ vi.mock('@/lib/api/supabase', () => ({
 }));
 vi.mock('@/lib/hooks/useToast', () => ({ useToast: () => toast }));
 
-// Minimal App Router stand-in: the query string lives in jsdom's URL, and
-// push/replace update it and notify subscribers so the screen re-renders.
+// Minimal App Router stand-in. Next.js syncs native history.pushState/replaceState
+// into useSearchParams; mirror that by wrapping both to notify subscribers.
 const nav = vi.hoisted(() => {
   const listeners = new Set<() => void>();
-  const navigate = (url: string) => {
-    window.history.replaceState(null, '', url);
-    listeners.forEach((l) => l());
-  };
+  const notify = () => listeners.forEach((l) => l());
+  const rawPush = window.history.pushState.bind(window.history);
+  const rawReplace = window.history.replaceState.bind(window.history);
+  const pushState = vi.fn((data: unknown, unused: string, url?: string | URL | null) => {
+    rawPush(data, unused, url);
+    notify();
+  });
+  const replaceState = vi.fn((data: unknown, unused: string, url?: string | URL | null) => {
+    rawReplace(data, unused, url);
+    notify();
+  });
+  window.history.pushState = pushState;
+  window.history.replaceState = replaceState;
   return {
-    navigate,
+    pushState,
+    replaceState,
+    /** Simulates an outside URL change (Back, a link) without counting as a screen write. */
+    navigate: (url: string) => {
+      rawReplace(null, '', url);
+      notify();
+    },
     subscribe: (l: () => void) => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    router: { push: vi.fn(navigate), replace: vi.fn(navigate) },
   };
 });
 
 vi.mock('next/navigation', async () => {
   const React = await import('react');
   return {
-    usePathname: () => '/',
-    useRouter: () => nav.router,
     useSearchParams: () => {
       const search = React.useSyncExternalStore(nav.subscribe, () => window.location.search);
       return React.useMemo(() => new URLSearchParams(search), [search]);
@@ -94,8 +107,8 @@ async function openSearchAndType(term: string) {
 }
 
 beforeEach(() => {
+  nav.navigate('/');
   vi.clearAllMocks();
-  window.history.replaceState(null, '', '/');
   api.fetchRecentVideos.mockResolvedValue([]);
   api.searchVideos.mockResolvedValue([]);
 });
@@ -182,7 +195,7 @@ describe('VodDiaryScreen — Retry', () => {
 
 describe('VodDiaryScreen — filters live in the URL', () => {
   it('runs the search from a shared ?q= link and shows the term in the search box', async () => {
-    window.history.replaceState(null, '', '/?q=cooking');
+    nav.navigate('/?q=cooking');
 
     renderWithProviders(<VodDiaryScreen />);
 
@@ -193,7 +206,7 @@ describe('VodDiaryScreen — filters live in the URL', () => {
   });
 
   it('queries the from/to days in the URL', async () => {
-    window.history.replaceState(null, '', '/?from=2026-09-01&to=2026-09-30');
+    nav.navigate('/?from=2026-09-01&to=2026-09-30');
 
     renderWithProviders(<VodDiaryScreen />);
 
@@ -204,7 +217,7 @@ describe('VodDiaryScreen — filters live in the URL', () => {
   });
 
   it('defaults to This Week with no params, and for a malformed date', async () => {
-    window.history.replaceState(null, '', '/?from=not-a-date');
+    nav.navigate('/?from=not-a-date');
 
     renderWithProviders(<VodDiaryScreen />);
 
@@ -215,17 +228,17 @@ describe('VodDiaryScreen — filters live in the URL', () => {
     expect(toDate).toEqual(week.to);
   });
 
-  it('writes the search term with replace (typing never floods history)', async () => {
+  it('writes the search term with replaceState (typing never floods history)', async () => {
     renderWithProviders(<VodDiaryScreen />);
     await openSearchAndType('cooking');
 
     await waitFor(() => expect(window.location.search).toBe('?q=cooking'));
-    expect(nav.router.push).not.toHaveBeenCalled();
-    expect(nav.router.replace).toHaveBeenCalled();
+    expect(nav.pushState).not.toHaveBeenCalled();
+    expect(nav.replaceState).toHaveBeenCalled();
   });
 
   it('keeps the date range in the URL when a search is added', async () => {
-    window.history.replaceState(null, '', '/?from=2026-09-01&to=2026-09-30');
+    nav.navigate('/?from=2026-09-01&to=2026-09-30');
     renderWithProviders(<VodDiaryScreen />);
 
     await openSearchAndType('cooking');
@@ -239,7 +252,7 @@ describe('VodDiaryScreen — filters live in the URL', () => {
   });
 
   it('drops q from the URL when the search is closed', async () => {
-    window.history.replaceState(null, '', '/?q=cooking');
+    nav.navigate('/?q=cooking');
     const user = userEvent.setup();
     renderWithProviders(<VodDiaryScreen />);
     await waitFor(() => expect(api.searchVideos).toHaveBeenCalled());
@@ -251,15 +264,15 @@ describe('VodDiaryScreen — filters live in the URL', () => {
   });
 
   it('does not rewrite the URL on load when nothing changed', async () => {
-    window.history.replaceState(null, '', '/?q=cooking&from=2026-09-01&to=2026-09-30');
+    nav.navigate('/?q=cooking&from=2026-09-01&to=2026-09-30');
 
     renderWithProviders(<VodDiaryScreen />);
     await waitFor(() => expect(api.searchVideos).toHaveBeenCalled());
     // Let SearchInput's 300ms debounce fire its initial onSearch
     await new Promise((r) => setTimeout(r, 400));
 
-    expect(nav.router.replace).not.toHaveBeenCalled();
-    expect(nav.router.push).not.toHaveBeenCalled();
+    expect(nav.replaceState).not.toHaveBeenCalled();
+    expect(nav.pushState).not.toHaveBeenCalled();
   });
 });
 
@@ -342,7 +355,7 @@ describe('VodDiaryScreen — paging and the honest count', () => {
 
   it('says when a search hit the result cap instead of implying that is everything', async () => {
     api.searchVideos.mockResolvedValue(videosFrom(0, 200));
-    window.history.replaceState(null, '', '/?q=a');
+    nav.navigate('/?q=a');
 
     renderWithProviders(<VodDiaryScreen />);
 

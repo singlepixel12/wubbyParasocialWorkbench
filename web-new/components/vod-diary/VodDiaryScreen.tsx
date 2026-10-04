@@ -8,15 +8,15 @@
  *
  * The URL is the source of truth for the filters, so a refresh keeps them and a
  * link shares them:  `/?q=cooking`  ·  `/?from=2026-09-01&to=2026-09-30`
- * No `from` means the default "This Week". Search keystrokes `replace` the URL
- * (typing never floods history); a completed date range `push`es (Back undoes it).
+ * No `from` means the default "This Week". Search keystrokes `replaceState` the URL
+ * (typing never floods history); a completed date range `pushState`s (Back undoes it).
  *
  * `useSearchParams` requires a <Suspense> boundary under `output: 'export'` —
  * see app/page.tsx.
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { Video } from '@/types/video';
 import { DateRangePicker } from '@/components/vod-diary/DateRangePicker';
@@ -43,8 +43,6 @@ function formatDateLabel(date: Date): string {
 }
 
 export function VodDiaryScreen() {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   // Client-only rendering flag (prevents SSR hydration issues with Radix UI Popover)
@@ -191,6 +189,11 @@ export function VodDiaryScreen() {
    * the `searchParams` snapshot so these callbacks stay stable across URL changes
    * (SearchInput re-fires onSearch whenever its identity changes). No-ops when
    * nothing changed, so re-sent identical values never touch history.
+   *
+   * Uses the native History API, which Next.js syncs into useSearchParams without
+   * a navigation. router.push/replace would fetch an RSC payload for the "new"
+   * page before the filter took effect — a server round-trip on every search.
+   * The relative `?query` URL keeps the current path, basePath included.
    */
   const updateParams = useCallback(
     (changes: Record<string, string | null>, mode: 'push' | 'replace') => {
@@ -203,9 +206,11 @@ export function VodDiaryScreen() {
       if (next.toString() === current.toString()) return;
 
       const query = next.toString();
-      router[mode](query ? `${pathname}?${query}` : pathname, { scroll: false });
+      const url = query ? `?${query}` : window.location.pathname;
+      if (mode === 'push') window.history.pushState(null, '', url);
+      else window.history.replaceState(null, '', url);
     },
-    [router, pathname]
+    []
   );
 
   // Handle search input changes (already debounced by SearchInput)
