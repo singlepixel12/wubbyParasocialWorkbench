@@ -50,6 +50,9 @@ export interface FetchVideosParams {
   /** Maximum number of videos to return */
   limit?: number;
 
+  /** Number of rows to skip (for paging) */
+  offset?: number;
+
   /** Filter by platform (twitch, kick, both) */
   platform?: PlatformFilter;
 
@@ -58,6 +61,9 @@ export interface FetchVideosParams {
 
   /** End date for date range filter */
   toDate?: Date | null;
+
+  /** Cancels the request (e.g. when a newer query supersedes it) */
+  signal?: AbortSignal;
 }
 
 /**
@@ -69,6 +75,9 @@ export interface SearchVideosParams {
 
   /** Maximum number of results */
   limit?: number;
+
+  /** Cancels the request (e.g. when a newer query supersedes it) */
+  signal?: AbortSignal;
 }
 
 /**

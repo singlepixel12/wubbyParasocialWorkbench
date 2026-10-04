@@ -87,7 +87,7 @@ Loaded via `next/font/google` in `app/layout.tsx`.
 
 ## Two-Tier UX Pattern
 
-### Phase 1: Browse (VodDiaryScreen — `/` and `/vod-diary`)
+### Phase 1: Browse (VodDiaryScreen — `/`)
 
 Each VOD is an "archive record" card:
 
@@ -123,10 +123,11 @@ reward; "other sites: nothing — here: 200 words" reads as more impressive.
 
 ### VodDiaryScreen — `components/vod-diary/VodDiaryScreen.tsx`
 
-The single source of truth for the browse experience; rendered by both `/` and
-`/vod-diary` so they can never drift. Holds the filter + fetch state and composes:
+The single source of truth for the browse experience, rendered at `/` (the legacy
+`/vod-diary` route redirects there). Filters are read from the URL; it holds the fetch
+state and composes:
 
-1. `<Masthead edition="VOD Diary" count={videos.length} dateLabel=… />`
+1. `<Masthead edition="VOD Diary" count={total ?? videos.length} dateLabel=… />`
 2. Filters row — `DateRangePicker` (hidden while search is open) + toggleable `SearchInput`
 3. `<VideoList>`
 
@@ -209,10 +210,9 @@ searchVideos(params): Promise<Video[]>                       // title / URL / ta
 ### Routes
 
 ```
-/                  → Home (shared VodDiaryScreen)
-/vod-diary         → VOD diary (shared VodDiaryScreen)
+/                  → Home (VodDiaryScreen; ?q= ?from= ?to= filters)
+/vod-diary         → Legacy — client redirect to /
 /watch?id=HASH     → Detail view (full summary + player)   ← query param, not /watch/[id]
-/player            → Dedicated player
 /transcript        → Transcript extraction
 ```
 

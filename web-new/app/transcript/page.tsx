@@ -20,8 +20,6 @@ import { logger } from '@/lib/utils/logger';
 import { SUPABASE_URL } from '@/lib/constants';
 
 export default function TranscriptPage() {
-  logger.log('===== TranscriptPage Render =====');
-
   const { showError, showWarning } = useToast();
 
   // State management
@@ -35,16 +33,6 @@ export default function TranscriptPage() {
   const [recentVideos, setRecentVideos] = useState<Video[]>([]);
   const [hasSubtitle, setHasSubtitle] = useState<boolean | null>(null);
   const [hasThumbnail, setHasThumbnail] = useState<boolean | null>(null);
-
-  logger.log('Current state:', {
-    videoUrl: videoUrl.substring(0, 50) + '...',
-    videoHash: videoHash.substring(0, 16) + '...',
-    hasSubtitleUrl: !!subtitleUrl,
-    status,
-    isSuccess,
-    isLoading,
-    hasVideo: !!video,
-  });
 
   // Fetch recent videos on mount
   useEffect(() => {

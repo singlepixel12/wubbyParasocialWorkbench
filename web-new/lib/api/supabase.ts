@@ -3,7 +3,6 @@
  * Handles all communication with the Supabase backend
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Video, Platform, PlatformFilter } from '@/types/video';
 import type {
   SupabaseVideoRow,
@@ -11,6 +10,7 @@ import type {
   SearchVideosParams,
 } from '@/types/supabase';
 import { computeVideoHash, isValidHash } from '@/lib/utils/hash';
+import { toUploadDateBounds } from '@/lib/utils/date-range';
 import { SUPABASE_URL } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
 
@@ -22,24 +22,6 @@ if (!SUPABASE_ANON_KEY) {
   throw new Error(
     'Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable. Please check your .env.local file.'
   );
-}
-
-/**
- * Initialize Supabase client
- * This key is safe to expose as it's read-only with RLS protection
- */
-let supabaseClient: SupabaseClient | null = null;
-
-function getSupabaseClient(): SupabaseClient {
-  if (!supabaseClient) {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      throw new Error(
-        'Supabase configuration is missing. Please check your environment variables.'
-      );
-    }
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-  return supabaseClient;
 }
 
 /**
@@ -113,20 +95,32 @@ function describeHttpError(response: Response, context: string): string {
  *
  * Every fetcher in this module must go through this helper — it owns the
  * AbortController/timer lifecycle (cleared in `finally` so it can never leak),
- * translates an abort into a clear timeout error, and maps HTTP failures via
- * {@link describeHttpError}.
+ * translates a timeout abort into a clear timeout error, and maps HTTP failures
+ * via {@link describeHttpError}.
+ *
+ * A caller-supplied `signal` is chained into the same controller. When the
+ * caller cancels, the original AbortError is rethrown untouched (never mapped
+ * to the timeout message) so callers can tell "superseded" from "failed" with
+ * {@link isAbortError}.
  *
  * @param queryUrl - Full REST query URL to fetch
  * @param context - Call-site description used in error messages
+ * @param options.signal - Optional caller cancellation signal
+ * @param options.headers - Extra request headers (e.g. `Prefer: count=exact`)
  * @returns The successful Response (guaranteed `response.ok`)
  * @throws Error with a user-facing message on timeout or HTTP failure
  */
 async function supabaseFetch(
   queryUrl: string,
-  context: string
+  context: string,
+  { signal, headers }: { signal?: AbortSignal; headers?: Record<string, string> } = {}
 ): Promise<Response> {
+  signal?.throwIfAborted();
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const forwardAbort = () => controller.abort();
+  signal?.addEventListener('abort', forwardAbort, { once: true });
 
   try {
     const response = await fetch(queryUrl, {
@@ -135,6 +129,7 @@ async function supabaseFetch(
         apikey: SUPABASE_ANON_KEY!,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
+        ...headers,
       },
       signal: controller.signal,
     });
@@ -145,16 +140,25 @@ async function supabaseFetch(
 
     return response;
   } catch (error) {
-    // Surface an aborted request as a clear timeout error. Checked via the
-    // name property (not instanceof Error) so a DOMException is caught even
-    // on engines where it doesn't subclass Error.
-    if ((error as { name?: string } | null)?.name === 'AbortError') {
+    // A caller cancellation passes through as-is; any other abort can only be
+    // our timer, so surface it as a clear timeout error.
+    if (isAbortError(error) && !signal?.aborted) {
       throw new Error(TIMEOUT_MESSAGE);
     }
     throw error;
   } finally {
     clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', forwardAbort);
   }
+}
+
+/**
+ * True for the error a cancelled request rejects with. Checked via the name
+ * property (not instanceof Error) so a DOMException is caught even on engines
+ * where it doesn't subclass Error.
+ */
+export function isAbortError(error: unknown): boolean {
+  return (error as { name?: string } | null)?.name === 'AbortError';
 }
 
 /**
@@ -339,25 +343,56 @@ export async function getWubbySummaryByHash(
 }
 
 /**
- * Fetches recent videos with optional filtering
+ * Parses the total row count from a PostgREST `Content-Range` header: the part
+ * after the slash, e.g. `0-49/92`, or a `*` range then `/0` for an empty result.
+ * Returns null when the server reported no count (a `*` after the slash) or the
+ * header is missing.
+ */
+function parseTotalCount(contentRange: string | null): number | null {
+  const total = contentRange?.split('/')[1];
+  if (!total || total === '*') return null;
+  const n = Number(total);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+/** One page of the diary plus the total number of rows matching the filters. */
+export interface VideoPage {
+  videos: Video[];
+  /** Rows matching the filters across all pages; null if the server didn't say */
+  total: number | null;
+}
+
+/**
+ * Fetches one page of recent videos, plus the total matching the filters
  *
- * @param params - Query parameters (limit, platform, date range)
- * @returns Array of videos matching the filters
+ * The total comes from PostgREST's `Prefer: count=exact` (returned in the
+ * `Content-Range` header), so the UI can say "50 of 92" and offer the rest
+ * instead of silently capping at the page size.
+ *
+ * @param params - Query parameters (limit, offset, platform, date range, signal)
+ * @returns The page of videos and the total matching row count
  *
  * @example
  * ```ts
- * const videos = await fetchRecentVideos({
+ * const { videos, total } = await fetchRecentVideosPage({
  *   limit: 50,
- *   platform: 'twitch',
- *   fromDate: new Date('2025-01-01'),
- *   toDate: new Date('2025-01-31')
+ *   offset: 50, // second page
+ *   fromDate: new Date(2025, 0, 1),
+ *   toDate: new Date(2025, 0, 31),
  * });
  * ```
  */
-export async function fetchRecentVideos(
+export async function fetchRecentVideosPage(
   params: FetchVideosParams = {}
-): Promise<Video[]> {
-  const { limit = 50, platform = 'both', fromDate = null, toDate = null } = params;
+): Promise<VideoPage> {
+  const {
+    limit = 50,
+    offset = 0,
+    platform = 'both',
+    fromDate = null,
+    toDate = null,
+    signal,
+  } = params;
 
   // Validate the platform against a whitelist before interpolating it into the
   // query string (runtime backstop for the PlatformFilter type). Rejecting
@@ -368,30 +403,54 @@ export async function fetchRecentVideos(
   }
 
   try {
-    // Build query URL
-    let queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?select=pleb_title,platform,tags,summary,upload_date,video_url,video_hash&order=upload_date.desc.nullslast&limit=${limit}`;
+    // Build query URL. video_hash is the tiebreaker so offset paging is stable
+    // when several rows share an upload_date.
+    let queryUrl = `${SUPABASE_URL}/rest/v1/wubby_summary?select=pleb_title,platform,tags,summary,upload_date,video_url,video_hash&order=upload_date.desc.nullslast,video_hash.asc&limit=${limit}`;
+
+    if (offset > 0) {
+      queryUrl += `&offset=${offset}`;
+    }
 
     // Add platform filter if not 'both' ('both' means no platform constraint)
     if (platform !== 'both') {
       queryUrl += `&platform=eq.${platform}`;
     }
 
-    // Add date range filter
-    if (fromDate && toDate) {
-      const fromISO = fromDate.toISOString();
-      const toISO = toDate.toISOString();
-      queryUrl += `&upload_date=gte.${fromISO}&upload_date=lte.${toISO}`;
+    // Add date range filter: whole local days, end-exclusive (see date-range.ts).
+    // A from-only range (mid-selection in the calendar) is that single day.
+    if (fromDate) {
+      const { gte, lt } = toUploadDateBounds(fromDate, toDate);
+      queryUrl += `&upload_date=gte.${encodeURIComponent(gte)}&upload_date=lt.${encodeURIComponent(lt)}`;
     }
 
-    const response = await supabaseFetch(queryUrl, 'Failed to load videos');
+    const response = await supabaseFetch(queryUrl, 'Failed to load videos', {
+      signal,
+      headers: { Prefer: 'count=exact' },
+    });
 
     const data: SupabaseVideoRow[] = await response.json();
 
-    return data.map(mapRowToVideo);
+    return {
+      videos: data.map(mapRowToVideo),
+      total: parseTotalCount(response.headers.get('Content-Range')),
+    };
   } catch (error) {
-    logger.error('Error fetching recent videos:', error);
+    if (!isAbortError(error)) logger.error('Error fetching recent videos:', error);
     throw error;
   }
+}
+
+/**
+ * Fetches recent videos with optional filtering — {@link fetchRecentVideosPage}
+ * without the total, for callers that only want the rows.
+ *
+ * @param params - Query parameters (limit, offset, platform, date range)
+ * @returns Array of videos matching the filters
+ */
+export async function fetchRecentVideos(
+  params: FetchVideosParams = {}
+): Promise<Video[]> {
+  return (await fetchRecentVideosPage(params)).videos;
 }
 
 /**
@@ -410,7 +469,7 @@ export async function fetchRecentVideos(
 export async function searchVideos(
   params: SearchVideosParams
 ): Promise<Video[]> {
-  const { searchTerm, limit = 200 } = params;
+  const { searchTerm, limit = 200, signal } = params;
 
   if (!searchTerm || searchTerm.trim() === '') {
     return [];
@@ -426,7 +485,7 @@ export async function searchVideos(
     // PostgREST syntax for OR query with ilike (case-insensitive LIKE)
     queryUrl += `&or=(pleb_title.ilike.${encodedTerm},video_url.ilike.${encodedTerm})`;
 
-    const response = await supabaseFetch(queryUrl, 'Search failed');
+    const response = await supabaseFetch(queryUrl, 'Search failed', { signal });
 
     const data: SupabaseVideoRow[] = await response.json();
 
@@ -443,31 +502,7 @@ export async function searchVideos(
 
     return filteredData.map(mapRowToVideo);
   } catch (error) {
-    logger.error('Error searching videos:', error);
+    if (!isAbortError(error)) logger.error('Error searching videos:', error);
     throw error;
   }
 }
-
-/**
- * Sample videos for fallback/testing
- */
-export const SAMPLE_VIDEOS: Video[] = [
-  {
-    url: 'https://archive.wubby.tv/vods/public/jul_2025/27_MEDIA%20SHARE%20NIGHT.mp4',
-    title: 'Kick Friday Madness',
-    platform: 'kick',
-    summary:
-      'A wild Friday stream with community games, random antics, and spicy takes that had chat popping off all night long.',
-    tags: ['kick', 'community', 'games'],
-    date: '2025-07-18T20:00:00Z',
-  },
-  {
-    url: '#',
-    title: 'Cooking IRL – Chaos in the Kitchen',
-    platform: 'twitch',
-    summary:
-      'Attempted to bake a 12-layer cake; only 8 survived. Fire alarm cameo. A masterpiece of disaster.',
-    tags: ['twitch', 'cooking', 'irl'],
-    date: '2025-07-17T18:00:00Z',
-  },
-];

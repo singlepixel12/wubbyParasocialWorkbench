@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { differenceInCalendarDays } from 'date-fns';
 import {
   getLocaleFormat,
   formatDateDisplay,
@@ -135,8 +136,8 @@ describe('getThisWeekRange', () => {
     expect(from).toBeInstanceOf(Date);
     expect(to).toBeInstanceOf(Date);
 
-    const diffInDays = Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-    expect(diffInDays).toBe(7);
+    // Calendar days, not elapsed ms: a week spanning a DST change is 7d ± 1h
+    expect(differenceInCalendarDays(to, from)).toBe(7);
   });
 
   it('should have "to" date as today', () => {

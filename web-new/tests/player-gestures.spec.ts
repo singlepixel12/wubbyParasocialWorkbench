@@ -24,7 +24,7 @@ test.describe('Player Touch Gestures - Mobile', () => {
 
     try {
       // Navigate to VOD Diary to get a real video
-      await page.goto('/vod-diary');
+      await page.goto('/');
 
       // Wait for page and videos to load
       await page.waitForTimeout(4000);
@@ -60,7 +60,7 @@ test.describe('Player Touch Gestures - Mobile', () => {
     // This test just verifies we can get a real video
     if (!videoHash) {
       // If no videos in date range, navigate to vod-diary and verify page works
-      await page.goto('/vod-diary');
+      await page.goto('/');
       await page.waitForTimeout(2000);
       await expect(page.getByRole('heading', { name: 'VOD Diary' })).toBeVisible();
       // Test passes - no videos available is acceptable
@@ -306,7 +306,7 @@ test.describe('Player Touch Gestures - Desktop', () => {
     const page = await browser.newPage();
 
     try {
-      await page.goto('/vod-diary');
+      await page.goto('/');
       await page.waitForTimeout(4000);
 
       // Find hash from data-video-hash attribute
@@ -391,7 +391,7 @@ test.describe('Player Existing Features - Regression Tests', () => {
     const page = await browser.newPage();
 
     try {
-      await page.goto('/vod-diary');
+      await page.goto('/');
       await page.waitForTimeout(4000);
 
       // Find hash from data-video-hash attribute
@@ -496,8 +496,8 @@ test.describe('Player Existing Features - Regression Tests', () => {
 
     if ((await backLink.count()) > 0) {
       await backLink.click();
-      await page.waitForURL('**/vod-diary');
-      expect(page.url()).toContain('/vod-diary');
+      await page.waitForURL((url) => url.pathname === '/');
+      expect(new URL(page.url()).pathname).toBe('/');
     }
   });
 });

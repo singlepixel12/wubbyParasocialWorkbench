@@ -14,8 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
-import { useState, useEffect } from 'react';
-import { computeVideoHash } from '@/lib/utils/hash';
+import { SUPABASE_URL } from '@/lib/constants';
 import { motion } from 'framer-motion';
 
 interface VideoDetailViewProps {
@@ -26,24 +25,10 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
   const formattedDate = video.date ? formatDateDisplay(new Date(video.date)) : '';
   const originalTitle = extractOriginalTitle(video.url);
 
-  const [subtitleUrl, setSubtitleUrl] = useState<string | undefined>();
-
-  // Generate subtitle URL from video hash
-  useEffect(() => {
-    async function loadSubtitles() {
-      try {
-        const hash = await computeVideoHash(video.url);
-        const subtitlePath = `https://sbvaclmypokafpxebusn.supabase.co/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt`;
-        setSubtitleUrl(subtitlePath);
-      } catch (error) {
-        console.error('Failed to generate subtitle URL:', error);
-      }
-    }
-
-    if (video.url) {
-      loadSubtitles();
-    }
-  }, [video.url]);
+  // The row's stored hash is the same SHA-256 of the URL — no need to recompute it
+  const subtitleUrl = video.videoHash
+    ? `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${video.videoHash}/en/subtitle.vtt`
+    : undefined;
 
   // Animation variants
   const videoVariants = {
@@ -68,7 +53,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
     <div className="space-y-4 md:space-y-6 px-0 md:px-4 py-4 md:py-6">
       {/* Back to VOD Diary */}
       <div className="px-2 md:px-0">
-        <Link href="/vod-diary">
+        <Link href="/">
           <Button variant="ghost" size="sm" className="text-ink-muted hover:text-foreground">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to VOD Diary

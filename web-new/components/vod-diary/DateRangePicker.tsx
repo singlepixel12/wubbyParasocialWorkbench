@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { formatDateDisplay, getThisWeekRange } from '@/lib/utils/video-helpers';
+import { lastNDays, lastNMonths } from '@/lib/utils/date-range';
 
 interface DateRangePickerProps {
   value: DateRange | undefined;
@@ -35,42 +36,12 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  // Preset date ranges
+  // Preset date ranges — whole local days, the same shape a hand-picked range has
   const presets = [
-    {
-      label: 'This Week',
-      getRange: () => {
-        const { from, to } = getThisWeekRange();
-        return { from, to };
-      },
-    },
-    {
-      label: 'Last 2 Weeks',
-      getRange: () => {
-        const to = new Date();
-        const from = new Date();
-        from.setDate(to.getDate() - 14);
-        return { from, to };
-      },
-    },
-    {
-      label: 'Last Month',
-      getRange: () => {
-        const to = new Date();
-        const from = new Date();
-        from.setMonth(to.getMonth() - 1);
-        return { from, to };
-      },
-    },
-    {
-      label: 'Last 3 Months',
-      getRange: () => {
-        const to = new Date();
-        const from = new Date();
-        from.setMonth(to.getMonth() - 3);
-        return { from, to };
-      },
-    },
+    { label: 'This Week', getRange: () => getThisWeekRange() },
+    { label: 'Last 2 Weeks', getRange: () => lastNDays(14) },
+    { label: 'Last Month', getRange: () => lastNMonths(1) },
+    { label: 'Last 3 Months', getRange: () => lastNMonths(3) },
   ];
 
   const handlePresetClick = (preset: typeof presets[0]) => {
