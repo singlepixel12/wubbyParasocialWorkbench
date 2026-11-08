@@ -316,9 +316,24 @@ workers need. A LAN address (`http://192.168…`) is not, and will mislead.
 - **The first open of a VOD costs 23.6 MB** before audio starts (~10–20 s on mobile data).
   Mitigation: show progress ("Preparing audio · 12/24 MB"), cache the result, and later
   possibly a server-published index.
-- **Download speed is an estimate, not a measurement:** ~5–15 minutes for 430 MB, based on
-  request latency and concurrency. The spike measures real throughput at concurrency 6/12/24
-  over HTTP/2 or HTTP/3 in Chrome.
+- **Download speed: measured 2026-11-08, and slower than estimated.** Measured with
+  `npm run measure:archive`: real Chrome, from the site's origin, laptop Wi-Fi, against the
+  5.9 h VOD.
+
+  | Concurrency | Runs per second | Full 430 MB download |
+  |---|---|---|
+  | 6 | 1.08 | about 82 min |
+  | 12 | 1.11 | about 80 min |
+  | 24 | 2.46 | about 36 min |
+
+  - **The bottleneck is per-request latency at the archive** (about 5.5 s each under load,
+    versus 1.5 s for a lone request), not bandwidth.
+  - **Index load** (23.6 MB `moov`): 21.2 s.
+  - **Streaming is fine:** 1.08 runs/s is about 4.3 s of audio per second, 2.9× headroom at
+    1.5×.
+  - **Phase 2 implication:** downloads are a "start it and leave it" job; use concurrency 24
+    and keep the Wake Lock on. If 36 minutes is too slow, a summarizer-published audio file is
+    the real fix, and it would slot in behind the same index and offline store.
 - **MSE in a locked or backgrounded tab on Android Chrome** is expected to keep playing
   (music sites rely on it), but only the real-phone checklist proves it. The spike includes a
   15-minute locked-screen test on Lee's phone before building the full UI.
