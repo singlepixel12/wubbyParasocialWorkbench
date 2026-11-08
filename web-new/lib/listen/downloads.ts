@@ -89,14 +89,30 @@ export async function cancelDownload(hash: string): Promise<void> {
   if (live) await live.abort();
 }
 
-/** Live byte progress of a running download, from Chrome. Returns an unsubscribe. */
-export async function watchProgress(hash: string, onProgress: (downloaded: number, total: number) => void): Promise<() => void> {
-  const live = await liveRegistration(hash);
-  if (!live) return () => undefined;
-  const handler = () => onProgress(live.downloaded, live.downloadTotal);
-  live.addEventListener('progress', handler);
-  handler();
-  return () => live.removeEventListener('progress', handler);
+/**
+ * Live progress of a running download, polled from Chrome every `everyMs`. Polling, not the
+ * `progress` event: the event proved unreliable, and the registration may not exist yet when the
+ * button first looks (it used to stick at 0% for a whole download).
+ * `onProgress(done, total)` gets bytes for the whole VOD (stored before this round + this round).
+ */
+export function watchProgress(hash: string, onProgress: (done: number, total: number) => void, everyMs = 2000): () => void {
+  let stopped = false;
+  const tick = async () => {
+    try {
+      const [live, m] = await Promise.all([liveRegistration(hash), getManifest(hash)]);
+      if (stopped || !live || !m) return;
+      // This round covers only the missing runs; add what earlier rounds already stored.
+      onProgress(m.bytesDone + live.downloaded, m.bytesTotal);
+    } catch {
+      // The next tick tries again.
+    }
+  };
+  void tick();
+  const timer = setInterval(() => void tick(), everyMs);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 }
 
 /** On app load: fix up downloads whose background fetch is gone. */

@@ -25,6 +25,11 @@ export interface LoadIndexOptions {
 }
 
 const MAX_TOP_LEVEL_BOXES = 32;
+/**
+ * The index is the critical path (nothing plays without it) and its requests are small, so give
+ * them more attempts than an audio run gets before the engine falls back to "stalled".
+ */
+const INDEX_ATTEMPTS = 8;
 
 /** Find the moov by reading 16-byte box headers from the start of the file (ftyp, mdat, …). */
 export async function locateMoov(url: string, opts: LoadIndexOptions = {}): Promise<MoovLocation> {
@@ -34,7 +39,7 @@ export async function locateMoov(url: string, opts: LoadIndexOptions = {}): Prom
   for (let i = 0; i < MAX_TOP_LEVEL_BOXES; i++) {
     let head: RangeResult;
     try {
-      head = await fetchRange(url, offset, offset + 15, { signal: opts.signal, expectedLastModified: lastModified, onRetry: opts.onRetry, onOffline: opts.onOffline });
+      head = await fetchRange(url, offset, offset + 15, { signal: opts.signal, expectedLastModified: lastModified, onRetry: opts.onRetry, onOffline: opts.onOffline, maxAttempts: INDEX_ATTEMPTS });
     } catch (err) {
       if (i > 0 && err instanceof RangeFetchError && err.status === 416) {
         throw new ListenError('no-moov', 'Reached the end of the file without finding the moov box');
@@ -67,6 +72,7 @@ export async function loadAudioIndex(url: string, opts: LoadIndexOptions = {}): 
     const { bytes } = await fetchRange(url, loc.start + s, loc.start + e - 1, {
       signal: opts.signal,
       expectedLastModified: loc.lastModified,
+      maxAttempts: INDEX_ATTEMPTS,
       onRetry: opts.onRetry,
       onOffline: opts.onOffline,
     });

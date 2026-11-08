@@ -54,6 +54,11 @@ export interface ListenEngineOptions {
 
 /** Playing yet starved for this long → "stalled" with a Retry button. */
 const STALL_AFTER_MS = 30_000;
+/**
+ * From "stalled" (range-fetch's retries exhausted, or starved for 30 s) try again on our own this
+ * often, and immediately on `online`. A locked phone in a dead zone has nobody to tap Retry.
+ */
+const STALL_RETRY_MS = 15_000;
 
 type Op =
   | { kind: 'append'; data: Bytes; resolve: () => void; reject: (e: unknown) => void }
@@ -113,6 +118,7 @@ export class ListenEngine {
   private bytesFetched = 0;
   private storedRuns = 0;
   private starvedSince: number | null = null;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private unbindSession: (() => void) | null = null;
   private disposed = false;
@@ -131,6 +137,8 @@ export class ListenEngine {
     document.body.appendChild(this.audio);
     this.objectUrl = URL.createObjectURL(this.mediaSource);
     this.audio.src = this.objectUrl;
+    // Back online: recover straight away (from "stalled", even during the index load), else top up.
+    window.addEventListener('online', () => (this.phase === 'stalled' ? this.retry() : this.pump()), { signal: this.life.signal });
     this.snapshot = this.computeSnapshot();
   }
 
@@ -177,6 +185,10 @@ export class ListenEngine {
 
   retry(): void {
     if (this.disposed) return;
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer);
+      this.recoveryTimer = null;
+    }
     if (!this.index) {
       void this.start();
       return;
@@ -229,8 +241,21 @@ export class ListenEngine {
       this.pump();
       this.emit();
     } catch (err) {
-      this.fail(err);
+      if (err instanceof RangeFetchError && err.code === 'exhausted') this.stall(); // index load: keep trying
+      else this.fail(err);
     }
+  }
+
+  /** Out of retries for now: show it, and come back by ourselves. */
+  private stall(): void {
+    if (this.disposed) return;
+    this.phase = 'stalled';
+    if (this.recoveryTimer) clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = setTimeout(() => {
+      this.recoveryTimer = null;
+      if (!this.disposed && this.phase === 'stalled') this.retry();
+    }, STALL_RETRY_MS);
+    this.emit();
   }
 
   /** Idempotent. Aborts all fetches, detaches MSE, clears Media Session, removes the element. */
@@ -238,6 +263,7 @@ export class ListenEngine {
     if (this.disposed) return;
     this.disposed = true;
     if (this.tick) clearInterval(this.tick);
+    if (this.recoveryTimer) clearTimeout(this.recoveryTimer);
     this.genController.abort();
     this.life.abort();
     this.dropPendingAppends();
@@ -289,7 +315,6 @@ export class ListenEngine {
     for (const e of ['pause', 'playing', 'waiting', 'timeupdate', 'ratechange', 'durationchange', 'ended'] as const) {
       a.addEventListener(e, () => this.emit(), { signal });
     }
-    window.addEventListener('online', () => this.pump(), { signal });
   }
 
   // ---- fetching ---------------------------------------------------------------------------
@@ -340,8 +365,7 @@ export class ListenEngine {
     } catch (err) {
       if (gen !== this.gen || this.disposed || isAbort(err)) return;
       if (err instanceof RangeFetchError && err.code === 'exhausted') {
-        this.phase = 'stalled';
-        this.emit();
+        this.stall();
         return;
       }
       if (err instanceof RangeFetchError && err.code === 'file-changed') {
@@ -453,7 +477,7 @@ export class ListenEngine {
     const starving = !this.audio.paused && this.audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
     if (!starving) this.starvedSince = null;
     else if (this.starvedSince === null) this.starvedSince = Date.now();
-    else if (this.phase === 'ready' && Date.now() - this.starvedSince > STALL_AFTER_MS) this.phase = 'stalled';
+    else if (this.phase === 'ready' && Date.now() - this.starvedSince > STALL_AFTER_MS) this.stall();
     this.emit();
   }
 

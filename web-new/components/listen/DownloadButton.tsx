@@ -22,12 +22,11 @@ export function DownloadButton({ vod }: { vod: VodRef }) {
   const [prompt, setPrompt] = useState<Prompt>(null);
   const [live, setLive] = useState<number | null>(null);
 
-  // Chrome reports byte progress live while the page is open; the manifest only moves at the end.
+  // Chrome reports byte progress live while the page is open; the manifest only moves at the end
+  // of a round. Polled (see watchProgress).
   useEffect(() => {
     if (mine?.state !== 'downloading') return;
-    let off: () => void = () => undefined;
-    void watchProgress(vod.hash, (done, total) => setLive(total ? done / total : null)).then((u) => (off = u));
-    return () => off();
+    return watchProgress(vod.hash, (done, total) => setLive(total ? Math.min(1, done / total) : null));
   }, [mine?.state, vod.hash]);
 
   if (!backgroundFetchSupported()) return null;
