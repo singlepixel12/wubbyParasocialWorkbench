@@ -12,6 +12,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/lib/hooks/useToast';
 import { useTouchGestures } from '@/lib/hooks/useTouchGestures';
 
+/** Pinned: an unversioned CDN URL let the player change under us. Bump deliberately. */
+export const VIDSTACK_CDN = 'https://cdn.jsdelivr.net/npm/vidstack@0.6.15';
+
 // TypeScript declarations for Vidstack custom elements
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -463,15 +466,15 @@ export function VidstackPlayer({
     logger.log('📦 Loading Vidstack assets from CDN');
 
     // Check if already loaded
-    const existingDefaultsCSS = document.querySelector('link[href*="vidstack/styles/defaults.css"]');
-    const existingSkinCSS = document.querySelector('link[href*="vidstack/styles/community-skin/video.css"]');
-    const existingScript = document.querySelector('script[src*="vidstack/dist/cdn/prod.js"]');
+    const existingDefaultsCSS = document.querySelector(`link[href="${VIDSTACK_CDN}/styles/defaults.css"]`);
+    const existingSkinCSS = document.querySelector(`link[href="${VIDSTACK_CDN}/styles/community-skin/video.css"]`);
+    const existingScript = document.querySelector(`script[src="${VIDSTACK_CDN}/dist/cdn/prod.js"]`);
 
     // Load CSS - defaults
     if (!existingDefaultsCSS) {
       const defaultsLink = document.createElement('link');
       defaultsLink.rel = 'stylesheet';
-      defaultsLink.href = 'https://cdn.jsdelivr.net/npm/vidstack/styles/defaults.css';
+      defaultsLink.href = `${VIDSTACK_CDN}/styles/defaults.css`;
       document.head.appendChild(defaultsLink);
       logger.log('✅ Loaded Vidstack defaults.css');
     }
@@ -480,7 +483,7 @@ export function VidstackPlayer({
     if (!existingSkinCSS) {
       const skinLink = document.createElement('link');
       skinLink.rel = 'stylesheet';
-      skinLink.href = 'https://cdn.jsdelivr.net/npm/vidstack/styles/community-skin/video.css';
+      skinLink.href = `${VIDSTACK_CDN}/styles/community-skin/video.css`;
       document.head.appendChild(skinLink);
       logger.log('✅ Loaded Vidstack community-skin CSS');
     }
@@ -489,7 +492,7 @@ export function VidstackPlayer({
     if (!existingScript) {
       const script = document.createElement('script');
       script.type = 'module';
-      script.src = 'https://cdn.jsdelivr.net/npm/vidstack/dist/cdn/prod.js';
+      script.src = `${VIDSTACK_CDN}/dist/cdn/prod.js`;
       script.onload = () => {
         logger.log('✅ Vidstack JS loaded from CDN');
       };
