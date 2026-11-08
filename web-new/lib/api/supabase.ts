@@ -113,6 +113,102 @@ function describeHttpError(response: Response, context: string): string {
 async function supabaseFetch(
   queryUrl: string,
   context: string,
+  options: { signal?: AbortSignal; headers?: Record<string, string> } = {}
+): Promise<Response> {
+  // Every call here is an idempotent GET, so a flaky mobile connection is retried with backoff.
+  // A caller abort and non-retriable HTTP errors (e.g. 400/401/403/404) are thrown straight away.
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt++) {
+    options.signal?.throwIfAborted();
+    if (isOffline()) await waitUntilOnline(options.signal); // no async gap when online
+    try {
+      return await supabaseFetchOnce(queryUrl, context, options);
+    } catch (error) {
+      if (options.signal?.aborted || !isRetriable(error)) throw error;
+      lastError = error;
+      if (attempt === retryPolicy.maxAttempts) break;
+      const delay = Math.min(retryPolicy.maxDelayMs, retryPolicy.baseDelayMs * 2 ** (attempt - 1) * (0.7 + 0.6 * Math.random()));
+      await sleep(delay, options.signal);
+    }
+  }
+  throw lastError;
+}
+
+/** Retry policy for API GETs. Tests shrink it; production uses the defaults. */
+export interface ApiRetryPolicy {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+const DEFAULT_RETRY_POLICY: ApiRetryPolicy = { maxAttempts: 4, baseDelayMs: 1000, maxDelayMs: 8000 };
+let retryPolicy: ApiRetryPolicy = DEFAULT_RETRY_POLICY;
+/** Override the retry policy (tests); `null` restores the defaults. */
+export function setApiRetryPolicy(policy: Partial<ApiRetryPolicy> | null): void {
+  retryPolicy = policy ? { ...DEFAULT_RETRY_POLICY, ...policy } : DEFAULT_RETRY_POLICY;
+}
+
+/** A failed API response, with its status, so retry and UI code can tell kinds apart. */
+export class ApiHttpError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiHttpError';
+    this.status = status;
+  }
+}
+/** Our own 10 s timeout fired (not a caller abort). */
+export class ApiTimeoutError extends Error {
+  constructor() {
+    super(TIMEOUT_MESSAGE);
+    this.name = 'ApiTimeoutError';
+  }
+}
+
+function isRetriable(error: unknown): boolean {
+  if (error instanceof ApiTimeoutError) return true;
+  if (error instanceof ApiHttpError) return error.status === 408 || error.status === 429 || error.status >= 500;
+  return error instanceof TypeError; // fetch's "network error": dropped connection, DNS, CORS
+}
+
+/**
+ * True when the request failed because the network or server let us down (after retries), as
+ * opposed to a definite answer like "not found". The UI offers Retry for these.
+ */
+export function isNetworkError(error: unknown): boolean {
+  return isRetriable(error);
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+    }, { once: true });
+  });
+}
+
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
+/** Offline: wait for the network to come back instead of burning attempts. */
+function waitUntilOnline(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const done = () => {
+      window.removeEventListener('online', done);
+      resolve();
+    };
+    window.addEventListener('online', done);
+    signal?.addEventListener('abort', () => {
+      window.removeEventListener('online', done);
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+    }, { once: true });
+  });
+}
+
+/** One attempt: auth headers, 10 s timeout, error mapping. */
+async function supabaseFetchOnce(
+  queryUrl: string,
+  context: string,
   { signal, headers }: { signal?: AbortSignal; headers?: Record<string, string> } = {}
 ): Promise<Response> {
   signal?.throwIfAborted();
@@ -135,7 +231,7 @@ async function supabaseFetch(
     });
 
     if (!response.ok) {
-      throw new Error(describeHttpError(response, context));
+      throw new ApiHttpError(describeHttpError(response, context), response.status);
     }
 
     return response;
@@ -143,7 +239,7 @@ async function supabaseFetch(
     // A caller cancellation passes through as-is; any other abort can only be
     // our timer, so surface it as a clear timeout error.
     if (isAbortError(error) && !signal?.aborted) {
-      throw new Error(TIMEOUT_MESSAGE);
+      throw new ApiTimeoutError();
     }
     throw error;
   } finally {
