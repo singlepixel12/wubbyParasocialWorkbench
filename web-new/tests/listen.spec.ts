@@ -133,7 +133,7 @@ test('Watch picks up at the time Listen reached', async ({ page }) => {
   await page.getByRole('button', { name: 'Watch' }).click();
   await expect(page.locator('audio[data-testid="listen-audio"]')).toHaveCount(0);
   await expect
-    .poll(() => page.evaluate(() => document.querySelector('media-player video')?.currentTime ?? 0), { timeout: 30_000 })
+    .poll(() => page.evaluate(() => document.querySelector<HTMLVideoElement>('media-player video')?.currentTime ?? 0), { timeout: 30_000 })
     .toBeGreaterThan(295);
 });
 
