@@ -194,4 +194,20 @@ describe('VideoCard', () => {
       expect(screen.getByRole('button', { name: /read more/i })).toBeInTheDocument();
     });
   });
+
+  describe('Resume marker', () => {
+    it('shows where listening stopped', () => {
+      localStorage.setItem(`listen:pos:${'a'.repeat(64)}`, JSON.stringify({ t: 8045, d: 21270, at: 1 }));
+      renderWithProviders(<VideoCard video={createMockVideo()} />);
+      expect(screen.getByText('Resume 2:14:05')).toBeInTheDocument();
+      localStorage.clear();
+    });
+
+    it('shows nothing for a finished or unheard VOD', () => {
+      localStorage.setItem(`listen:pos:${'a'.repeat(64)}`, JSON.stringify({ t: 21200, d: 21270, at: 1 }));
+      renderWithProviders(<VideoCard video={createMockVideo()} />);
+      expect(screen.queryByText(/Resume/)).toBeNull();
+      localStorage.clear();
+    });
+  });
 });

@@ -16,6 +16,7 @@ import { formatDateDisplay, extractOriginalTitle, extractHook } from '@/lib/util
 import { Badge } from '@/components/ui/badge';
 import { logger } from '@/lib/utils/logger';
 import { cn } from '@/lib/utils';
+import { ResumeMarker } from '@/components/listen/ResumeMarker';
 
 interface VideoCardProps {
   video: Video;
@@ -73,6 +74,7 @@ export const VideoCard = memo(function VideoCard({ video, index, onCardClick }: 
               {formattedDate}
             </span>
           )}
+          <ResumeMarker hash={video.videoHash} />
         </div>
 
         {/* Title — Fraunces display */}

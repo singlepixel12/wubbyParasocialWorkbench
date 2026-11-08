@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, FileText } from 'lucide-react';
+import { Menu, FileText, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -35,12 +35,23 @@ export function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Site Title — editorial wordmark */}
-          <Link
-            href="/"
-            className="font-display text-xl tracking-tight text-foreground transition-colors hover:text-accent-green"
-          >
-            The Wubby <span className="italic text-accent-green">Archive</span>
-          </Link>
+          <div className="flex items-center gap-1">
+            {pathname === '/watch' && (
+              <Link
+                href="/"
+                aria-label="Back to VOD Diary"
+                className="-ml-2 flex h-10 w-10 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            )}
+            <Link
+              href="/"
+              className="font-display text-xl tracking-tight text-foreground transition-colors hover:text-accent-green"
+            >
+              The Wubby <span className="italic text-accent-green">Archive</span>
+            </Link>
+          </div>
 
           {/* Hamburger Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>

@@ -49,7 +49,7 @@ interface VidstackPlayerProps {
   /** 1 or 1.5; re-applied on every play. */
   playbackRate?: number;
   /** Called on the inner video's timeupdate. */
-  onTimeUpdate?: (currentTime: number, duration: number) => void;
+  onTimeUpdate?: (currentTime: number, duration: number, paused: boolean) => void;
 }
 
 export function VidstackPlayer({
@@ -114,14 +114,22 @@ export function VidstackPlayer({
       video.addEventListener('play', () => {
         if (video.playbackRate !== rateRef.current) video.playbackRate = rateRef.current;
       }, { signal });
-      video.addEventListener('timeupdate', () => onTimeUpdateRef.current?.(video.currentTime, video.duration), { signal });
+      video.addEventListener('timeupdate', () => onTimeUpdateRef.current?.(video.currentTime, video.duration, video.paused), { signal });
       const start = startTimeRef.current;
       if (start > 0) {
+        // Vidstack applies its own pending start time (~0.1 s) to the <video> just after can-play,
+        // overwriting a raw `video.currentTime` seek (measured 2026-11-08: our 3597 → 0.1 five ms
+        // later). Setting it through <media-player> updates Vidstack's state, so it sticks.
+        // `once`, so a later deliberate seek by the user is never yanked back.
+        const player = containerRef.current?.querySelector('media-player') as (HTMLElement & { currentTime: number }) | null;
         const seek = () => {
-          video.currentTime = start;
+          if (Math.abs(video.currentTime - start) <= 2) return;
+          if (player && 'currentTime' in player) player.currentTime = start;
+          else video.currentTime = start;
         };
-        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) seek();
-        else video.addEventListener('loadedmetadata', seek, { once: true, signal });
+        if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) seek();
+        else if (player) player.addEventListener('can-play', seek, { once: true, signal });
+        else video.addEventListener('canplay', seek, { once: true, signal });
       }
     }, 100);
     return () => {
