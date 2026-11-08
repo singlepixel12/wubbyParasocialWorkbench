@@ -41,7 +41,11 @@ vi.mock('@/lib/api/supabase', () => ({
       Array.isArray(r) ? { videos: r, total: null } : r
     ),
   isAbortError: (e: unknown) => (e as { name?: string } | null)?.name === 'AbortError',
+  isNetworkError: (e: unknown) => e instanceof TypeError,
 }));
+// The offline shelf lists downloads; tests set them here (IndexedDB isn't loaded in this file).
+const saved = vi.hoisted(() => ({ manifests: [] as unknown[] }));
+vi.mock('@/lib/listen/downloads-store', () => ({ useDownloads: () => saved.manifests, refreshDownloads: async () => {} }));
 vi.mock('@/lib/hooks/useToast', () => ({ useToast: () => toast }));
 
 // Minimal App Router stand-in. Next.js syncs native history.pushState/replaceState
@@ -362,4 +366,51 @@ describe('VodDiaryScreen — paging and the honest count', () => {
     expect(await screen.findByText(/Showing the first 200 matches/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).not.toBeInTheDocument();
   }, 20_000); // renders 92 / 200 cards in jsdom — slow, not logic
+});
+
+describe('VodDiaryScreen — offline (Phase 3b)', () => {
+  const savedVod = {
+    hash: 'b'.repeat(64), title: 'Saved title', url: 'https://a/v.mp4', state: 'ready', lastListenedAt: 2, createdAt: 1,
+    video: createMockVideo({ title: 'Saved stream', videoHash: 'b'.repeat(64) }),
+  };
+  const partialVod = { ...savedVod, hash: 'c'.repeat(64), state: 'paused', video: createMockVideo({ title: 'Half saved', videoHash: 'c'.repeat(64) }) };
+
+  it('with no signal, shows the VODs saved on the phone instead of a skeleton that never ends', async () => {
+    saved.manifests = [savedVod, partialVod];
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    api.fetchRecentVideos.mockReturnValue(new Promise(() => undefined)); // the API waits for a connection
+    renderWithProviders(<VodDiaryScreen />);
+    expect(await screen.findByRole('heading', { name: 'Saved on your phone' })).toBeInTheDocument();
+    expect(await screen.findByText('Saved stream')).toBeInTheDocument();
+    expect(screen.queryByText('Half saved')).toBeNull();
+    expect(screen.getByText(/1 unfinished download needs signal/)).toBeInTheDocument();
+    onLine.mockRestore();
+    saved.manifests = [];
+  });
+
+  it('a network failure shows the shelf (no toast), and coming back online reloads the live diary', async () => {
+    saved.manifests = [savedVod];
+    api.fetchRecentVideos
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValue([createMockVideo({ title: 'Live stream' })]);
+    renderWithProviders(<VodDiaryScreen />);
+    expect(await screen.findByRole('heading', { name: 'Saved on your phone' })).toBeInTheDocument();
+    expect(toast.showError).not.toHaveBeenCalled();
+
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    await act(async () => void window.dispatchEvent(new Event('offline')));
+    onLine.mockReturnValue(true);
+    await act(async () => void window.dispatchEvent(new Event('online')));
+    expect(await screen.findByText('Live stream')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Saved on your phone' })).toBeNull();
+    onLine.mockRestore();
+    saved.manifests = [];
+  });
+
+  it('"Try the archive again" retries the current filters', async () => {
+    api.fetchRecentVideos.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValue([createMockVideo({ title: 'Back again' })]);
+    renderWithProviders(<VodDiaryScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Try the archive again' }));
+    expect(await screen.findByText('Back again')).toBeInTheDocument();
+  });
 });

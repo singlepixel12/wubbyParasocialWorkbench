@@ -9,7 +9,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, FileText, ArrowLeft } from 'lucide-react';
+import { Menu, FileText, ArrowLeft, Download } from 'lucide-react';
+import { promptInstall, useCanInstall } from '@/lib/offline/install-prompt';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ const MENU_LINKS = [
 export function Header() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const canInstall = useCanInstall();
 
   return (
     <header className="sticky top-0 z-40 border-b border-rule bg-background/90 backdrop-blur-sm">
@@ -97,6 +99,25 @@ export function Header() {
                   );
                 })}
               </nav>
+
+              {/* Only while Chrome offers it: installs the app to the home screen, where it opens
+                  with no signal (the worker caches the whole site). */}
+              {canInstall && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    void promptInstall();
+                  }}
+                  className="mt-2 flex w-full items-start gap-3 rounded-md p-3 text-left text-ink-muted transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Download className="w-5 h-5 mt-0.5 flex-shrink-0 text-accent-green" />
+                  <div className="flex-1">
+                    <div className="font-medium">Install app</div>
+                    <div className="text-xs text-ink-muted mt-0.5">Home-screen app that opens with no signal</div>
+                  </div>
+                </button>
+              )}
 
               <div className="absolute bottom-6 left-6 right-6">
                 <div className="text-center font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">

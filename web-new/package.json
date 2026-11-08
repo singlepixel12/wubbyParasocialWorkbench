@@ -22,7 +22,8 @@
     "measure:archive": "node scripts/measure-archive-throughput.mjs",
     "build:sw": "node scripts/build-sw.mjs",
     "prebuild": "node scripts/build-sw.mjs",
-    "predev": "node scripts/build-sw.mjs"
+    "predev": "node scripts/build-sw.mjs",
+    "postbuild": "node scripts/build-sw.mjs --shell out"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",

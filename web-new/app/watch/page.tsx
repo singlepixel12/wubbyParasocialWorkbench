@@ -6,6 +6,8 @@ import { VideoDetailView } from '@/components/video/VideoDetailView';
 import { getWubbySummaryByHash, isNetworkError } from '@/lib/api/supabase';
 import { Button } from '@/components/ui/button';
 import type { Video } from '@/types/video';
+import { savedVideo } from '@/lib/offline/saved-vods';
+import { rememberVodDetails } from '@/lib/listen/downloads';
 
 /**
  * Watch Page - Full video detail view (Two-Tier UX)
@@ -19,11 +21,13 @@ export default function WatchPage() {
   const id = searchParams.get('id');
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ kind: 'not-found' | 'network'; message: string } | null>(null);
+  const [error, setError] = useState<{ kind: 'not-found' | 'network' | 'offline'; message: string } | null>(null);
   // Bumped by Retry to run the load again (the API already retried a few times by then).
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchVideo() {
       if (!id) {
         setError({ kind: 'not-found', message: 'No video ID provided' });
@@ -31,16 +35,34 @@ export default function WatchPage() {
         return;
       }
 
+      setLoading(true);
+      setError(null);
+      // A downloaded VOD shows at once from what's saved on the phone, signal or not. The API
+      // still runs, but only to refresh the saved copy: the page never swaps the video under you.
+      const saved = await savedVideo(id);
+      if (cancelled) return;
+      if (saved) {
+        setVideo(saved);
+        setLoading(false);
+      } else if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        // The API would wait for a connection forever; say so instead of "Loading".
+        setError({ kind: 'offline', message: "This VOD isn't saved on your phone. Downloaded VODs open with no signal." });
+        setLoading(false);
+        return;
+      }
+
       try {
-        setLoading(true);
-        setError(null);
         const videoData = await getWubbySummaryByHash(id);
+        if (cancelled) return;
+        if (videoData) void rememberVodDetails(videoData);
+        if (saved) return;
         if (!videoData) {
           setError({ kind: 'not-found', message: 'Video not found' });
         } else {
           setVideo(videoData);
         }
       } catch (err) {
+        if (cancelled || saved) return;
         // A flaky connection is not a missing video: say so, and offer Retry.
         setError(
           isNetworkError(err)
@@ -49,11 +71,14 @@ export default function WatchPage() {
         );
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled && !saved) setLoading(false);
       }
     }
 
     fetchVideo();
+    return () => {
+      cancelled = true;
+    };
   }, [id, attempt]);
 
   if (loading) {
@@ -64,11 +89,11 @@ export default function WatchPage() {
     );
   }
 
-  if (error?.kind === 'network') {
+  if (error?.kind === 'network' || error?.kind === 'offline') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="space-y-4 text-center">
-          <h1 className="font-display text-2xl md:text-3xl text-foreground">Connection problem</h1>
+          <h1 className="font-display text-2xl md:text-3xl text-foreground">{error.kind === 'offline' ? "You're offline" : 'Connection problem'}</h1>
           <p className="text-muted-foreground">{error.message}</p>
           <Button type="button" onClick={() => setAttempt((n) => n + 1)}>
             Retry

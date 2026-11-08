@@ -106,8 +106,8 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 - **Cross-origin limits:** only `cache-control`, `content-length`, `content-type` and
   `last-modified` are readable on archive responses, and `If-Range` is blocked by preflight.
 - **Design and measured numbers:** `docs/superpowers/specs/2026-11-08-listen-mode-design.md`.
-  Plans: `docs/superpowers/plans/2026-11-08-listen-mode-phase-{1,2}.md`. Phase 3 (offline
-  PWA) is outlined at the end of the Phase 2 plan.
+  Plans: `docs/superpowers/plans/2026-11-08-listen-mode-phase-{1,2}.md`. Phases 3a/3b are
+  sections of the spec.
 - **Downloads (Phase 2):** **Download** on `/watch` saves a VOD's audio to the phone using
   Chrome's **Background Fetch**. It keeps going with the phone locked or Chrome closed, and
   takes ~55 min for 6 h.
@@ -116,13 +116,32 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
   - **The service worker saves results:** `scripts/sw/service-worker.js` →
     `lib/listen/sw-handlers.ts`. It saves to IndexedDB on success, fail or abort, so a cancel
     keeps what finished and Resume fetches only what's missing.
-  - **The worker can't start fetches** (Chrome forbids `backgroundFetch.fetch()` there) and
-    has **no `fetch` handler** until Phase 3.
+  - **The worker can't start fetches** (Chrome forbids `backgroundFetch.fetch()` there).
   - **`public/sw.js` is generated** by `scripts/build-sw.mjs` on `prebuild`/`predev`, and
-    gitignored.
+    gitignored. It has an empty shell, so **dev has no `fetch` handler** (HMR untouched).
   - **Listen reads stored runs first:** "Playing from your phone · 0 MB used".
   - **Limits:** a fixed 2 GB cap, with the least recently listened offered for deletion;
     auto-delete once finished; a diary chip `⬇ N offline · X GB` opens the list.
+- **Offline app (Phase 3b, `lib/offline/`):** installable, and opens with no signal.
+  - **App shell:** `postbuild` runs `build-sw.mjs --shell out`, which writes `out/sw.js` with
+    every file of the static export (~74, 1.9 MB) and a content-hash version. Install precaches
+    them (200 only, or the install fails and the old worker stays). Activate keeps this version
+    and the previous one (GitHub Pages deletes old chunks on deploy).
+  - **Rules** (`shell-rules.ts`, pure): pages and RSC `.txt` are network-first with a 3 s
+    timeout, then the cached copy (`/watch?id=…` → `watch.html`); `_next/static` is cache-first;
+    VOD thumbnails come from the `wubby-thumbs` cache. **Never** a Range request, the archive, or
+    the Supabase REST API, and nothing but a 200 is ever cached.
+  - **Saved details:** a download stores the full `Video` row on its manifest (`video`) and caches
+    its thumbnail; older downloads are backfilled on app load. `/watch` shows a saved VOD at once
+    (the API only refreshes the saved copy). Offline and not saved: "You're offline" + Retry.
+  - **Diary offline** (`OfflineShelf`): with no signal, or after a network failure, the list
+    becomes "Saved on your phone" (finished downloads as ordinary cards); back online, the live
+    diary returns by itself.
+  - **Installing:** `app/manifest.ts` (static), icons in `public/icons/` (rendered by
+    `scripts/make-icons.mjs`), "Install app" in the menu when Chrome offers it. Inside the
+    installed app, cards open `/watch` in the same window.
+  - **Test it on a production build:** `npm run build`, then `tests/offline.spec.ts` serves `out/`
+    under the real basePath (`tests/support/static-site.mjs`).
 
 ### 4. Transcript Extraction
 - Manual URL input or dropdown selection
@@ -177,6 +196,7 @@ web-new/
 ├── lib/
 │   ├── api/
 │   │   └── supabase.ts           # API client (see API Functions)
+│   ├── offline/                  # Phase 3b: shell-rules (pure), shell-cache, thumbs, saved-vods, install-prompt
 │   ├── listen/                   # Listen mode — relative imports only (esbuild-bundled by scripts)
 │   │   ├── range-fetch.ts        # The ONLY audio HTTP: bounded ranges, retries, validation
 │   │   ├── boxes.ts / mp4-index.ts  # ISO-BMFF reading; audio track -> AudioIndex (runs)
@@ -372,9 +392,8 @@ Other design details:
    exceeds 10 minutes because stale tests wait out their timeouts.
 2. **Real-phone checks pending:** Phase 2 downloads (checklist rows 10–16, especially
    downloads continuing with the phone locked or Chrome closed) and 3a flaky-network hardening
-   (rows 17–19). Then **Phase 3b: an installable offline app** (app-shell caching). Until then,
-   offline listening needs the site to be already open: the worker has no `fetch` handler, so
-   the site itself doesn't load with no signal.
+   (rows 17–19), and the 3b offline app (rows 20–24: install, open from the home screen in
+   airplane mode, pick up a new deploy).
    - **Done:** opening `/watch` downloads nothing. The player uses `load="custom"` and loads
      on the first tap or Enter/Space (or at once when Watch is pressed in Listen). It was
      ~31 MB per page open.
@@ -418,7 +437,7 @@ again in the next audit:
 ### LOW Priority
 10. **Production Build Optimization** - Bundle analysis, code splitting
 11. **Keyboard Shortcuts** - Ctrl+K for search
-12. **Offline Support Indicator**
+12. ~~Offline Support Indicator~~ — done in 3b (the diary's "You're offline" shelf)
 
 ---
 
@@ -450,6 +469,8 @@ interface Video {
     listened).
   - `audio-runs`: stored run bytes, key `${hash}:${run padded to 6}`.
 - `vds-{hash}` - legacy Vidstack position key, no longer written
+- Cache Storage (Phase 3b): `shell-<version>` (app shell; current + previous kept),
+  `shell-meta` (which versions), `wubby-thumbs` (thumbnails of downloaded VODs)
 
 ---
 
@@ -521,11 +542,12 @@ npm run test:all        # vitest + playwright
 
 ---
 
-**Last Updated:** 2026-11-08
+**Last Updated:** 2026-11-09
 **Status:** Core complete. Listen mode Phase 1 (audio-only streaming, 1.5×, resume,
 lock-screen controls) shipped and passed Lee's phone checklist. `/watch` downloads nothing
 until you tap. Phase 2 (background downloads) shipped. Phase 3a hardened every network path
 for flaky mobile networks: API retries, Listen self-recovery, download auto-resume, and a chaos
-E2E suite. Real-phone checks are pending for both. Unit suite green (310), `tsc` clean;
-Listen, download and chaos E2E green on `pixel` / `pixel-chrome`. The older E2E suite is
-largely stale.
+E2E suite. Phase 3b made it an installable offline app (app-shell caching, saved VOD details,
+offline diary). Real-phone checks are pending for 2, 3a and 3b. Unit suite green, `tsc` clean;
+Listen, download, chaos and offline E2E green on `pixel` / `pixel-chrome`. The older E2E suite
+is largely stale.

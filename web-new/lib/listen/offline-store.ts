@@ -3,6 +3,7 @@
 import { inTransaction, STORES } from './db';
 import { hashFromBgFetchId, markDone, type DownloadManifest, type DownloadState } from './download-model';
 import type { Bytes } from './types';
+import { deleteThumbnail } from '../offline/thumbs';
 
 export const DOWNLOADS_CHANNEL = 'listen-downloads';
 const RUNS_PER_TX = 200;
@@ -62,10 +63,12 @@ export async function readStoredRun(hash: string, run: number): Promise<Bytes | 
 }
 
 export async function deleteDownload(hash: string): Promise<void> {
+  const m = await getManifest(hash).catch(() => null);
   await inTransaction([STORES.runs, STORES.downloads], 'readwrite', (tx) => {
     tx.objectStore(STORES.runs).delete(runRange(hash));
     tx.objectStore(STORES.downloads).delete(hash);
   });
+  await deleteThumbnail(m?.thumbnailUrl);
   notifyChanged(hash);
 }
 

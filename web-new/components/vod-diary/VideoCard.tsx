@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { logger } from '@/lib/utils/logger';
 import { cn } from '@/lib/utils';
 import { ResumeMarker } from '@/components/listen/ResumeMarker';
+import { useStandalone } from '@/lib/hooks/useStandalone';
 
 interface VideoCardProps {
   video: Video;
@@ -164,6 +165,7 @@ function Thumbnail({
   onCardClick,
 }: ThumbnailProps) {
   const videoHash = video.videoHash;
+  const standalone = useStandalone();
   const className = 'group/thumb block w-full flex-shrink-0 rounded md:w-44';
 
   const visual = (
@@ -209,8 +211,10 @@ function Thumbnail({
   return (
     <Link
       href={`/watch?id=${videoHash}`}
-      target="_blank"
-      rel="noopener noreferrer"
+      // A new tab in the browser; inside the installed app, the same window (a new tab there
+      // would leave the app for Chrome).
+      target={standalone ? undefined : '_blank'}
+      rel={standalone ? undefined : 'noopener noreferrer'}
       aria-label={`Play ${video.title}`}
       onClick={() => onCardClick?.(video)}
       className={cn(

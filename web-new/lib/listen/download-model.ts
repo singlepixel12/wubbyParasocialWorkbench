@@ -1,5 +1,6 @@
 // Pure download bookkeeping, shared by the page and the service worker. No I/O.
 import type { AudioIndex } from './types';
+import type { Video } from '../../types/video';
 
 export type DownloadState = 'downloading' | 'paused' | 'ready' | 'stale';
 
@@ -25,6 +26,8 @@ export interface DownloadManifest {
   autoRetries?: number;
   /** bytesDone when the last auto-resume started (to tell if that round made progress). */
   bytesAtLastAutoRetry?: number;
+  /** The VOD's row (summary, tags, date), so /watch and the diary work offline (Phase 3b). */
+  video?: Video;
 }
 
 /**
@@ -56,7 +59,7 @@ export function recordAutoResume(m: DownloadManifest, now: number): DownloadMani
 /** Fixed total for downloads (about 4–5 long VODs). No settings UI on purpose. */
 export const CAP_BYTES = 2 * 1024 ** 3;
 
-export function newManifest(a: { hash: string; title: string; url: string; thumbnailUrl?: string; index: AudioIndex; now: number }): DownloadManifest {
+export function newManifest(a: { hash: string; title: string; url: string; thumbnailUrl?: string; video?: Video; index: AudioIndex; now: number }): DownloadManifest {
   let bytesTotal = 0;
   for (const s of a.index.runSize) bytesTotal += s;
   return {
@@ -64,6 +67,7 @@ export function newManifest(a: { hash: string; title: string; url: string; thumb
     title: a.title,
     url: a.url,
     thumbnailUrl: a.thumbnailUrl,
+    video: a.video,
     runCount: a.index.runSize.length,
     bytesTotal,
     done: new Uint8Array(a.index.runSize.length),

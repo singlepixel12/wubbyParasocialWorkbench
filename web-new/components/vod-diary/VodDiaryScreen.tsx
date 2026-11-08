@@ -23,7 +23,7 @@ import { DateRangePicker } from '@/components/vod-diary/DateRangePicker';
 import { SearchInput } from '@/components/vod-diary/SearchInput';
 import { VideoList } from '@/components/vod-diary/VideoList';
 import { Masthead } from '@/components/layout/Masthead';
-import { fetchRecentVideosPage, searchVideos, isAbortError } from '@/lib/api/supabase';
+import { fetchRecentVideosPage, searchVideos, isAbortError, isNetworkError } from '@/lib/api/supabase';
 import { getThisWeekRange } from '@/lib/utils/video-helpers';
 import { formatDayParam, parseDayParam } from '@/lib/utils/date-range';
 import { useToast } from '@/lib/hooks/useToast';
@@ -31,6 +31,8 @@ import { logger } from '@/lib/utils/logger';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DownloadsChip } from '@/components/listen/DownloadsChip';
+import { OfflineShelf } from '@/components/vod-diary/OfflineShelf';
+import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
 
 /** Diary page size. "Load more" fetches the next page of the same filters. */
 const PAGE_SIZE = 50;
@@ -86,6 +88,19 @@ export function VodDiaryScreen() {
   // Bumped by the error toast's Retry to re-run the load with the *current* filters
   const [reloadToken, setReloadToken] = useState(0);
 
+  // No signal (or the archive unreachable): show what's saved on the phone instead of a
+  // skeleton that never resolves. Offline, the API waits for a connection, and when it comes
+  // back the pending load finishes and the live diary returns by itself.
+  const online = useOnlineStatus();
+  const [networkFailed, setNetworkFailed] = useState(false);
+  const showShelf = !online || networkFailed;
+  const wasOnline = useRef(online);
+  useEffect(() => {
+    // Back online after a failed load: try again without a tap.
+    if (online && !wasOnline.current && networkFailed) setReloadToken((n) => n + 1);
+    wasOnline.current = online;
+  }, [online, networkFailed]);
+
   // Load videos on mount and whenever the filters change. Each run owns an
   // AbortController and the cleanup aborts it, so a slow, superseded response
   // (e.g. a search for "co" landing after one for "cooking") can never
@@ -119,6 +134,7 @@ export function VodDiaryScreen() {
 
         // Belt and braces: never render a superseded result, even if it resolved
         if (signal.aborted) return;
+        setNetworkFailed(false);
         setVideos(results);
         setTotal(resultTotal);
         logger.log(`✅ Loaded ${results.length} videos`);
@@ -127,6 +143,11 @@ export function VodDiaryScreen() {
         if (isAbortError(error)) return;
 
         logger.error('Error loading videos:', error);
+        // No connection: the offline shelf says so and has its own retry; no toast on top.
+        if (isNetworkError(error)) {
+          setNetworkFailed(true);
+          return;
+        }
         showError('Failed to load videos. Please try again.', {
           action: {
             label: 'Retry',
@@ -280,15 +301,19 @@ export function VodDiaryScreen() {
         />
       </div>
 
-      {/* Video list */}
-      <VideoList
-        videos={videos}
-        loading={loading}
-        isSearchMode={isSearchMode}
-      />
+      {showShelf ? (
+        <OfflineShelf onRetry={() => setReloadToken((n) => n + 1)} />
+      ) : (
+        /* Video list */
+        <VideoList
+          videos={videos}
+          loading={loading}
+          isSearchMode={isSearchMode}
+        />
+      )}
 
       {/* Foot of the list: how much of the range is shown, and the rest on demand */}
-      {hasMore && (
+      {hasMore && !showShelf && (
         <div className="flex flex-col items-center gap-3 border-t border-rule pt-5">
           <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
             Showing {videos.length} of {total} records
