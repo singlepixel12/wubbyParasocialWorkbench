@@ -79,6 +79,9 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 - **Start time:** set through `<media-player>`, never the raw `<video>`. Vidstack writes its
   own pending start (~0.1 s) to the `<video>` just after `can-play`, overwriting a raw seek.
 - **Vidstack CDN is pinned** (`VIDSTACK_CDN` = `vidstack@0.6.15`). Bump it deliberately.
+- **Loads on the first tap** (`load="custom"`), so opening `/watch` downloads nothing (it
+  was ~31 MB). In 0.6.15 the `preload` prop never reaches the `<video>`; don't try that
+  again.
 
 ### 3b. Listen mode (`lib/listen/`, `components/listen/`)
 - **Listen** on `/watch` streams only the VOD's AAC audio: about 73 MB/h instead of
@@ -336,14 +339,13 @@ Other design details:
    vanilla-site UI (a "Home"/"VOD Diary"/"Player" header nav, `index.spec`'s URL-input
    homepage) — rewrite against the current UI rather than "fix". The full 5-browser run
    exceeds 10 minutes because stale tests wait out their timeouts.
-2. **Listen mode needs its real-phone check** (`docs/listen-mode-phone-checklist.md`),
-   above all audio continuing with the screen locked. Not yet verified on Lee's phone. Then
-   Phase 2 (Wi-Fi downloads + diary storage counter). Measured: a full 6 h audio download
-   takes ~36 min at concurrency 24, because the archive answers each range in ~5.5 s under
-   load.
-   - **Opening `/watch` on mobile data:** the Vidstack `<video>` (`preload="metadata"`)
-     downloads the 23.6 MB `moov` from the end of the file before you tap anything, and
-     Listen fetches the same `moov` again. Consider `load="play"` on the player.
+2. **Listen mode Phase 2: Wi-Fi downloads and the diary storage counter.** Phase 1 passed
+   Lee's real-phone checklist on 2026-11-08, including audio with the screen locked.
+   Measured: a full 6 h audio download takes ~36 min at concurrency 24, because the archive
+   answers each range in ~5.5 s under load.
+   - **Done:** opening `/watch` downloads nothing. The player uses `load="custom"` and loads
+     on the first tap or Enter/Space (or at once when Watch is pressed in Listen). It was
+     ~31 MB per page open.
    - **Dead code:** the old `vds-` position keys and `cleanupOldPlaybackPositions` are unused
      now; delete them in a cleanup.
    - **Subtitles:** the `.vtt` `<track>` is blocked as a cross-origin load ("Unsafe attempt to
@@ -472,5 +474,6 @@ npm run test:all        # vitest + playwright
 
 **Last Updated:** 2026-11-08
 **Status:** Core complete. Listen mode Phase 1 (audio-only streaming, 1.5×, resume,
-lock-screen controls) built; real-phone check pending. Unit suite green (247), `tsc`
+lock-screen controls) shipped and passed Lee's phone checklist; `/watch` downloads nothing
+until you tap. Unit suite green (251), `tsc`
 clean, Listen E2E green on the Pixel profile; the older E2E suite is largely stale.

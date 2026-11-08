@@ -37,6 +37,8 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
   const [rate, setRate] = useState<PlaybackRate>(() => readRate());
   const [engine, setEngine] = useState<ListenEngine | null>(null);
   const [videoStart, setVideoStart] = useState(() => (hash ? resumeTime(readPosition(hash)) : 0));
+  // The video downloads nothing until tapped; Watch pressed in Listen is that tap, so play at once.
+  const [videoAutoPlay, setVideoAutoPlay] = useState(false);
   const videoTime = useRef({ t: 0, d: 0 });
   const lastVideoSave = useRef(0);
   const saved = useSavedPosition(hash);
@@ -81,6 +83,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
   const backToWatch = (atSec: number) => {
     videoTime.current = { t: 0, d: 0 };
     setVideoStart(atSec);
+    setVideoAutoPlay(true);
     setEngine(null);
   };
 
@@ -100,6 +103,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
             startTime={videoStart}
             playbackRate={rate}
             onTimeUpdate={onVideoTime}
+            autoPlay={videoAutoPlay}
           />
         )}
       </motion.div>
