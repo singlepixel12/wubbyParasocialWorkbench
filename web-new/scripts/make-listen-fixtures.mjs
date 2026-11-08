@@ -13,7 +13,9 @@ const at = (f) => path.join(dir, f);
 const ff = (...args) => execFileSync('ffmpeg', ['-v', 'error', '-y', ...args], { stdio: 'inherit' });
 const audioPackets = (file) =>
   JSON.parse(
-    execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'packet=pos,size,duration', '-of', 'json', file]).toString(),
+    execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'packet=pos,size,duration', '-of', 'json', file], {
+      maxBuffer: 256 * 1024 * 1024, // a 12-minute packet list is several MB of JSON
+    }).toString(),
   ).packets.map((p) => ({ pos: Number(p.pos), size: Number(p.size), duration: Number(p.duration) }));
 const only = process.argv[2];
 
@@ -31,7 +33,10 @@ if (only !== 'tiny') {
   if (!fs.existsSync(out)) {
     ff('-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=330:sample_rate=48000',
       '-t', '720', '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', '2M', '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-b:a', '160k', '-ac', '2', out);
+      '-c:a', 'aac', '-b:a', '160k', '-ac', '2',
+      // ~4 s interleave chunks, like the real VODs (5,340 audio runs over 5.9 h). ffmpeg's
+      // default here is one AAC frame per run, which would make the read-ahead thousands of requests.
+      '-chunk_duration', '4000000', out);
   }
   // Byte layout the E2E test checks every request against.
   const buf = fs.readFileSync(out);

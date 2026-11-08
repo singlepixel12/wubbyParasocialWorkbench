@@ -1,5 +1,5 @@
 // Static server that imitates archive.wubby.tv for Listen-mode tests:
-//  - single closed Range -> 206 with Content-Length; multi/open-ended range -> 416
+//  - single Range (closed or open-ended) -> 206 with Content-Length; multi-range -> 416
 //  - Access-Control-Allow-Origin: * but NO Access-Control-Expose-Headers, so the page can read
 //    only cache-control / content-length / content-type / last-modified
 //  - preflight (OPTIONS) answers without CORS headers, so If-Range and friends fail like the real server
@@ -36,13 +36,15 @@ http
       res.writeHead(200, { ...headers, 'Content-Length': stat.size });
       return req.method === 'HEAD' ? res.end() : fs.createReadStream(file).pipe(res);
     }
-    const m = /^bytes=(\d+)-(\d+)$/.exec(range);
+    // One range, closed (bytes=a-b, what Listen sends) or open-ended (bytes=a-, what <video> sends).
+    // Multi-range (a comma) is refused with 416, like the real archive.
+    const m = /^bytes=(\d+)-(\d*)$/.exec(range);
     if (!m || Number(m[1]) >= stat.size) {
       res.writeHead(416, { ...cors, 'Content-Range': `bytes */${stat.size}` });
       return res.end();
     }
     const start = Number(m[1]);
-    const end = Math.min(Number(m[2]), stat.size - 1);
+    const end = m[2] === '' ? stat.size - 1 : Math.min(Number(m[2]), stat.size - 1);
     res.writeHead(206, { ...headers, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${stat.size}` });
     fs.createReadStream(file, { start, end }).pipe(res);
   })
