@@ -46,6 +46,13 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
 
+    // Background Fetch only completes in real Chrome (Playwright's bundled Chromium never finishes it).
+    {
+      name: 'pixel-chrome',
+      use: { ...devices['Pixel 7'], channel: 'chrome' },
+      testMatch: '**/listen-download.spec.ts',
+    },
+
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
