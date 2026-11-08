@@ -1,7 +1,8 @@
 // Page side of offline downloads: register the worker, check space, start/resume/cancel a
 // Background Fetch, reconcile on load, auto-delete finished VODs. The worker saves results.
 import { bgFetchOf, type BgFetchRegistration } from './background-fetch';
-import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun } from './download-model';
+import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun, recordAutoResume, type DownloadManifest } from './download-model';
+import { getCachedIndex } from './index-cache';
 import { deleteDownload, getManifest, listManifests, notifyChanged, putManifest, reconcile } from './offline-store';
 import { isFinished, readPosition } from './positions';
 import type { AudioIndex } from './types';
@@ -46,10 +47,14 @@ export async function preflight(hash: string, index: AudioIndex) {
   return { bytesNeeded, cap, quotaOk };
 }
 
-/** Start (or resume) the background download of every missing run. */
-export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now()): Promise<void> {
+/**
+ * Start (or resume) the background download of every missing run.
+ * `manual`: the user tapped Download/Resume, which restarts the auto-resume schedule.
+ */
+export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now(), { manual = false } = {}): Promise<void> {
   await navigator.storage?.persist?.().catch(() => false);
-  const manifest = (await getManifest(vod.hash)) ?? newManifest({ ...vod, index, now });
+  const stored = (await getManifest(vod.hash)) ?? newManifest({ ...vod, index, now });
+  const manifest = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
   const missing = missingRuns(manifest);
   await putManifest({ ...manifest, state: 'downloading', reason: undefined, updatedAt: now });
   notifyChanged(vod.hash);
@@ -103,6 +108,19 @@ export async function reconcileDownloads(): Promise<void> {
   } catch {
     // Nothing stored or no worker yet.
   }
+}
+
+/**
+ * One automatic round for a download paused by a failure (see AUTO_RESUME_DELAYS_MS).
+ * Skips quietly when offline or when the index is gone (the user can still Resume by hand).
+ */
+export async function autoResume(m: DownloadManifest): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  const index = await getCachedIndex(m.hash);
+  if (!index) return false;
+  await putManifest(recordAutoResume(m, Date.now()));
+  await startDownload({ hash: m.hash, url: m.url, title: m.title, thumbnailUrl: m.thumbnailUrl }, index);
+  return true;
 }
 
 /** Finished listening → free the space. Only for complete downloads; never mid-download. */

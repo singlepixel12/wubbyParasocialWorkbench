@@ -21,6 +21,36 @@ export interface DownloadManifest {
   createdAt: number;
   updatedAt: number;
   lastListenedAt: number;
+  /** Auto-resume rounds since the last one that saved new bytes. */
+  autoRetries?: number;
+  /** bytesDone when the last auto-resume started (to tell if that round made progress). */
+  bytesAtLastAutoRetry?: number;
+}
+
+/**
+ * Background Fetch doesn't retry: one failed request ends the round (the worker saves the rest).
+ * On a flaky phone network we start another round for what's missing, backing off while rounds
+ * make no progress, and stop after this schedule until the user taps Resume.
+ */
+export const AUTO_RESUME_DELAYS_MS = [3_000, 10_000, 30_000, 60_000, 120_000, 300_000, 600_000, 900_000] as const;
+
+/** Rounds already tried without progress (the counter restarts when a round saved new bytes). */
+function roundsWithoutProgress(m: DownloadManifest): number {
+  const progressed = m.bytesAtLastAutoRetry !== undefined && m.bytesDone > m.bytesAtLastAutoRetry;
+  return progressed ? 0 : (m.autoRetries ?? 0);
+}
+
+/** ms until this paused download should auto-resume; null = never (cancelled, done, or out of rounds). */
+export function autoResumeDelay(m: DownloadManifest, now: number): number | null {
+  if (m.state !== 'paused' || m.reason === 'cancelled') return null;
+  const rounds = roundsWithoutProgress(m);
+  if (rounds >= AUTO_RESUME_DELAYS_MS.length) return null;
+  return Math.max(0, m.updatedAt + AUTO_RESUME_DELAYS_MS[rounds] - now);
+}
+
+/** The manifest as an auto-resume round starts. */
+export function recordAutoResume(m: DownloadManifest, now: number): DownloadManifest {
+  return { ...m, autoRetries: roundsWithoutProgress(m) + 1, bytesAtLastAutoRetry: m.bytesDone, updatedAt: now };
 }
 
 /** Fixed total for downloads (about 4–5 long VODs). No settings UI on purpose. */

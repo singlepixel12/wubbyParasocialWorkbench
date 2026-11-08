@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   newManifest, missingRuns, markDone, progress, totals, planForCap, runFromRange, rangeForRun,
-  bgFetchId, hashFromBgFetchId, CAP_BYTES, type DownloadManifest,
+  bgFetchId, hashFromBgFetchId, CAP_BYTES, autoResumeDelay, recordAutoResume, AUTO_RESUME_DELAYS_MS, type DownloadManifest,
 } from '@/lib/listen/download-model';
 import type { AudioIndex } from '@/lib/listen/types';
 
@@ -84,5 +84,40 @@ describe('ranges and ids', () => {
     expect(id).toBe('listen:abc:123');
     expect(hashFromBgFetchId(id)).toBe('abc');
     expect(hashFromBgFetchId('other:thing')).toBeNull();
+  });
+});
+
+describe('auto-resume after a failed round (flaky network)', () => {
+  const paused = (over: Partial<DownloadManifest> = {}) => ({ ...base(), state: 'paused', reason: 'connection lost', updatedAt: 1000, bytesDone: 300, ...over }) as DownloadManifest;
+
+  it('schedules the first retry 3 s after the pause', () => {
+    expect(autoResumeDelay(paused(), 1000)).toBe(3000);
+    expect(autoResumeDelay(paused(), 2500)).toBe(1500);
+    expect(autoResumeDelay(paused(), 9000)).toBe(0);
+  });
+
+  it('never auto-resumes a download the user cancelled, a finished one, or one in progress', () => {
+    expect(autoResumeDelay(paused({ reason: 'cancelled' }), 1000)).toBeNull();
+    expect(autoResumeDelay(paused({ state: 'ready' }), 1000)).toBeNull();
+    expect(autoResumeDelay(paused({ state: 'downloading' }), 1000)).toBeNull();
+  });
+
+  it('backs off while rounds make no progress, and gives up after the schedule', () => {
+    let m = paused();
+    const delays: (number | null)[] = [];
+    for (let i = 0; i < AUTO_RESUME_DELAYS_MS.length + 1; i++) {
+      delays.push(autoResumeDelay(m, m.updatedAt));
+      m = { ...recordAutoResume(m, m.updatedAt), state: 'paused', reason: 'connection lost' }; // the round failed with no new bytes
+    }
+    expect(delays.slice(0, -1)).toEqual([...AUTO_RESUME_DELAYS_MS]);
+    expect(delays.at(-1)).toBeNull(); // waits for a manual Resume
+  });
+
+  it('starts the schedule over when a round saved new bytes', () => {
+    let m = paused();
+    m = recordAutoResume(m, 1000);
+    m = recordAutoResume({ ...m, state: 'paused' }, 2000);
+    expect(autoResumeDelay({ ...m, state: 'paused', updatedAt: 5000 }, 5000)).toBe(AUTO_RESUME_DELAYS_MS[2]);
+    expect(autoResumeDelay({ ...m, state: 'paused', updatedAt: 5000, bytesDone: 900 }, 5000)).toBe(AUTO_RESUME_DELAYS_MS[0]);
   });
 });

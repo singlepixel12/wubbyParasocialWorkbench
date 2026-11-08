@@ -45,7 +45,7 @@ export function DownloadButton({ vod }: { vod: VodRef }) {
       const pre = await preflight(vod.hash, index);
       if (!pre.quotaOk) return setPrompt({ kind: 'space' });
       if (!pre.cap.fits) return setPrompt({ kind: 'cap', suggest: pre.cap.suggest });
-      await startDownload(vod, index);
+      await startDownload(vod, index, Date.now(), { manual: true });
     } catch (err) {
       setPrompt({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
