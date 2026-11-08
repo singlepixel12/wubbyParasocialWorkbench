@@ -50,7 +50,7 @@ export default defineConfig({
     {
       name: 'pixel-chrome',
       use: { ...devices['Pixel 7'], channel: 'chrome' },
-      testMatch: ['**/listen-download.spec.ts', '**/chaos.spec.ts'],
+      testMatch: ['**/listen-download.spec.ts', '**/chaos.spec.ts', '**/offline.spec.ts'],
     },
 
     {
