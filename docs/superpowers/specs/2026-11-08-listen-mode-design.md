@@ -331,6 +331,84 @@ forwarding** `3000 → localhost:3000`, and open `http://localhost:3000` on the 
 that address is `localhost`, it is a secure context, which MSE, OPFS, Wake Lock and service
 workers need. A LAN address (`http://192.168…`) is not, and will mislead.
 
+## Phase 3a: flaky-network hardening (2026-11-08)
+
+Lee: "test all of our retries as networking on mobile can be very flaky". Hardening comes before
+the offline app (3b).
+
+### Evidence
+
+`tests/support/chaos-proxy.mjs` sits between the browser and the archive imitation and injects
+phone-network failures from a seeded random generator, so runs are reproducible:
+- resets, early or mid-body;
+- 25 s stalls, longer than our 15 s idle timeout;
+- 503 and 429 responses;
+- 1–3 s of latency.
+
+| Flow | `flaky` (~35% of requests misbehave) | `brutal` (~50%) |
+|---|---|---|
+| Listen streaming + index load + seeks | ✅ never errored; status shows Reconnecting / Buffering | ✅ 181 faults in 245 requests, played through |
+| Background download | ❌ paused at 93%, "connection lost" | not run |
+| Watch page data (Supabase) | ❌ one dropped request → "Video Not Found" | not run |
+
+**Why downloads stop** (corrected after tracing Chrome's registration counters):
+- **Chrome does retry inside a round.** Through resets, 503s and stalls its counter kept rising,
+  with ~30 s waits of its own.
+- **It eventually gives up the round.** It failed at 82%, and our worker saved what completed.
+  That part works, but nothing resumed it.
+- **A total outage doesn't fail it quickly.** Chrome held the round and carried on afterwards.
+
+**Also found and fixed:**
+- **Progress display:** the Download button showed 0% for a whole download. The registration
+  didn't exist yet when the button first looked, and `progress` events proved unreliable. It now
+  polls.
+- **Stalled Listen:** Listen in "stalled" waited for a Retry tap, which a locked phone can't do.
+
+### Changes
+
+1. **API retries (`supabaseFetch`).** Every API call is a GET, so all of them can be retried.
+   - **Retried:** a network `TypeError`, our 10 s timeout, and 408 / 429 / 5xx.
+   - **Schedule:** up to 4 attempts with 1 s → 2 s → 4 s backoff (±30% jitter).
+   - **Offline:** when `navigator.onLine === false` it waits for `online` without spending
+     attempts.
+   - **Not retried:** other 4xx responses, and a caller's abort (passed through unchanged, as
+     today).
+2. **Watch page: honest errors.**
+   - **Network or server failure:** "Couldn't reach the archive" with a **Retry** button, after
+     the automatic retries are exhausted.
+   - **A genuinely missing row** stays "Video not found".
+3. **Downloads auto-resume.**
+   - **Trigger:** a download paused for any reason except `cancelled` resumes by itself while the
+     site is open and online.
+   - **Schedule:** after 3 s, 10 s, 30 s, 1 min, 2 min, 5 min, 10 min and 15 min.
+   - **Reset:** the schedule restarts whenever a round made progress. After 8 rounds with no
+     progress it stops and waits for a manual Resume.
+   - **On load:** a resume is also checked when the app opens, alongside reconciliation, and
+     when the browser comes back `online`.
+   - **Each round only fetches what's missing**, so it converges: ~93% of the remainder per
+     round under `flaky`.
+4. **Listen recovers by itself.**
+   - **From "stalled"** (range-fetch out of attempts, or 30 s starved) it retries every 15 s,
+     and immediately on `online`.
+   - **This includes the audio index load,** whose tiny requests get 8 attempts instead of 5.
+   - **Retry is still there** for an immediate attempt.
+5. **A permanent chaos E2E suite (`tests/chaos.spec.ts`):**
+   - Listen under `flaky` and `brutal`, with seeks;
+   - a cold index load under `brutal`;
+   - watch page and diary while the API drops requests;
+   - the watch page Retry after a full outage;
+   - a download under `flaky` that must reach "Saved offline" through auto-resume, then play
+     with zero network;
+   - a download that survives a full outage window.
+
+### Hard constraints
+
+- **Don't fight the user:** never auto-resume a download the user cancelled.
+- **Don't wear the server down:** never retry a non-idempotent request; every API request is a
+  GET, so it's safe today. Don't retry without backoff.
+- **Fail visibly:** the retries must not hide a permanent failure. After the limits, the UI says
+  what happened and offers Retry or Resume.
+
 ## Out of scope
 
 - Re-encoding audio to a lower bitrate (the floor is the source's 162 kbps AAC, ~73 MB/h).

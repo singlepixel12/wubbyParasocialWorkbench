@@ -29,6 +29,9 @@ Automated tests can't prove these. Run them on the phone before trusting a Liste
 | 14 | Diary chip shows count and size; deleting in the sheet frees space (Settings → Apps → Chrome → Storage) | |
 | 15 | Finish a downloaded VOD (last 2 min): it disappears from the list | |
 | 16 | On mobile data, Download asks first ("You're on mobile data…") | |
+| 17 | **Flaky network:** listen on a train or in a lift (or toggle airplane mode 20–60 s while locked): audio carries on from the buffer, then recovers **with no tap** | |
+| 18 | A download interrupted by a dead zone (or airplane mode mid-download) finishes by itself once signal returns, with the site open | |
+| 19 | Open a VOD with weak signal: it loads, or shows "Connection problem" with Retry, never "Video Not Found" | |
 
 If check 1 or 2 fails, the background-playback approach (MSE in a locked tab) is the problem.
 Stop and revisit the design; the fallback is a Blob-backed `<audio src>` built from the same

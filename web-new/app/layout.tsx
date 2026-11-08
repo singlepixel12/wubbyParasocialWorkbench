@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
 import { PageTransition } from "@/components/PageTransition";
 import { DownloadsReconciler } from "@/components/listen/DownloadsReconciler";
+import { DownloadsAutoResume } from "@/components/listen/DownloadsAutoResume";
 import "./globals.css";
 
 // Display serif — expressive, editorial "archive" voice (mastheads, titles)
@@ -89,6 +90,8 @@ export default function RootLayout({
 
         {/* Fix up offline downloads whose background fetch vanished (renders nothing) */}
         <DownloadsReconciler />
+        {/* Resume downloads that a flaky network paused (renders nothing) */}
+        <DownloadsAutoResume />
       </body>
     </html>
   );

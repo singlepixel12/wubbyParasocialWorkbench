@@ -1,7 +1,8 @@
 // Page side of offline downloads: register the worker, check space, start/resume/cancel a
 // Background Fetch, reconcile on load, auto-delete finished VODs. The worker saves results.
 import { bgFetchOf, type BgFetchRegistration } from './background-fetch';
-import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun } from './download-model';
+import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun, recordAutoResume, type DownloadManifest } from './download-model';
+import { getCachedIndex } from './index-cache';
 import { deleteDownload, getManifest, listManifests, notifyChanged, putManifest, reconcile } from './offline-store';
 import { isFinished, readPosition } from './positions';
 import type { AudioIndex } from './types';
@@ -46,10 +47,14 @@ export async function preflight(hash: string, index: AudioIndex) {
   return { bytesNeeded, cap, quotaOk };
 }
 
-/** Start (or resume) the background download of every missing run. */
-export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now()): Promise<void> {
+/**
+ * Start (or resume) the background download of every missing run.
+ * `manual`: the user tapped Download/Resume, which restarts the auto-resume schedule.
+ */
+export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now(), { manual = false } = {}): Promise<void> {
   await navigator.storage?.persist?.().catch(() => false);
-  const manifest = (await getManifest(vod.hash)) ?? newManifest({ ...vod, index, now });
+  const stored = (await getManifest(vod.hash)) ?? newManifest({ ...vod, index, now });
+  const manifest = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
   const missing = missingRuns(manifest);
   await putManifest({ ...manifest, state: 'downloading', reason: undefined, updatedAt: now });
   notifyChanged(vod.hash);
@@ -84,14 +89,30 @@ export async function cancelDownload(hash: string): Promise<void> {
   if (live) await live.abort();
 }
 
-/** Live byte progress of a running download, from Chrome. Returns an unsubscribe. */
-export async function watchProgress(hash: string, onProgress: (downloaded: number, total: number) => void): Promise<() => void> {
-  const live = await liveRegistration(hash);
-  if (!live) return () => undefined;
-  const handler = () => onProgress(live.downloaded, live.downloadTotal);
-  live.addEventListener('progress', handler);
-  handler();
-  return () => live.removeEventListener('progress', handler);
+/**
+ * Live progress of a running download, polled from Chrome every `everyMs`. Polling, not the
+ * `progress` event: the event proved unreliable, and the registration may not exist yet when the
+ * button first looks (it used to stick at 0% for a whole download).
+ * `onProgress(done, total)` gets bytes for the whole VOD (stored before this round + this round).
+ */
+export function watchProgress(hash: string, onProgress: (done: number, total: number) => void, everyMs = 2000): () => void {
+  let stopped = false;
+  const tick = async () => {
+    try {
+      const [live, m] = await Promise.all([liveRegistration(hash), getManifest(hash)]);
+      if (stopped || !live || !m) return;
+      // This round covers only the missing runs; add what earlier rounds already stored.
+      onProgress(m.bytesDone + live.downloaded, m.bytesTotal);
+    } catch {
+      // The next tick tries again.
+    }
+  };
+  void tick();
+  const timer = setInterval(() => void tick(), everyMs);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 }
 
 /** On app load: fix up downloads whose background fetch is gone. */
@@ -103,6 +124,19 @@ export async function reconcileDownloads(): Promise<void> {
   } catch {
     // Nothing stored or no worker yet.
   }
+}
+
+/**
+ * One automatic round for a download paused by a failure (see AUTO_RESUME_DELAYS_MS).
+ * Skips quietly when offline or when the index is gone (the user can still Resume by hand).
+ */
+export async function autoResume(m: DownloadManifest): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  const index = await getCachedIndex(m.hash);
+  if (!index) return false;
+  await putManifest(recordAutoResume(m, Date.now()));
+  await startDownload({ hash: m.hash, url: m.url, title: m.title, thumbnailUrl: m.thumbnailUrl }, index);
+  return true;
 }
 
 /** Finished listening → free the space. Only for complete downloads; never mid-download. */

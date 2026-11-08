@@ -96,6 +96,13 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
   - every request is a bounded Range;
   - a non-206 answer is aborted before its body is read (a 200 would be the whole 27 GB);
   - idle timeout, backoff retries, offline parking, and `Last-Modified` pinning.
+- **Self-recovery:** after range-fetch runs out of attempts, the engine sits in "stalled" and
+  retries by itself every 15 s and on `online`. That includes the audio index load, which
+  gets 8 attempts.
+- **Downloads auto-resume:** a round that failed resumes after 3 s, 10 s, 30 s and up to
+  15 min, restarting the schedule whenever a round saved bytes (`AUTO_RESUME_DELAYS_MS`). A
+  user's cancel never resumes on its own.
+- **Background Fetch** retries inside a round, but eventually fails it.
 - **Cross-origin limits:** only `cache-control`, `content-length`, `content-type` and
   `last-modified` are readable on archive responses, and `If-Range` is blocked by preflight.
 - **Design and measured numbers:** `docs/superpowers/specs/2026-11-08-listen-mode-design.md`.
@@ -237,7 +244,16 @@ helper that owns the auth headers, a 10s `AbortController` timeout (cleared in `
 timeout-error mapping, and `describeHttpError(response, context)` for status-code
 messages. A caller `signal` is chained in; a caller abort rethrows the `AbortError`
 untouched (only the internal timer maps to the timeout message) (every message is context-prefixed so list failures never read like
-single-video lookups). **New fetchers must use `supabaseFetch`** — do not hand-wire
+single-video lookups).
+**Flaky networks:** every call is a GET, so `supabaseFetch` retries.
+- **What it retries:** a dropped connection (`TypeError`), its own timeout, and 408/429/5xx.
+- **How:** up to 4 attempts, 1 s → 2 s → 4 s with jitter. Offline, it waits for `online`
+  without spending attempts. It never retries other 4xx or a caller abort.
+- **Typed errors** (`ApiHttpError`, `ApiTimeoutError`, `isNetworkError`) let `/watch` show
+  "Connection problem" + Retry instead of "Video Not Found".
+- **Tests** pin single attempts with `setApiRetryPolicy({ maxAttempts: 1 })`.
+
+**New fetchers must use `supabaseFetch`** — do not hand-wire
 `fetch` + timers. `fetchRecentVideos` takes a `PlatformFilter`
 (`'twitch' | 'kick' | 'both'` — `types/video.ts`; deliberately excludes `'unknown'`)
 plus a runtime whitelist that **throws** on anything else — `'both'` means "no platform
@@ -354,9 +370,9 @@ Other design details:
    vanilla-site UI (a "Home"/"VOD Diary"/"Player" header nav, `index.spec`'s URL-input
    homepage) — rewrite against the current UI rather than "fix". The full 5-browser run
    exceeds 10 minutes because stale tests wait out their timeouts.
-2. **Listen Phase 2 (background downloads) needs its real-phone check:** checklist rows
-   10–16, especially that a download keeps going when the phone is locked or Chrome is
-   closed. Then **Phase 3: an installable offline app** (app-shell caching). Until then,
+2. **Real-phone checks pending:** Phase 2 downloads (checklist rows 10–16, especially
+   downloads continuing with the phone locked or Chrome closed) and 3a flaky-network hardening
+   (rows 17–19). Then **Phase 3b: an installable offline app** (app-shell caching). Until then,
    offline listening needs the site to be already open: the worker has no `fetch` handler, so
    the site itself doesn't load with no signal.
    - **Done:** opening `/watch` downloads nothing. The player uses `load="custom"` and loads
@@ -470,6 +486,14 @@ npm run test:all        # vitest + playwright
     gitignored);
   - starts `tests/support/range-server.mjs`, an archive imitation with Range, CORS without
     exposed headers, multi-range 416 and a failing preflight.
+- **`tests/chaos.spec.ts`** (9 tests) runs every network path through
+  `tests/support/chaos-proxy.mjs`.
+  - **What the proxy does:** seeded resets (early and mid-body), 25 s stalls, 503/429,
+    latency, and outages. It's switchable at runtime via `/__chaos?profile=`.
+  - **Profiles:** `clean`, `flaky` (~35% bad requests), `brutal` (~50%), `offline`.
+  - **Where it runs:** Listen and API on `pixel`, downloads on `pixel-chrome`. Each test gets
+    6 minutes, and the whole suite takes ~10 min.
+  - **Use it to prove a retry change**, not a single happy-path run.
 - **`tests/listen-download.spec.ts`** (3 tests) runs only on the **`pixel-chrome`** project,
   which is real Chrome via `channel: 'chrome'`. Playwright's bundled Chromium accepts a
   Background Fetch but never completes it. Run it with
@@ -500,6 +524,8 @@ npm run test:all        # vitest + playwright
 **Last Updated:** 2026-11-08
 **Status:** Core complete. Listen mode Phase 1 (audio-only streaming, 1.5×, resume,
 lock-screen controls) shipped and passed Lee's phone checklist. `/watch` downloads nothing
-until you tap. Phase 2 (background downloads) built; its real-phone check is pending.
-Unit suite green (284), `tsc` clean, Listen E2E green on `pixel` (6) and `pixel-chrome` (3);
-the older E2E suite is largely stale.
+until you tap. Phase 2 (background downloads) shipped. Phase 3a hardened every network path
+for flaky mobile networks: API retries, Listen self-recovery, download auto-resume, and a chaos
+E2E suite. Real-phone checks are pending for both. Unit suite green (310), `tsc` clean;
+Listen, download and chaos E2E green on `pixel` / `pixel-chrome`. The older E2E suite is
+largely stale.

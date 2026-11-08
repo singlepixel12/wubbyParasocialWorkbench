@@ -22,12 +22,11 @@ export function DownloadButton({ vod }: { vod: VodRef }) {
   const [prompt, setPrompt] = useState<Prompt>(null);
   const [live, setLive] = useState<number | null>(null);
 
-  // Chrome reports byte progress live while the page is open; the manifest only moves at the end.
+  // Chrome reports byte progress live while the page is open; the manifest only moves at the end
+  // of a round. Polled (see watchProgress).
   useEffect(() => {
     if (mine?.state !== 'downloading') return;
-    let off: () => void = () => undefined;
-    void watchProgress(vod.hash, (done, total) => setLive(total ? done / total : null)).then((u) => (off = u));
-    return () => off();
+    return watchProgress(vod.hash, (done, total) => setLive(total ? Math.min(1, done / total) : null));
   }, [mine?.state, vod.hash]);
 
   if (!backgroundFetchSupported()) return null;
@@ -45,7 +44,7 @@ export function DownloadButton({ vod }: { vod: VodRef }) {
       const pre = await preflight(vod.hash, index);
       if (!pre.quotaOk) return setPrompt({ kind: 'space' });
       if (!pre.cap.fits) return setPrompt({ kind: 'cap', suggest: pre.cap.suggest });
-      await startDownload(vod, index);
+      await startDownload(vod, index, Date.now(), { manual: true });
     } catch (err) {
       setPrompt({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {

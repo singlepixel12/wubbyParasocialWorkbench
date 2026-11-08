@@ -71,3 +71,25 @@ describe('preflight', () => {
     expect(await preflight('h', idx)).toMatchObject({ quotaOk: true, bytesNeeded: 60, cap: { fits: true } });
   });
 });
+
+describe('watchProgress', () => {
+  it('polls Chrome and reports whole-VOD progress (earlier rounds + this round), even if the round starts late', async () => {
+    await putManifest(markDone(newManifest({ ...vod, index: idx, now: 1 }), [0], idx.runSize, 2)); // 10 of 60 stored
+    // Fake only the poll interval: fake-indexeddb needs real timers to complete its requests.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const settle = () => new Promise((r) => setTimeout(r, 50));
+    const seen: number[] = [];
+    const stop = (await import('@/lib/listen/downloads')).watchProgress('h', (done) => seen.push(done), 1000);
+    await settle();
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle(); // no live registration yet: nothing reported
+    expect(seen).toEqual([]);
+    bgFetch.getIds.mockResolvedValue(['listen:h:9']);
+    bgFetch.get.mockResolvedValue({ id: 'listen:h:9', downloaded: 25, downloadTotal: 50 });
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+    expect(seen.at(-1)).toBe(35); // 10 stored + 25 this round
+    stop();
+    vi.useRealTimers();
+  });
+});

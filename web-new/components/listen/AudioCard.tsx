@@ -15,7 +15,7 @@ const mb = (bytes: number) => (bytes / 1e6).toFixed(1);
 function statusLine(s: ListenSnapshot): string {
   if (s.phase === 'preparing') return s.prepare ? `Preparing audio · ${mb(s.prepare.loaded)} / ${mb(s.prepare.total)} MB` : 'Preparing audio…';
   if (s.phase === 'error') return s.errorMessage ?? 'Listen stopped.';
-  if (s.phase === 'stalled') return "Can't reach the archive.";
+  if (s.phase === 'stalled') return "Can't reach the archive · trying again";
   if (s.reconnecting) return 'Reconnecting…';
   if (s.waiting) return 'Buffering…';
   if (s.storedRuns > 0 && s.bytesFetched === 0) return 'Playing from your phone · 0 MB used';

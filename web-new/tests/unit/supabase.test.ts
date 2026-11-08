@@ -27,6 +27,8 @@ const fetchMock = vi.fn();
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
+  // These tests pin single-request behaviour; the retry policy has its own describe below.
+  api.setApiRetryPolicy({ maxAttempts: 1 });
 });
 
 afterEach(() => {
@@ -207,5 +209,74 @@ describe('fetchRecentVideosPage', () => {
     await api.fetchRecentVideosPage({ limit: 50 });
 
     expect(fetchMock.mock.calls[0][0]).not.toContain('offset=');
+  });
+});
+
+describe('retries on a flaky network (every API call is a GET)', () => {
+  const rows = [{ video_hash: 'a'.repeat(64), video_url: 'https://x/v.mp4', pleb_title: 'T', summary: 's', tags: [], platform: 'twitch', upload_date: '2026-11-07T00:00:00Z' }];
+  beforeEach(() => api.setApiRetryPolicy({ maxAttempts: 4, baseDelayMs: 1 }));
+  afterEach(() => api.setApiRetryPolicy(null));
+
+  it('retries a dropped connection (TypeError) and succeeds', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse(rows));
+    expect(await api.fetchRecentVideos({})).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([408, 429, 500, 502, 503, 504])('retries HTTP %i', async (status) => {
+    fetchMock.mockResolvedValueOnce(new Response('x', { status })).mockResolvedValueOnce(jsonResponse(rows));
+    expect(await api.fetchRecentVideos({})).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([400, 401, 403, 404])('does not retry HTTP %i', async (status) => {
+    fetchMock.mockResolvedValue(new Response('x', { status }));
+    await expect(api.fetchRecentVideos({})).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries its own timeout', async () => {
+    vi.useFakeTimers();
+    api.setApiRetryPolicy({ maxAttempts: 2, baseDelayMs: 1 });
+    fetchMock
+      .mockImplementationOnce((_u: string, init: RequestInit) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))))
+      .mockResolvedValueOnce(jsonResponse(rows));
+    const pending = api.fetchRecentVideos({});
+    await vi.advanceTimersByTimeAsync(10_100);
+    expect(await pending).toHaveLength(1);
+  });
+
+  it('gives up after maxAttempts with the last error', async () => {
+    fetchMock.mockResolvedValue(new Response('x', { status: 503 }));
+    await expect(api.fetchRecentVideos({})).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('never retries a caller abort', async () => {
+    const controller = new AbortController();
+    fetchMock.mockImplementation((_u: string, init: RequestInit) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))));
+    const pending = api.fetchRecentVideos({ signal: controller.signal });
+    controller.abort();
+    expect(api.isAbortError(await pending.catch((e) => e))).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the network instead of spending attempts while offline', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    fetchMock.mockResolvedValue(jsonResponse(rows));
+    const pending = api.fetchRecentVideos({});
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fetchMock).not.toHaveBeenCalled();
+    onLine.mockReturnValue(true);
+    window.dispatchEvent(new Event('online'));
+    expect(await pending).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    onLine.mockRestore();
+  });
+
+  it('marks exhausted network failures so the UI can tell them from "not found"', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    const error = await api.getWubbySummaryByHash('a'.repeat(64)).catch((e) => e);
+    expect(api.isNetworkError(error)).toBe(true);
   });
 });

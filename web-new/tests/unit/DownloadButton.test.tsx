@@ -10,7 +10,7 @@ const api = vi.hoisted(() => ({
   cancelDownload: vi.fn(async () => {}),
   preflight: vi.fn(async () => ({ bytesNeeded: 400e6, cap: { fits: true, suggest: [] as string[] }, quotaOk: true })),
   onMobileData: vi.fn(() => state.cellular),
-  watchProgress: vi.fn(async () => () => {}),
+  watchProgress: vi.fn(() => () => {}),
 }));
 vi.mock('@/lib/listen/downloads', () => api);
 vi.mock('@/lib/listen/index-cache', () => ({ getCachedIndex: vi.fn(async () => ({ runSize: Uint32Array.of(1) })), putCachedIndex: vi.fn() }));
