@@ -114,7 +114,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
           <ListenButton onClick={startListening} resumeLabel={resumeLabel} />
           <div className="grid grid-cols-2 gap-2">
             <SpeedToggle rate={rate} onChange={changeRate} className="w-full" />
-            <DownloadButton vod={{ hash, url: video.url, title: video.title, thumbnailUrl: video.thumbnailUrl }} />
+            <DownloadButton vod={{ hash, url: video.url, title: video.title, thumbnailUrl: video.thumbnailUrl, video }} />
           </div>
           <p className="font-mono text-xs text-ink-muted">Listen streams audio only · about 73 MB per hour</p>
         </div>

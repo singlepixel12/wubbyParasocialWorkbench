@@ -6,6 +6,8 @@ import { getCachedIndex } from './index-cache';
 import { deleteDownload, getManifest, listManifests, notifyChanged, putManifest, reconcile } from './offline-store';
 import { isFinished, readPosition } from './positions';
 import type { AudioIndex } from './types';
+import type { Video } from '../../types/video';
+import { cacheThumbnail } from '../offline/thumbs';
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
@@ -14,6 +16,8 @@ export interface VodRef {
   url: string;
   title: string;
   thumbnailUrl?: string;
+  /** The full row, saved with the download so it opens offline. */
+  video?: Video;
 }
 
 export async function ensureWorker(): Promise<ServiceWorkerRegistration> {
@@ -53,8 +57,10 @@ export async function preflight(hash: string, index: AudioIndex) {
  */
 export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now(), { manual = false } = {}): Promise<void> {
   await navigator.storage?.persist?.().catch(() => false);
-  const stored = (await getManifest(vod.hash)) ?? newManifest({ ...vod, index, now });
+  const existing = await getManifest(vod.hash);
+  const stored = existing ? { ...existing, video: vod.video ?? existing.video } : newManifest({ ...vod, index, now });
   const manifest = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
+  void cacheThumbnail(vod.thumbnailUrl); // best effort, for the offline diary
   const missing = missingRuns(manifest);
   await putManifest({ ...manifest, state: 'downloading', reason: undefined, updatedAt: now });
   notifyChanged(vod.hash);
@@ -135,7 +141,7 @@ export async function autoResume(m: DownloadManifest): Promise<boolean> {
   const index = await getCachedIndex(m.hash);
   if (!index) return false;
   await putManifest(recordAutoResume(m, Date.now()));
-  await startDownload({ hash: m.hash, url: m.url, title: m.title, thumbnailUrl: m.thumbnailUrl }, index);
+  await startDownload({ hash: m.hash, url: m.url, title: m.title, thumbnailUrl: m.thumbnailUrl, video: m.video }, index);
   return true;
 }
 
@@ -146,4 +152,38 @@ export async function autoDeleteIfFinished(hash: string): Promise<boolean> {
   if (!m || m.state !== 'ready') return false;
   await deleteDownload(hash);
   return true;
+}
+
+/** Online, with a fresh row for a VOD: if it's downloaded, refresh its saved details + thumbnail. */
+export async function rememberVodDetails(video: Video): Promise<void> {
+  if (!video.videoHash) return;
+  try {
+    const m = await getManifest(video.videoHash);
+    if (!m) return;
+    await putManifest({ ...m, video, thumbnailUrl: video.thumbnailUrl ?? m.thumbnailUrl });
+    await cacheThumbnail(video.thumbnailUrl ?? m.thumbnailUrl);
+  } catch {
+    // Not stored: it still works online, and the next visit tries again.
+  }
+}
+
+/**
+ * On app load, online: downloads saved before Phase 3b have no `video`. Fetch each row once
+ * (`fetchRow` is the API lookup, injected so this module stays free of the API client).
+ */
+export async function backfillVodDetails(fetchRow: (hash: string) => Promise<Video | null>): Promise<number> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+  let filled = 0;
+  for (const m of await listManifests().catch(() => [])) {
+    if (m.video) continue;
+    try {
+      const video = await fetchRow(m.hash);
+      if (!video) continue;
+      await rememberVodDetails(video);
+      filled++;
+    } catch {
+      // Offline or flaky: the next app load tries again.
+    }
+  }
+  return filled;
 }
