@@ -334,6 +334,6 @@ workers need. A LAN address (`http://192.168…`) is not, and will mislead.
   - **Phase 2 implication:** downloads are a "start it and leave it" job; use concurrency 24
     and keep the Wake Lock on. If 36 minutes is too slow, a summarizer-published audio file is
     the real fix, and it would slot in behind the same index and offline store.
-- **MSE in a locked or backgrounded tab on Android Chrome** is expected to keep playing
-  (music sites rely on it), but only the real-phone checklist proves it. The spike includes a
-  15-minute locked-screen test on Lee's phone before building the full UI.
+- **MSE in a locked or backgrounded tab on Android Chrome: resolved 2026-11-08.** Lee ran
+  the full phone checklist on the deployed site, and every check passed, including locked
+  screen, background, lock-screen controls and 1.5×.

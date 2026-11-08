@@ -50,6 +50,11 @@ interface VidstackPlayerProps {
   playbackRate?: number;
   /** Called on the inner video's timeupdate. */
   onTimeUpdate?: (currentTime: number, duration: number, paused: boolean) => void;
+  /**
+   * Load and play right away instead of waiting for the first touch (e.g. Watch pressed in
+   * Listen: that tap already says "I want the video").
+   */
+  autoPlay?: boolean;
 }
 
 export function VidstackPlayer({
@@ -65,6 +70,7 @@ export function VidstackPlayer({
   startTime = 0,
   playbackRate = 1,
   onTimeUpdate,
+  autoPlay = false,
 }: VidstackPlayerProps) {
   logger.log('VidstackPlayer render:', {
     hasVideoUrl: !!videoUrl,
@@ -92,6 +98,7 @@ export function VidstackPlayer({
 
   const startTimeRef = useRef(startTime);
   const rateRef = useRef(playbackRate);
+  const autoPlayRef = useRef(autoPlay);
   const onTimeUpdateRef = useRef(onTimeUpdate);
   useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate;
@@ -106,7 +113,9 @@ export function VidstackPlayer({
     const timer = setInterval(() => {
       const video = containerRef.current?.querySelector('video');
       if (!video) {
-        if (++attempts > 100) clearInterval(timer); // give up after ~10 s
+        // With load="custom" the <video> may only appear once the viewer taps, which can be
+        // minutes later, so keep looking (cheaply) rather than giving up.
+        if (++attempts > 100 * 60 * 30) clearInterval(timer);
         return;
       }
       clearInterval(timer);
@@ -204,6 +213,28 @@ export function VidstackPlayer({
       logger.warn('⚠️ No poster URL provided');
     }
     newPlayer.setAttribute('playsinline', '');
+
+    // Download nothing until the viewer asks for video. The VODs keep a 23.6 MB moov at the END of
+    // a 27 GB file; Vidstack's default (load="visible" + preload="metadata") pulled ~31 MB just for
+    // opening /watch (measured 2026-11-08), which is costly on mobile data and wasted when the
+    // viewer picks Listen. In 0.6.15 `preload` doesn't reach the <video>, but load="custom" is
+    // honoured: nothing loads until startLoading().
+    newPlayer.setAttribute('load', 'custom');
+    const vidstack = newPlayer as HTMLElement & { startLoading?: () => void; play?: () => Promise<void> };
+    let loadRequested = false;
+    const requestLoad = () => {
+      if (loadRequested) return;
+      loadRequested = true;
+      // Play as soon as it can: the tap that asked for video counts as the user gesture
+      // (Chrome's sticky activation), so this isn't blocked as autoplay.
+      newPlayer.addEventListener('can-play', () => void vidstack.play?.().catch(() => undefined), { once: true });
+      void customElements.whenDefined('media-player').then(() => vidstack.startLoading?.());
+    };
+    newPlayer.addEventListener('pointerdown', requestLoad, { capture: true });
+    newPlayer.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') requestLoad();
+    }, { capture: true });
+    if (autoPlayRef.current) requestLoad();
 
     // Create media outlet
     const mediaOutlet = document.createElement('media-outlet');
