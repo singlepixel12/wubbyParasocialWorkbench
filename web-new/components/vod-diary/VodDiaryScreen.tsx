@@ -30,6 +30,7 @@ import { useToast } from '@/lib/hooks/useToast';
 import { logger } from '@/lib/utils/logger';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { DownloadsChip } from '@/components/listen/DownloadsChip';
 
 /** Diary page size. "Load more" fetches the next page of the same filters. */
 const PAGE_SIZE = 50;
@@ -251,7 +252,7 @@ export function VodDiaryScreen() {
       {/* Editorial masthead */}
       {/* The issue number is the honest record count for the range — every
           matching VOD, not just the page loaded so far */}
-      <Masthead edition="VOD Diary" count={total ?? videos.length} dateLabel={dateLabel} />
+      <Masthead edition="VOD Diary" count={total ?? videos.length} dateLabel={dateLabel} extra={<DownloadsChip />} />
 
       {/* Filters section */}
       <div className={cn(

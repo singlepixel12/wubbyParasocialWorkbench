@@ -14,6 +14,7 @@ import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { AudioCard } from '@/components/listen/AudioCard';
 import { ListenButton } from '@/components/listen/ListenButton';
 import { SpeedToggle } from '@/components/listen/SpeedToggle';
+import { DownloadButton } from '@/components/listen/DownloadButton';
 import { ListenEngine } from '@/lib/listen/listen-engine';
 import { formatClock, isFinished, readPosition, readRate, resumeTime, writePosition, writeRate } from '@/lib/listen/positions';
 import { useSavedPosition } from '@/lib/listen/useSavedPosition';
@@ -111,7 +112,10 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
       {!engine && hash && (
         <div className="space-y-2 px-2 md:px-0">
           <ListenButton onClick={startListening} resumeLabel={resumeLabel} />
-          <SpeedToggle rate={rate} onChange={changeRate} className="w-full" />
+          <div className="grid grid-cols-2 gap-2">
+            <SpeedToggle rate={rate} onChange={changeRate} className="w-full" />
+            <DownloadButton vod={{ hash, url: video.url, title: video.title, thumbnailUrl: video.thumbnailUrl }} />
+          </div>
           <p className="font-mono text-xs text-ink-muted">Listen streams audio only · about 73 MB per hour</p>
         </div>
       )}

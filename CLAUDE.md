@@ -99,8 +99,23 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 - **Cross-origin limits:** only `cache-control`, `content-length`, `content-type` and
   `last-modified` are readable on archive responses, and `If-Range` is blocked by preflight.
 - **Design and measured numbers:** `docs/superpowers/specs/2026-11-08-listen-mode-design.md`.
-  Phase 2 (Wi-Fi downloads, storage counter) and Phase 3 (offline PWA) are outlined there and
-  in `docs/superpowers/plans/2026-11-08-listen-mode-phase-1.md`.
+  Plans: `docs/superpowers/plans/2026-11-08-listen-mode-phase-{1,2}.md`. Phase 3 (offline
+  PWA) is outlined at the end of the Phase 2 plan.
+- **Downloads (Phase 2):** **Download** on `/watch` saves a VOD's audio to the phone using
+  Chrome's **Background Fetch**. It keeps going with the phone locked or Chrome closed, and
+  takes ~55 min for 6 h.
+  - **One registration per VOD:** the page starts it with a bounded Range request per
+    missing run.
+  - **The service worker saves results:** `scripts/sw/service-worker.js` →
+    `lib/listen/sw-handlers.ts`. It saves to IndexedDB on success, fail or abort, so a cancel
+    keeps what finished and Resume fetches only what's missing.
+  - **The worker can't start fetches** (Chrome forbids `backgroundFetch.fetch()` there) and
+    has **no `fetch` handler** until Phase 3.
+  - **`public/sw.js` is generated** by `scripts/build-sw.mjs` on `prebuild`/`predev`, and
+    gitignored.
+  - **Listen reads stored runs first:** "Playing from your phone · 0 MB used".
+  - **Limits:** a fixed 2 GB cap, with the least recently listened offered for deletion;
+    auto-delete once finished; a diary chip `⬇ N offline · X GB` opens the list.
 
 ### 4. Transcript Extraction
 - Manual URL input or dropdown selection
@@ -339,10 +354,11 @@ Other design details:
    vanilla-site UI (a "Home"/"VOD Diary"/"Player" header nav, `index.spec`'s URL-input
    homepage) — rewrite against the current UI rather than "fix". The full 5-browser run
    exceeds 10 minutes because stale tests wait out their timeouts.
-2. **Listen mode Phase 2: Wi-Fi downloads and the diary storage counter.** Phase 1 passed
-   Lee's real-phone checklist on 2026-11-08, including audio with the screen locked.
-   Measured: a full 6 h audio download takes ~36 min at concurrency 24, because the archive
-   answers each range in ~5.5 s under load.
+2. **Listen Phase 2 (background downloads) needs its real-phone check:** checklist rows
+   10–16, especially that a download keeps going when the phone is locked or Chrome is
+   closed. Then **Phase 3: an installable offline app** (app-shell caching). Until then,
+   offline listening needs the site to be already open: the worker has no `fetch` handler, so
+   the site itself doesn't load with no signal.
    - **Done:** opening `/watch` downloads nothing. The player uses `load="custom"` and loads
      on the first tap or Enter/Space (or at once when Watch is pressed in Listen). It was
      ~31 MB per page open.
@@ -411,7 +427,12 @@ interface Video {
 ### Storage Keys
 - `listen:pos:{hash}` - Position `{t, d, at}`, shared by video and Listen (`lib/listen/positions.ts`)
 - `listen:rate` - `1` or `1.5`
-- IndexedDB `wubby-listen` / `audio-index` - parsed audio indexes (~2 MB each, 10 most recent)
+- IndexedDB `wubby-listen` (v2, `lib/listen/db.ts`, shared by the page and the service worker):
+  - `audio-index`: parsed audio indexes, ~2 MB each. Keeps the 10 most recent, and never
+    prunes the index of a downloaded VOD.
+  - `downloads`: one manifest per download (state, per-run done bitmap, bytes, last
+    listened).
+  - `audio-runs`: stored run bytes, key `${hash}:${run padded to 6}`.
 - `vds-{hash}` - legacy Vidstack position key, no longer written
 
 ---
@@ -449,6 +470,10 @@ npm run test:all        # vitest + playwright
     gitignored);
   - starts `tests/support/range-server.mjs`, an archive imitation with Range, CORS without
     exposed headers, multi-range 416 and a failing preflight.
+- **`tests/listen-download.spec.ts`** (3 tests) runs only on the **`pixel-chrome`** project,
+  which is real Chrome via `channel: 'chrome'`. Playwright's bundled Chromium accepts a
+  Background Fetch but never completes it. Run it with
+  `npx playwright test --project=pixel-chrome`.
 - **What emulation can't prove** is listed in `docs/listen-mode-phone-checklist.md`. Test a
   branch on the phone over USB port forwarding (`chrome://inspect`).
 - **Throughput:** `npm run measure:archive -- <vod-url>` measures real archive speed from the
@@ -474,6 +499,7 @@ npm run test:all        # vitest + playwright
 
 **Last Updated:** 2026-11-08
 **Status:** Core complete. Listen mode Phase 1 (audio-only streaming, 1.5×, resume,
-lock-screen controls) shipped and passed Lee's phone checklist; `/watch` downloads nothing
-until you tap. Unit suite green (251), `tsc`
-clean, Listen E2E green on the Pixel profile; the older E2E suite is largely stale.
+lock-screen controls) shipped and passed Lee's phone checklist. `/watch` downloads nothing
+until you tap. Phase 2 (background downloads) built; its real-phone check is pending.
+Unit suite green (284), `tsc` clean, Listen E2E green on `pixel` (6) and `pixel-chrome` (3);
+the older E2E suite is largely stale.

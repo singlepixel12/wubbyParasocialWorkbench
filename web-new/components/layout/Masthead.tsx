@@ -16,9 +16,11 @@ interface MastheadProps {
   count: number;
   /** Optional human date-range label for the right side of the meta line */
   dateLabel?: string;
+  /** Optional extra item at the end of the meta line (e.g. the offline downloads chip) */
+  extra?: React.ReactNode;
 }
 
-export function Masthead({ edition, count, dateLabel }: MastheadProps) {
+export function Masthead({ edition, count, dateLabel, extra }: MastheadProps) {
   const reduce = useReducedMotion();
 
   const issue = `No. ${count.toString().padStart(2, '0')}`;
@@ -56,6 +58,7 @@ export function Masthead({ edition, count, dateLabel }: MastheadProps) {
         {dateLabel && (
           <p className="font-mono text-xs tracking-wide text-ink-muted">{dateLabel}</p>
         )}
+        {extra}
       </div>
     </header>
   );

@@ -5,6 +5,7 @@ import { buildInitSegment, buildRunSegment } from './fmp4';
 import { deleteCachedIndex, getCachedIndex, putCachedIndex } from './index-cache';
 import { loadAudioIndex, type FetchRangeFn, type LoadIndexOptions } from './index-loader';
 import { bindMediaSession } from './media-session';
+import { readStoredRun } from './offline-store';
 import { fetchRange as defaultFetchRange, RangeFetchError } from './range-fetch';
 import { ListenError, type AudioIndex, type Bytes, type PlaybackRate } from './types';
 
@@ -23,6 +24,8 @@ export interface ListenSnapshot {
   duration: number;
   rate: PlaybackRate;
   bytesFetched: number;
+  /** Runs played from the phone's storage instead of the network. */
+  storedRuns: number;
   bufferedAheadSec: number;
 }
 
@@ -32,6 +35,7 @@ export interface ListenEngineDeps {
   getCached?: (hash: string) => Promise<AudioIndex | null>;
   putCached?: (hash: string, index: AudioIndex) => Promise<void>;
   deleteCached?: (hash: string) => Promise<void>;
+  readStoredRun?: (hash: string, run: number) => Promise<Bytes | null>;
 }
 
 export interface ListenEngineOptions {
@@ -107,6 +111,7 @@ export class ListenEngine {
   private errorMessage: string | null = null;
   private reconnecting = false;
   private bytesFetched = 0;
+  private storedRuns = 0;
   private starvedSince: number | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private unbindSession: (() => void) | null = null;
@@ -314,6 +319,14 @@ export class ListenEngine {
     const fetchRange = this.opts.deps?.fetchRange ?? defaultFetchRange;
     const start = index.runOffset[r];
     try {
+      // Downloaded runs play from the phone: zero network.
+      const stored = await (this.opts.deps?.readStoredRun ?? readStoredRun)(this.opts.hash, r);
+      if (gen !== this.gen || this.disposed) return;
+      if (stored && stored.byteLength === index.runSize[r]) {
+        this.storedRuns++;
+        await this.appendRun(r, stored);
+        return;
+      }
       const { bytes } = await fetchRange(this.opts.url, start, start + index.runSize[r] - 1, {
         signal,
         expectedLastModified: index.lastModified,
@@ -511,6 +524,7 @@ export class ListenEngine {
       duration: this.index?.durationSec ?? 0,
       rate: this.desiredRate,
       bytesFetched: this.bytesFetched,
+      storedRuns: this.storedRuns,
       bufferedAheadSec: this.bufferedAhead(t),
     };
   }
