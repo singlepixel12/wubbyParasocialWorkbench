@@ -44,6 +44,12 @@ interface VidstackPlayerProps {
   title?: string;
   /** Artist/Channel name for Media Session API */
   artist?: string;
+  /** Seek here once metadata loads (Listen → Watch handoff, resume). */
+  startTime?: number;
+  /** 1 or 1.5; re-applied on every play. */
+  playbackRate?: number;
+  /** Called on the inner video's timeupdate. */
+  onTimeUpdate?: (currentTime: number, duration: number) => void;
 }
 
 export function VidstackPlayer({
@@ -56,6 +62,9 @@ export function VidstackPlayer({
   storageKey,
   title,
   artist = 'PayMoneyWubby',
+  startTime = 0,
+  playbackRate = 1,
+  onTimeUpdate,
 }: VidstackPlayerProps) {
   logger.log('VidstackPlayer render:', {
     hasVideoUrl: !!videoUrl,
@@ -80,6 +89,52 @@ export function VidstackPlayer({
     enableFullscreen: true,
     mobileOnly: true,
   });
+
+  const startTimeRef = useRef(startTime);
+  const rateRef = useRef(playbackRate);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
+
+  // Reach the <video> Vidstack creates inside <media-player>: start time, rate, time reporting.
+  useEffect(() => {
+    if (!videoUrl) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    let attempts = 0;
+    const timer = setInterval(() => {
+      const video = containerRef.current?.querySelector('video');
+      if (!video) {
+        if (++attempts > 100) clearInterval(timer); // give up after ~10 s
+        return;
+      }
+      clearInterval(timer);
+      video.playbackRate = rateRef.current;
+      video.addEventListener('play', () => {
+        if (video.playbackRate !== rateRef.current) video.playbackRate = rateRef.current;
+      }, { signal });
+      video.addEventListener('timeupdate', () => onTimeUpdateRef.current?.(video.currentTime, video.duration), { signal });
+      const start = startTimeRef.current;
+      if (start > 0) {
+        const seek = () => {
+          video.currentTime = start;
+        };
+        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) seek();
+        else video.addEventListener('loadedmetadata', seek, { once: true, signal });
+      }
+    }, 100);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [videoUrl]);
+
+  useEffect(() => {
+    rateRef.current = playbackRate;
+    const video = containerRef.current?.querySelector('video');
+    if (video) video.playbackRate = playbackRate;
+  }, [playbackRate]);
 
   useEffect(() => {
     logger.group('🎬 VidstackPlayer Initialization');
