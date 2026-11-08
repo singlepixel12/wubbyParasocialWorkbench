@@ -32,6 +32,11 @@ Automated tests can't prove these. Run them on the phone before trusting a Liste
 | 17 | **Flaky network:** listen on a train or in a lift (or toggle airplane mode 20–60 s while locked): audio carries on from the buffer, then recovers **with no tap** | |
 | 18 | A download interrupted by a dead zone (or airplane mode mid-download) finishes by itself once signal returns, with the site open | |
 | 19 | Open a VOD with weak signal: it loads, or shows "Connection problem" with Retry, never "Video Not Found" | |
+| 20 | **Install:** the site's menu (☰) → **Install app** (or Chrome ⋮ → Add to Home screen → Install): "Wubby Archive" lands on the home screen with the green W icon | |
+| 21 | Open it from the home screen: full screen, no address bar; tapping a card opens the VOD inside the app, not in Chrome | |
+| 22 | **Airplane mode**, swipe the app away, open it from the home screen: the diary shows "Saved on your phone"; a saved VOD opens with its summary and Listen plays | |
+| 23 | Airplane mode: a VOD that isn't saved says "You're offline" with Retry (never "Loading" forever); back on signal, the live diary returns by itself | |
+| 24 | **After a deploy:** open the app online, close and reopen it: the new version shows; an app left open on the old version keeps working | |
 
 If check 1 or 2 fails, the background-playback approach (MSE in a locked tab) is the problem.
 Stop and revisit the design; the fallback is a Blob-backed `<audio src>` built from the same
