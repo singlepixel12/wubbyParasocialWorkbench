@@ -3,6 +3,7 @@ import { Fraunces, Hanken_Grotesk, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
 import { PageTransition } from "@/components/PageTransition";
+import { DownloadsReconciler } from "@/components/listen/DownloadsReconciler";
 import "./globals.css";
 
 // Display serif — expressive, editorial "archive" voice (mastheads, titles)
@@ -85,6 +86,9 @@ export default function RootLayout({
 
         {/* Toast notifications */}
         <Toaster />
+
+        {/* Fix up offline downloads whose background fetch vanished (renders nothing) */}
+        <DownloadsReconciler />
       </body>
     </html>
   );
