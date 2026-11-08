@@ -97,6 +97,9 @@ Lee may never finish a VOD, so auto-delete-on-finish can't be the only cleanup.
 - **Wi-Fi hint:** the Download button works anywhere but shows "You're on mobile data (~430 MB).
   Download anyway?" when `navigator.connection.type === 'cellular'`. On an unknown connection
   it doesn't warn.
+- **How it downloads:** in the background via Chrome's Background Fetch, so the phone can be
+  locked. It takes about 55 minutes for a 6 h VOD, with progress in a system notification and
+  in the list. See *Downloads: revised 2026-11-08*.
 
 ## Architecture
 
@@ -113,8 +116,8 @@ Each unit has one job and can be tested without the others.
 | `listen-engine.ts` | Owns one `<audio>` + `MediaSource`. Buffer-ahead target 180 s with a low-water mark of 60 s, eviction behind the playhead, seek handling, play/pause/rate, status events. A seek starts a new **generation**: in-flight work for older generations is aborted and its results are dropped. | `fmp4`, `chunk-source` |
 | `media-session.ts` | Metadata (title, artwork = thumbnail), handlers for play/pause/seekbackward/seekforward (30 s)/seekto, and `setPositionState({duration, position, playbackRate})` on every rate change, seek and play. | `navigator.mediaSession` |
 | `positions.ts` | Per-VOD position + global speed in `localStorage`. Throttled writes, read for diary markers. | `localStorage` |
-| `offline-store.ts` (P2) | Downloads in OPFS (`{hash}.audio` raw sample payload + manifest). Resumable chunk bitmap, quota checks, reconciliation on startup, deletion, cap enforcement. | OPFS, IndexedDB |
-| `download-job.ts` (P2) | Runs a download: concurrency, progress, pause/resume, Screen Wake Lock while active, persists progress so a killed tab resumes. | `chunk-source`, `offline-store` |
+| `offline-store.ts` (P2) | Download manifests and stored run bytes in IndexedDB (`downloads`, `audio-runs`). Used by both the page and the service worker. See *Downloads: revised*. | IndexedDB |
+| `downloads.ts` + `sw/` (P2) | Page side: register the worker, start/resume/cancel a Background Fetch, progress, quota, cap. Worker side: save results on success/fail/abort. Replaces the original `download-job.ts`. | `offline-store`, Background Fetch |
 | SW + manifest (P3) | Precache the static export's app shell; runtime-cache Supabase rows/thumbnails for downloaded VODs. Never intercepts `archive.wubby.tv`. | Serwist or hand-written SW |
 
 **Why MSE and not a plain `<audio src>`:** there's no audio-only file to point at. MSE lets the
@@ -208,25 +211,52 @@ failed runs are designed in, not bolted on.
   `MediaSource.endOfStream`/detach, revoke the object URL, clear Media Session handlers and
   release the Wake Lock. No orphaned network activity after leaving the page.
 
-### Downloads (`offline-store`, `download-job`, Phase 2)
+### Downloads: revised 2026-11-08, Background Fetch
 
-- **Writes go to a temp entry** (`{hash}.part` + manifest `state: downloading`). The download
-  is marked `ready` only after every chunk is present and each chunk's length matches the
-  index.
-- **Resumable:** a persisted chunk bitmap. A killed tab, phone reboot or network loss resumes
-  from the bitmap, not from zero. Failed chunks are retried by `range-fetch`; after its
-  retries are exhausted the job pauses (`Paused · connection lost`) rather than failing the
-  whole download.
-- **Quota:** check `navigator.storage.estimate()` before starting (need the size plus 10%
-  headroom). On `QuotaExceededError` mid-write, pause, keep the partial data, and surface the
-  cap/delete dialog. Request `navigator.storage.persist()` on the first download so Chrome
-  doesn't evict.
-- **Startup reconciliation** (each app load, cheap): `.part` files with no manifest are
-  deleted. Manifests whose file is missing are reset. `downloading` entries with no live job
-  become `paused`. Entries whose VOD's `Last-Modified` changed are marked stale and offered for
-  deletion.
-- **Screen Wake Lock** is held while a download runs and released on finish, failure or
-  pause, because Android throttles background tabs.
+Lee chose **true background download** over a foreground download that needs the screen on.
+The OPFS + `download-job` + Wake Lock design above is superseded by this.
+
+**Spike results** (real Chrome, real archive, `scratchpad/bgf`):
+
+| Question | Result |
+|---|---|
+| Does Background Fetch accept our `Range` requests? | Yes: 48/48 returned `206`, every byte count exact for its range |
+| Speed | 1.61 runs/s from one registration, so a 6 h VOD takes **~55 min**. 4 parallel registrations were slower (1.11 runs/s); 8 gave "too many active fetches for this origin" |
+| Can the service worker save results? | Yes, to IndexedDB inside `backgroundfetchsuccess` (exact bytes) |
+| Can the service worker start the next batch? | **No**: "`backgroundFetch.fetch()` is not allowed in service worker environments" |
+| Playwright's bundled Chromium | Accepts the fetch but never completes it. Real Chrome (`channel: 'chrome'`) works |
+
+**Design:**
+- **One registration per VOD:** tapping Download starts a single background fetch with
+  every missing audio run (up to ~5,340 requests). Chrome shows a system progress
+  notification and keeps going with the tab closed or the phone locked, persisting across
+  restarts.
+- **The service worker saves the result:** in `backgroundfetchsuccess` it writes each run's
+  bytes to IndexedDB `wubby-listen/audio-runs` (key `hash:run`), in transactions of ~200, and
+  marks the manifest `ready`. It never starts fetches, because Chrome forbids that there.
+- **Partial progress survives:** on `backgroundfetchfail` or `backgroundfetchabort` (the
+  user cancels from the notification), the worker saves every record that completed and
+  marks the manifest `paused`. **Resume** starts a new registration for only the missing
+  runs. Runs are identified by the request's `Range` start, matched against the index.
+- **Storage:** IndexedDB, not OPFS. It works in service workers, a transaction makes each
+  save atomic, and it needs no `.part` files.
+  - **Temporary double storage:** until the success handler finishes copying, a VOD takes
+    roughly twice its size (the browser's background-fetch storage plus IndexedDB, ~860 MB
+    briefly).
+  - **Quota check before starting:** require 2× the download size plus 10% headroom.
+- **Startup reconciliation:** a manifest in `downloading` with no live registration
+  (`backgroundFetch.getIds()`) becomes `paused`. A manifest whose VOD's `Last-Modified`
+  changed becomes `stale` and is offered for deletion.
+- **Listen reads stored runs first:** the engine plays from IndexedDB and fetches only what's
+  missing. A fully downloaded VOD streams with zero network, and the status line says
+  `Offline · downloaded`.
+- **The service worker is minimal:**
+  - background-fetch events only, with **no `fetch` handler** (app-shell caching is Phase 3);
+  - built from TypeScript by esbuild into `public/sw.js` at `prebuild`/`predev`;
+  - scoped to the base path.
+- **Not verified yet: Android-specific behaviour.** Whether the notification appears, whether
+  it keeps going when locked or closed, and how it behaves on mobile data all go on the phone
+  checklist.
 
 ## Hard constraint
 
