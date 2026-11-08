@@ -22,7 +22,11 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router), with the React Compiler (`babel-plugin-react-compiler`)
+- **Framework:** Next.js 16 (App Router), with the React Compiler (`babel-plugin-react-compiler`).
+  **Keep Next ≥ 16.4.** On 16.0.x, `output: 'export'` prefetch fetched each linked page's
+  HTML with `Range: bytes=0-63`; GitHub Pages answers `206` with `max-age=600` over the
+  *gzipped* bytes, Chromium caches that fragment, and the next full load of that URL (a
+  card opens `/watch` in a new tab) rendered a blank white page. 16.4 uses `HEAD` instead.
 - **UI:** React 19 + shadcn/ui + Tailwind CSS 4
 - **Typography:** Fraunces (display serif), Hanken Grotesk (body), Geist Mono (mono) — via `next/font/google`
 - **Theming:** HSL CSS variables in `globals.css`; `next-themes` (app is dark by default)
@@ -284,6 +288,12 @@ Other design details:
   total in the masthead
 - `lib/api/supabase.ts` now has unit tests; 173 unit tests pass
 
+### ✅ Blank `/watch` tab fix (2026-11-08)
+- Next 16.0.7 → 16.4.5 (+ `eslint-config-next`): ends the range-request prefetch that
+  poisoned the browser cache and blanked every card's new tab (see Tech Stack note)
+- `createMockVideo` is now typed `Partial<Video> → Video`, clearing the 18 `tsc` errors
+  that 16.4's build-time type-check would otherwise have failed the deploy on
+
 ---
 
 ## Remaining Tasks
@@ -301,9 +311,12 @@ Other design details:
    until this lands.
 3. **Search can't find by tag or summary** — the server `or=` only matches title/URL; the
    client tag check can only narrow. Prerequisite for tag search (item 4).
-4. **Lint/typecheck not clean** - pre-existing `no-explicit-any` errors and ~17 `tsc`
-   errors in test files (mock fixtures typing `platform` as a bare string). Don't block
-   the build, but they prevent holding a clean gate.
+4. **Lint not clean** - `tsc` is clean as of 2026-11-08 and must stay so (Next ≥16.4's
+   `next build` type-checks test files too, so a test type error now breaks the deploy).
+   ESLint still reports 13 errors: 9 pre-existing `no-explicit-any`, plus 4 surfaced by
+   the 16.4 lint plugins — `react-hooks/set-state-in-effect` (`VidstackPlayer.tsx:455`,
+   `VodDiaryScreen.tsx:82`) and `react-hooks/immutability` (`useTouchGestures.ts:66,75`,
+   functions used before declaration). Lint doesn't gate the build.
 
 ### MEDIUM Priority
 5. **Tag Search** - Tags are clickable but only log a TODO via `logger.debug` in
@@ -392,6 +405,7 @@ npm run test:all        # vitest + playwright
 
 ---
 
-**Last Updated:** 2026-10-04
+**Last Updated:** 2026-11-08
 **Status:** Core complete. Diary hardening landed (abortable loads, whole-day ranges, URL
-filters, paging). Unit suite green (173); E2E suite largely stale.
+filters, paging). Next 16.4.5 fixes the blank `/watch` tab. Unit suite green (173), `tsc`
+clean; E2E suite largely stale.

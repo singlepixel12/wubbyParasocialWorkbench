@@ -5,6 +5,7 @@
 
 import { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
+import type { Video } from '@/types/video';
 
 /**
  * Custom render function that wraps components with necessary providers
@@ -48,9 +49,8 @@ export function mockLocalStorage() {
  * Includes a videoHash by default — every video from the DB has one, and it is what
  * makes a card navigable. Pass `{ videoHash: undefined }` to exercise the inert case.
  */
-export function createMockVideo(overrides = {}) {
+export function createMockVideo(overrides: Partial<Video> = {}): Video {
   return {
-    id: 1,
     url: 'https://archive.wubby.tv/vods/public/test.mp4',
     title: 'Test Video',
     summary: 'This is a test video summary',
