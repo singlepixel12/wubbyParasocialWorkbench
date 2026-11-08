@@ -16,12 +16,35 @@ import { VidstackPlayer } from '@/components/video/VidstackPlayer';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
 import { SUPABASE_URL } from '@/lib/constants';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AudioCard } from '@/components/listen/AudioCard';
+import { ListenButton } from '@/components/listen/ListenButton';
+import { ListenEngine } from '@/lib/listen/listen-engine';
+import { readPosition, readRate, resumeTime, writeRate } from '@/lib/listen/positions';
+import type { PlaybackRate } from '@/lib/listen/types';
 
 interface VideoDetailViewProps {
   video: Video;
 }
 
 export function VideoDetailView({ video }: VideoDetailViewProps) {
+  const hash = video.videoHash;
+  const [rate, setRate] = useState<PlaybackRate>(() => readRate());
+  const [engine, setEngine] = useState<ListenEngine | null>(null);
+  useEffect(() => () => engine?.dispose(), [engine]);
+
+  const changeRate = (next: PlaybackRate) => {
+    setRate(next);
+    writeRate(next);
+  };
+  const startListening = () => {
+    if (!hash) return;
+    const e = new ListenEngine({ url: video.url, hash, title: video.title, artworkUrl: video.thumbnailUrl, startAt: resumeTime(readPosition(hash)), rate });
+    e.play(); // inside the tap, so Chrome allows audio
+    void e.start();
+    setEngine(e);
+  };
+
   const formattedDate = video.date ? formatDateDisplay(new Date(video.date)) : '';
   const originalTitle = extractOriginalTitle(video.url);
 
@@ -68,11 +91,16 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
         initial="initial"
         animate="animate"
       >
-        <VidstackPlayer
-          videoUrl={video.url}
-          subtitleUrl={subtitleUrl}
-          poster={video.thumbnailUrl}
-        />
+        {engine && hash ? (
+          <AudioCard engine={engine} hash={hash} thumbnailUrl={video.thumbnailUrl} onRateChange={changeRate} onWatch={() => setEngine(null)} />
+        ) : (
+          <>
+            <VidstackPlayer videoUrl={video.url} subtitleUrl={subtitleUrl} poster={video.thumbnailUrl} />
+            <div className="px-2 pt-3 md:px-0">
+              <ListenButton onClick={startListening} />
+            </div>
+          </>
+        )}
       </motion.div>
 
       {/* Header Section - with padding on mobile */}
