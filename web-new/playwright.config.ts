@@ -40,6 +40,12 @@ export default defineConfig({
 
   // Configure projects for major browsers
   projects: [
+    // Lee's main device is an Android phone in Chrome: verify here first.
+    {
+      name: 'pixel',
+      use: { ...devices['Pixel 7'] },
+    },
+
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
