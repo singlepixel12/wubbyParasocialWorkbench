@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Hanken_Grotesk, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
@@ -27,7 +27,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0e0d0b",
+};
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export const metadata: Metadata = {
+  applicationName: "The Wubby Archive",
+  appleWebApp: { capable: true, title: "Wubby Archive", statusBarStyle: "black-translucent" },
+  icons: {
+    icon: [{ url: `${BASE}/icons/icon-192.png`, sizes: "192x192", type: "image/png" }],
+    apple: `${BASE}/icons/apple-touch-icon.png`,
+  },
   title: {
     default: "Wubby Parasocial Workbench",
     template: "%s | Wubby Parasocial Workbench",
