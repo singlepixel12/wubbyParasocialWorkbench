@@ -72,11 +72,32 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 ### 3. Video Player
 - Vidstack player with custom community skin; `/watch?id=HASH` is the only player route
 - Subtitle/transcript support (VTT files from Supabase)
-- Playback position saving (every 10s after 30s threshold) and restoration — **only when
-  `storageKey` is passed**, which `/watch` (`VideoDetailView`) does not yet do (see
-  Remaining Tasks)
+- Position: `/watch` saves and resumes through `lib/listen/positions` (shared with Listen;
+  see below). Vidstack's own `storageKey`/`vds-` saving is unused.
 - Media Session API (lock screen controls, background playback)
 - Touch gestures (mobile only): drag up = fullscreen, drag down = PiP
+- **Start time:** set through `<media-player>`, never the raw `<video>`. Vidstack writes its
+  own pending start (~0.1 s) to the `<video>` just after `can-play`, overwriting a raw seek.
+- **Vidstack CDN is pinned** (`VIDSTACK_CDN` = `vidstack@0.6.15`). Bump it deliberately.
+
+### 3b. Listen mode (`lib/listen/`, `components/listen/`)
+- **Listen** on `/watch` streams only the VOD's AAC audio: about 73 MB/h instead of
+  ~4.5 GB/h, with no server change.
+- **How:** it reads the MP4's `moov` by HTTP Range (it sits at the *end* of the 27 GB
+  files), parses only the audio track into byte-contiguous *runs* (~4 s each), and wraps each
+  fetched run as fragmented-MP4. Nothing is re-encoded. That is appended to MSE on a real
+  `<audio>`.
+- **Controls:** lock-screen controls (Media Session), a 1×↔1.5× toggle shared with video,
+  auto-resume, "Resume h:mm:ss" on diary cards, and Watch↔Listen keeps the timestamp.
+- **`range-fetch.ts` is the only audio HTTP:**
+  - every request is a bounded Range;
+  - a non-206 answer is aborted before its body is read (a 200 would be the whole 27 GB);
+  - idle timeout, backoff retries, offline parking, and `Last-Modified` pinning.
+- **Cross-origin limits:** only `cache-control`, `content-length`, `content-type` and
+  `last-modified` are readable on archive responses, and `If-Range` is blocked by preflight.
+- **Design and measured numbers:** `docs/superpowers/specs/2026-11-08-listen-mode-design.md`.
+  Phase 2 (Wi-Fi downloads, storage counter) and Phase 3 (offline PWA) are outlined there and
+  in `docs/superpowers/plans/2026-11-08-listen-mode-phase-1.md`.
 
 ### 4. Transcript Extraction
 - Manual URL input or dropdown selection
@@ -125,11 +146,21 @@ web-new/
 │   │   ├── SkeletonVideoCard.tsx # Loading placeholder
 │   │   ├── DateRangePicker.tsx   # react-day-picker integration
 │   │   └── SearchInput.tsx       # Toggleable debounced search
+│   ├── listen/                   # ListenButton, SpeedToggle, AudioCard, ResumeMarker
 │   ├── PageTransition.tsx        # Framer Motion route transitions
-│   └── Header.tsx                # Sticky editorial wordmark + hamburger Sheet
+│   └── Header.tsx                # Sticky wordmark + hamburger Sheet; back arrow on /watch
 ├── lib/
 │   ├── api/
 │   │   └── supabase.ts           # API client (see API Functions)
+│   ├── listen/                   # Listen mode — relative imports only (esbuild-bundled by scripts)
+│   │   ├── range-fetch.ts        # The ONLY audio HTTP: bounded ranges, retries, validation
+│   │   ├── boxes.ts / mp4-index.ts  # ISO-BMFF reading; audio track -> AudioIndex (runs)
+│   │   ├── fmp4.ts               # Fragmented-MP4 init/media segments (no re-encode)
+│   │   ├── index-loader.ts / index-cache.ts  # moov by range in 1 MiB pieces; IndexedDB cache
+│   │   ├── buffer-planner.ts     # Pure: what to fetch/evict
+│   │   ├── listen-engine.ts      # <audio> + MediaSource; seeks, failures, cleanup
+│   │   ├── media-session.ts      # Lock-screen controls
+│   │   └── positions.ts / useSavedPosition.ts  # Per-VOD position + speed (localStorage)
 │   ├── hooks/
 │   │   ├── useTouchGestures.ts   # Mobile gestures (PiP/fullscreen)
 │   │   ├── useLocalStorage.ts    # SSR-safe storage
@@ -305,10 +336,18 @@ Other design details:
    vanilla-site UI (a "Home"/"VOD Diary"/"Player" header nav, `index.spec`'s URL-input
    homepage) — rewrite against the current UI rather than "fix". The full 5-browser run
    exceeds 10 minutes because stale tests wait out their timeouts.
-2. **`/watch` doesn't save or resume playback position** — `VideoDetailView` passes no
-   `storageKey`/`title`/`artist` to `VidstackPlayer`, so position + Media Session only
-   ever worked on the now-deleted `/player`. `cleanupOldPlaybackPositions` is unused
-   until this lands.
+2. **Listen mode needs its real-phone check** (`docs/listen-mode-phone-checklist.md`),
+   above all audio continuing with the screen locked. Not yet verified on Lee's phone. Then
+   Phase 2 (Wi-Fi downloads + diary storage counter). Measured: a full 6 h audio download
+   takes ~36 min at concurrency 24, because the archive answers each range in ~5.5 s under
+   load.
+   - **Opening `/watch` on mobile data:** the Vidstack `<video>` (`preload="metadata"`)
+     downloads the 23.6 MB `moov` from the end of the file before you tap anything, and
+     Listen fetches the same `moov` again. Consider `load="play"` on the player.
+   - **Dead code:** the old `vds-` position keys and `cleanupOldPlaybackPositions` are unused
+     now; delete them in a cleanup.
+   - **Subtitles:** the `.vtt` `<track>` is blocked as a cross-origin load ("Unsafe attempt to
+     load URL"), likely a missing `crossorigin` attribute.
 3. **Search can't find by tag or summary** — the server `or=` only matches title/URL; the
    client tag check can only narrow. Prerequisite for tag search (item 4).
 4. **Lint not clean** - `tsc` is clean as of 2026-11-08 and must stay so (Next ≥16.4's
@@ -368,7 +407,10 @@ interface Video {
 ```
 
 ### Storage Keys
-- `vds-{hash}` - Playback position (Vidstack format)
+- `listen:pos:{hash}` - Position `{t, d, at}`, shared by video and Listen (`lib/listen/positions.ts`)
+- `listen:rate` - `1` or `1.5`
+- IndexedDB `wubby-listen` / `audio-index` - parsed audio indexes (~2 MB each, 10 most recent)
+- `vds-{hash}` - legacy Vidstack position key, no longer written
 
 ---
 
@@ -380,9 +422,10 @@ npm run test            # run once
 npm run test:watch      # watch mode
 npm run test:coverage   # coverage report
 ```
-- Located in `tests/unit/`: `VodDiaryScreen`, `supabase`, `date-range`, `VideoCard`,
-  `VideoSelector`, `useToast`, `useLocalStorage`, `hash`, `video-helpers`
-- 173 tests, all passing. `date-range.test.ts` pins `process.env.TZ` (Sydney + New York).
+- Located in `tests/unit/` (Listen in `tests/unit/listen/`, fixtures in
+  `tests/fixtures/listen/`, made by `npm run fixtures:listen`)
+- 247 tests, all passing. `range-fetch.test.ts` covers every retriable/fatal branch;
+  `mp4-index.test.ts` matches ffprobe sample-for-sample, including a synthetic `co64`. `date-range.test.ts` pins `process.env.TZ` (Sydney + New York).
   `VodDiaryScreen.test.tsx` mocks `next/navigation` with a store backed by jsdom's URL. `createMockVideo` (`tests/test-utils.tsx`) includes a
   `videoHash` by default — that's what makes a card navigable. Pass
   `{ videoHash: undefined }` to exercise the inert, non-linked card.
@@ -396,8 +439,30 @@ npm run test:all        # vitest + playwright
 ```
 - Suites: `player-gestures`, `navigation`, `vod-diary`, `transcript`, `index`, `accessibility`, `mobile`
 
+### Mobile first
+- **Primary device:** Lee's main device is an Android phone in Chrome. Run browser checks on
+  the `pixel` Playwright project first (`npm run test:e2e:mobile`), desktop second.
+- **`tests/listen.spec.ts`** (6 tests):
+  - needs `npm run dev` plus a one-off `npm run fixtures:listen -- e2e` (a 195 MB fixture,
+    gitignored);
+  - starts `tests/support/range-server.mjs`, an archive imitation with Range, CORS without
+    exposed headers, multi-range 416 and a failing preflight.
+- **What emulation can't prove** is listed in `docs/listen-mode-phone-checklist.md`. Test a
+  branch on the phone over USB port forwarding (`chrome://inspect`).
+- **Throughput:** `npm run measure:archive -- <vod-url>` measures real archive speed from the
+  site's origin in Chrome.
+- **Ad-hoc browser tests against a local server:** serve the page from a real local HTTP
+  server, not a Playwright `route` stub. Chrome's Local Network Access blocks a stubbed
+  origin's fetches to `localhost`, and that looks exactly like the archive being down.
+- **Browser pane:** Vidstack uses `load="visible"`, so in the hidden pane the `<video>`
+  never loads. Call `document.querySelector('media-player').startLoading()` to test it.
+
 ### Test Strategy
-- E2E uses real Supabase data (fetches a video hash from the VOD diary)
+- E2E uses real Supabase data (fetches a video hash from the VOD diary); `listen.spec`
+  stubs Supabase and serves a local fixture instead
+- `accessibility.spec` "keyboard accessible" counts buttons ~850 ms after load. When the
+  diary toolbar renders late, the 3rd button is the dev-only "Open Next.js Dev Tools", whose
+  focus lands in a shadow root, so the test fails on timing alone (dev server only).
 - Serial execution with `test.beforeAll` for shared state
 - Touch detection skips simulation on desktop
 - ⚠️ The E2E suite is largely stale (see Remaining Tasks 1). Unit tests + production
@@ -406,6 +471,6 @@ npm run test:all        # vitest + playwright
 ---
 
 **Last Updated:** 2026-11-08
-**Status:** Core complete. Diary hardening landed (abortable loads, whole-day ranges, URL
-filters, paging). Next 16.4.5 fixes the blank `/watch` tab. Unit suite green (173), `tsc`
-clean; E2E suite largely stale.
+**Status:** Core complete. Listen mode Phase 1 (audio-only streaming, 1.5×, resume,
+lock-screen controls) built; real-phone check pending. Unit suite green (247), `tsc`
+clean, Listen E2E green on the Pixel profile; the older E2E suite is largely stale.

@@ -12,6 +12,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/lib/hooks/useToast';
 import { useTouchGestures } from '@/lib/hooks/useTouchGestures';
 
+/** Pinned: an unversioned CDN URL let the player change under us. Bump deliberately. */
+export const VIDSTACK_CDN = 'https://cdn.jsdelivr.net/npm/vidstack@0.6.15';
+
 // TypeScript declarations for Vidstack custom elements
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -41,6 +44,12 @@ interface VidstackPlayerProps {
   title?: string;
   /** Artist/Channel name for Media Session API */
   artist?: string;
+  /** Seek here once metadata loads (Listen → Watch handoff, resume). */
+  startTime?: number;
+  /** 1 or 1.5; re-applied on every play. */
+  playbackRate?: number;
+  /** Called on the inner video's timeupdate. */
+  onTimeUpdate?: (currentTime: number, duration: number, paused: boolean) => void;
 }
 
 export function VidstackPlayer({
@@ -53,6 +62,9 @@ export function VidstackPlayer({
   storageKey,
   title,
   artist = 'PayMoneyWubby',
+  startTime = 0,
+  playbackRate = 1,
+  onTimeUpdate,
 }: VidstackPlayerProps) {
   logger.log('VidstackPlayer render:', {
     hasVideoUrl: !!videoUrl,
@@ -77,6 +89,60 @@ export function VidstackPlayer({
     enableFullscreen: true,
     mobileOnly: true,
   });
+
+  const startTimeRef = useRef(startTime);
+  const rateRef = useRef(playbackRate);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
+
+  // Reach the <video> Vidstack creates inside <media-player>: start time, rate, time reporting.
+  useEffect(() => {
+    if (!videoUrl) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    let attempts = 0;
+    const timer = setInterval(() => {
+      const video = containerRef.current?.querySelector('video');
+      if (!video) {
+        if (++attempts > 100) clearInterval(timer); // give up after ~10 s
+        return;
+      }
+      clearInterval(timer);
+      video.playbackRate = rateRef.current;
+      video.addEventListener('play', () => {
+        if (video.playbackRate !== rateRef.current) video.playbackRate = rateRef.current;
+      }, { signal });
+      video.addEventListener('timeupdate', () => onTimeUpdateRef.current?.(video.currentTime, video.duration, video.paused), { signal });
+      const start = startTimeRef.current;
+      if (start > 0) {
+        // Vidstack applies its own pending start time (~0.1 s) to the <video> just after can-play,
+        // overwriting a raw `video.currentTime` seek (measured 2026-11-08: our 3597 → 0.1 five ms
+        // later). Setting it through <media-player> updates Vidstack's state, so it sticks.
+        // `once`, so a later deliberate seek by the user is never yanked back.
+        const player = containerRef.current?.querySelector('media-player') as (HTMLElement & { currentTime: number }) | null;
+        const seek = () => {
+          if (Math.abs(video.currentTime - start) <= 2) return;
+          if (player && 'currentTime' in player) player.currentTime = start;
+          else video.currentTime = start;
+        };
+        if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) seek();
+        else if (player) player.addEventListener('can-play', seek, { once: true, signal });
+        else video.addEventListener('canplay', seek, { once: true, signal });
+      }
+    }, 100);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [videoUrl]);
+
+  useEffect(() => {
+    rateRef.current = playbackRate;
+    const video = containerRef.current?.querySelector('video');
+    if (video) video.playbackRate = playbackRate;
+  }, [playbackRate]);
 
   useEffect(() => {
     logger.group('🎬 VidstackPlayer Initialization');
@@ -463,15 +529,15 @@ export function VidstackPlayer({
     logger.log('📦 Loading Vidstack assets from CDN');
 
     // Check if already loaded
-    const existingDefaultsCSS = document.querySelector('link[href*="vidstack/styles/defaults.css"]');
-    const existingSkinCSS = document.querySelector('link[href*="vidstack/styles/community-skin/video.css"]');
-    const existingScript = document.querySelector('script[src*="vidstack/dist/cdn/prod.js"]');
+    const existingDefaultsCSS = document.querySelector(`link[href="${VIDSTACK_CDN}/styles/defaults.css"]`);
+    const existingSkinCSS = document.querySelector(`link[href="${VIDSTACK_CDN}/styles/community-skin/video.css"]`);
+    const existingScript = document.querySelector(`script[src="${VIDSTACK_CDN}/dist/cdn/prod.js"]`);
 
     // Load CSS - defaults
     if (!existingDefaultsCSS) {
       const defaultsLink = document.createElement('link');
       defaultsLink.rel = 'stylesheet';
-      defaultsLink.href = 'https://cdn.jsdelivr.net/npm/vidstack/styles/defaults.css';
+      defaultsLink.href = `${VIDSTACK_CDN}/styles/defaults.css`;
       document.head.appendChild(defaultsLink);
       logger.log('✅ Loaded Vidstack defaults.css');
     }
@@ -480,7 +546,7 @@ export function VidstackPlayer({
     if (!existingSkinCSS) {
       const skinLink = document.createElement('link');
       skinLink.rel = 'stylesheet';
-      skinLink.href = 'https://cdn.jsdelivr.net/npm/vidstack/styles/community-skin/video.css';
+      skinLink.href = `${VIDSTACK_CDN}/styles/community-skin/video.css`;
       document.head.appendChild(skinLink);
       logger.log('✅ Loaded Vidstack community-skin CSS');
     }
@@ -489,7 +555,7 @@ export function VidstackPlayer({
     if (!existingScript) {
       const script = document.createElement('script');
       script.type = 'module';
-      script.src = 'https://cdn.jsdelivr.net/npm/vidstack/dist/cdn/prod.js';
+      script.src = `${VIDSTACK_CDN}/dist/cdn/prod.js`;
       script.onload = () => {
         logger.log('✅ Vidstack JS loaded from CDN');
       };

@@ -16,7 +16,10 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "test:all": "vitest run && playwright test"
+    "test:all": "vitest run && playwright test",
+    "test:e2e:mobile": "playwright test --project=pixel",
+    "fixtures:listen": "node scripts/make-listen-fixtures.mjs",
+    "measure:archive": "node scripts/measure-archive-throughput.mjs"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -53,6 +56,7 @@
     "@vitejs/plugin-react": "^5.1.0",
     "eslint": "^9",
     "eslint-config-next": "^16.4.5",
+    "fake-indexeddb": "^6.2.7",
     "jsdom": "^27.1.0",
     "shadcn": "^3.5.0",
     "tailwindcss": "^4",

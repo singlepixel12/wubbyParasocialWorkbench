@@ -1,152 +1,154 @@
 'use client';
 
 /**
- * VideoDetailView Component
- * Full detail view showing complete AI summary, all tags, and metadata
- * This is the "read later" payoff from the scannable browse cards
- * Part of Two-Tier UX: Scan first (VideoCard) → Read later (VideoDetailView)
+ * VideoDetailView — /watch. Video by default; Listen swaps the player for an audio-only card
+ * that streams just the AAC runs (see lib/listen). Back navigation lives in the sticky Header.
  */
 
-import { Tag, Calendar, FileText, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { Tag, Calendar, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Video } from '@/types/video';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { VidstackPlayer } from '@/components/video/VidstackPlayer';
+import { AudioCard } from '@/components/listen/AudioCard';
+import { ListenButton } from '@/components/listen/ListenButton';
+import { SpeedToggle } from '@/components/listen/SpeedToggle';
+import { ListenEngine } from '@/lib/listen/listen-engine';
+import { formatClock, isFinished, readPosition, readRate, resumeTime, writePosition, writeRate } from '@/lib/listen/positions';
+import { useSavedPosition } from '@/lib/listen/useSavedPosition';
+import type { PlaybackRate } from '@/lib/listen/types';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
 import { SUPABASE_URL } from '@/lib/constants';
-import { motion } from 'framer-motion';
 
 interface VideoDetailViewProps {
   video: Video;
 }
 
+const videoVariants = { initial: { opacity: 0, scale: 0.98 }, animate: { opacity: 1, scale: 1, transition: { duration: 0.3 } } };
+const metadataVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0, transition: { delay: 0.15, duration: 0.3 } } };
+
 export function VideoDetailView({ video }: VideoDetailViewProps) {
+  const hash = video.videoHash;
   const formattedDate = video.date ? formatDateDisplay(new Date(video.date)) : '';
   const originalTitle = extractOriginalTitle(video.url);
+  const subtitleUrl = hash ? `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${hash}/en/subtitle.vtt` : undefined;
 
-  // The row's stored hash is the same SHA-256 of the URL — no need to recompute it
-  const subtitleUrl = video.videoHash
-    ? `${SUPABASE_URL}/storage/v1/object/public/wubbytranscript/${video.videoHash}/en/subtitle.vtt`
-    : undefined;
+  const [rate, setRate] = useState<PlaybackRate>(() => readRate());
+  const [engine, setEngine] = useState<ListenEngine | null>(null);
+  const [videoStart, setVideoStart] = useState(() => (hash ? resumeTime(readPosition(hash)) : 0));
+  const videoTime = useRef({ t: 0, d: 0 });
+  const lastVideoSave = useRef(0);
+  const saved = useSavedPosition(hash);
 
-  // Animation variants
-  const videoVariants = {
-    initial: { opacity: 0, scale: 0.98 },
-    animate: {
-      opacity: 1,
-      scale: 1,
-      transition: { duration: 0.3 }
+  // Disposing on change/unmount stops all audio fetching when leaving Listen or the page.
+  useEffect(() => () => engine?.dispose(), [engine]);
+
+  const changeRate = (next: PlaybackRate) => {
+    setRate(next);
+    writeRate(next);
+  };
+
+  const onVideoTime = (t: number, d: number, paused: boolean) => {
+    // A paused video sitting at its initial ~0.1 s is not "where you got to": only trust the
+    // video's time once it has actually played, or been moved past the first few seconds.
+    if (paused && t < 5) return;
+    videoTime.current = { t, d };
+    const now = Date.now();
+    if (hash && now - lastVideoSave.current >= 5000) {
+      lastVideoSave.current = now;
+      writePosition(hash, t, d);
     }
   };
 
-  const metadataVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: {
-      opacity: 1,
-      y: 0,
-      transition: { delay: 0.15, duration: 0.3 }
-    }
+  const startListening = () => {
+    if (!hash) return;
+    const fromVideo = videoTime.current.t;
+    if (fromVideo > 0) writePosition(hash, fromVideo, videoTime.current.d);
+    const e = new ListenEngine({
+      url: video.url,
+      hash,
+      title: video.title,
+      artworkUrl: video.thumbnailUrl,
+      startAt: fromVideo > 0 ? fromVideo : resumeTime(readPosition(hash)),
+      rate,
+    });
+    e.play(); // inside the tap, so Chrome allows audio
+    void e.start();
+    setEngine(e);
   };
+
+  const backToWatch = (atSec: number) => {
+    videoTime.current = { t: 0, d: 0 };
+    setVideoStart(atSec);
+    setEngine(null);
+  };
+
+  const resumeLabel = saved && !isFinished(saved) ? formatClock(saved.t) : undefined;
 
   return (
-    <div className="space-y-4 md:space-y-6 px-0 md:px-4 py-4 md:py-6">
-      {/* Back to VOD Diary */}
-      <div className="px-2 md:px-0">
-        <Link href="/">
-          <Button variant="ghost" size="sm" className="text-ink-muted hover:text-foreground">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to VOD Diary
-          </Button>
-        </Link>
-      </div>
-
-      {/* Video Player - full width on mobile */}
-      <motion.div
-        className="w-full"
-        variants={videoVariants}
-        initial="initial"
-        animate="animate"
-      >
-        <VidstackPlayer
-          videoUrl={video.url}
-          subtitleUrl={subtitleUrl}
-          poster={video.thumbnailUrl}
-        />
+    <div className="space-y-4 px-0 py-4 md:space-y-6 md:px-4 md:py-6">
+      <motion.div className="w-full" variants={videoVariants} initial="initial" animate="animate">
+        {engine && hash ? (
+          <AudioCard engine={engine} hash={hash} thumbnailUrl={video.thumbnailUrl} onWatch={backToWatch} onRateChange={changeRate} />
+        ) : (
+          <VidstackPlayer
+            videoUrl={video.url}
+            subtitleUrl={subtitleUrl}
+            poster={video.thumbnailUrl}
+            title={video.title}
+            startTime={videoStart}
+            playbackRate={rate}
+            onTimeUpdate={onVideoTime}
+          />
+        )}
       </motion.div>
 
-      {/* Header Section - with padding on mobile */}
-      <motion.div
-        className="space-y-3 px-2 md:px-0"
-        variants={metadataVariants}
-        initial="initial"
-        animate="animate"
-      >
-        {/* Titles */}
-        <div className="space-y-2">
-          {/* AI Title — Fraunces display */}
-          <h1 className="font-display text-2xl md:text-3xl leading-tight text-foreground">
-            {video.title}
-          </h1>
+      {!engine && hash && (
+        <div className="space-y-2 px-2 md:px-0">
+          <ListenButton onClick={startListening} resumeLabel={resumeLabel} />
+          <SpeedToggle rate={rate} onChange={changeRate} className="w-full" />
+          <p className="font-mono text-xs text-ink-muted">Listen streams audio only · about 73 MB per hour</p>
+        </div>
+      )}
 
-          {/* Original filename */}
+      <motion.div className="space-y-3 px-2 md:px-0" variants={metadataVariants} initial="initial" animate="animate">
+        <div className="space-y-2">
+          <h1 className="font-display text-2xl leading-tight text-foreground md:text-3xl">{video.title}</h1>
           {originalTitle && (
             <div className="flex items-center gap-2 text-sm text-ink-muted">
-              <FileText className="w-4 h-4" />
+              <FileText className="h-4 w-4" />
               <span className="font-mono">{originalTitle}</span>
             </div>
           )}
         </div>
-
-        {/* Metadata Row */}
         <div className="flex flex-wrap items-center gap-4 text-sm text-ink-muted">
           {formattedDate && (
             <div className="flex items-center gap-1.5">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="h-4 w-4" />
               <span>{formattedDate}</span>
             </div>
           )}
         </div>
       </motion.div>
 
-      {/* Separator */}
-      <div className="h-px bg-rule mx-2 md:mx-0" />
+      <div className="mx-2 h-px bg-rule md:mx-0" />
 
-      {/* 🎯 FULL SUMMARY (The Payoff!) — minimal accent bar, no box */}
-      <motion.div
-        className="px-2 md:px-0"
-        variants={metadataVariants}
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div className="px-2 md:px-0" variants={metadataVariants} initial="initial" animate="animate">
         <div className="border-l-2 border-accent-green/50 pl-4 md:pl-5">
-          <p className="text-foreground/80 leading-relaxed whitespace-pre-line">
-            {video.summary || 'No summary available for this video.'}
-          </p>
+          <p className="whitespace-pre-line leading-relaxed text-foreground/80">{video.summary || 'No summary available for this video.'}</p>
         </div>
       </motion.div>
 
-      {/* Tags Section */}
       {video.tags && video.tags.length > 0 && (
-        <motion.div
-          className="space-y-3 px-2 md:px-0"
-          variants={metadataVariants}
-          initial="initial"
-          animate="animate"
-        >
-          <h3 className="font-mono text-[0.65rem] font-medium text-ink-muted uppercase tracking-[0.25em]">
-            Topics &amp; Tags
-          </h3>
+        <motion.div className="space-y-3 px-2 md:px-0" variants={metadataVariants} initial="initial" animate="animate">
+          <h3 className="font-mono text-[0.65rem] font-medium uppercase tracking-[0.25em] text-ink-muted">Topics &amp; Tags</h3>
           <div className="flex flex-wrap gap-2">
             {video.tags
               .filter((tag) => tag !== video.platform)
               .map((tag, index) => (
-                <Badge
-                  key={index}
-                  variant="tag"
-                  className="cursor-default transition-colors hover:border-accent-green hover:bg-accent-green hover:text-white"
-                >
-                  <Tag className="w-3 h-3 mr-1" />
+                <Badge key={index} variant="tag" className="cursor-default transition-colors hover:border-accent-green hover:bg-accent-green hover:text-white">
+                  <Tag className="mr-1 h-3 w-3" />
                   {tag}
                 </Badge>
               ))}
