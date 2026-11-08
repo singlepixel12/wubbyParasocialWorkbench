@@ -351,9 +351,18 @@ phone-network failures from a seeded random generator, so runs are reproducible:
 | Background download | ❌ paused at 93%, "connection lost" | not run |
 | Watch page data (Supabase) | ❌ one dropped request → "Video Not Found" | not run |
 
-**Why downloads stop:** Chrome's Background Fetch does not retry a failed request. It finishes
-the others, then fails the whole fetch, and our worker saves what completed. That part works, but
-nothing resumes it.
+**Why downloads stop** (corrected after tracing Chrome's registration counters):
+- **Chrome does retry inside a round.** Through resets, 503s and stalls its counter kept rising,
+  with ~30 s waits of its own.
+- **It eventually gives up the round.** It failed at 82%, and our worker saved what completed.
+  That part works, but nothing resumed it.
+- **A total outage doesn't fail it quickly.** Chrome held the round and carried on afterwards.
+
+**Also found and fixed:**
+- **Progress display:** the Download button showed 0% for a whole download. The registration
+  didn't exist yet when the button first looked, and `progress` events proved unreliable. It now
+  polls.
+- **Stalled Listen:** Listen in "stalled" waited for a Retry tap, which a locked phone can't do.
 
 ### Changes
 
@@ -378,7 +387,12 @@ nothing resumes it.
      when the browser comes back `online`.
    - **Each round only fetches what's missing**, so it converges: ~93% of the remainder per
      round under `flaky`.
-4. **A permanent chaos E2E suite (`tests/chaos.spec.ts`):**
+4. **Listen recovers by itself.**
+   - **From "stalled"** (range-fetch out of attempts, or 30 s starved) it retries every 15 s,
+     and immediately on `online`.
+   - **This includes the audio index load,** whose tiny requests get 8 attempts instead of 5.
+   - **Retry is still there** for an immediate attempt.
+5. **A permanent chaos E2E suite (`tests/chaos.spec.ts`):**
    - Listen under `flaky` and `brutal`, with seeks;
    - a cold index load under `brutal`;
    - watch page and diary while the API drops requests;
