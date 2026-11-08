@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { SpeedToggle } from '@/components/listen/SpeedToggle';
 import type { ListenEngine, ListenSnapshot } from '@/lib/listen/listen-engine';
 import { formatClock, writePosition } from '@/lib/listen/positions';
+import { autoDeleteIfFinished } from '@/lib/listen/downloads';
+import { touchListened } from '@/lib/listen/offline-store';
 import type { PlaybackRate } from '@/lib/listen/types';
 
 const mb = (bytes: number) => (bytes / 1e6).toFixed(1);
@@ -16,6 +18,7 @@ function statusLine(s: ListenSnapshot): string {
   if (s.phase === 'stalled') return "Can't reach the archive.";
   if (s.reconnecting) return 'Reconnecting…';
   if (s.waiting) return 'Buffering…';
+  if (s.storedRuns > 0 && s.bytesFetched === 0) return 'Playing from your phone · 0 MB used';
   return `Streaming · ${mb(s.bytesFetched)} MB used`;
 }
 
@@ -38,6 +41,8 @@ export function AudioCard({ engine, hash, thumbnailUrl, onWatch, onRateChange }:
     const save = () => {
       const snap = engine.getSnapshot();
       writePosition(hash, snap.currentTime, snap.duration);
+      void touchListened(hash).catch(() => undefined);
+      void autoDeleteIfFinished(hash).catch(() => undefined);
     };
     const unsubscribe = engine.subscribe(() => {
       const now = Date.now();
