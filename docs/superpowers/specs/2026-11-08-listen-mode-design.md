@@ -21,9 +21,11 @@ Measured on `nov_2026/6_no-title_1794002258_000.mp4` (2026-11-08):
 | Audio chunks | 5,340 chunks, avg 78.8 KB (~4 s each), 430.8 MB total | ~1 range request per 4 s of audio |
 | Gap between audio chunks | ~4.8 MB of video (p10–p90: 4.7–5.0 MB) | Chunks can't be merged; each is its own request |
 | Server | Cloudflare, `Accept-Ranges: bytes`, `Access-Control-Allow-Origin: *`, `alt-svc: h3` | Cross-origin range fetches work from the site (verified 120/120 from `github.io`) |
+| CORS-visible response headers | Only `cache-control`, `content-length`, `content-type`, `last-modified` | `Content-Range` and `ETag` are **unreadable** from the page; validate with status + `Content-Length`, pin the version with `Last-Modified` |
+| `If-Range` request header | Blocked: it triggers a preflight the server doesn't answer with CORS headers | Can't pin by `If-Range`; detect a changed file by `Last-Modified` instead |
 | Multi-range (`bytes=a-b,c-d`) | **416** | One request per chunk |
 | Latency | TTFB ~1.3–1.9 s per uncached range; ~1.4 MB/s once flowing | Throughput comes from concurrency, not request size |
-| Caching | `Cache-Control: max-age=86400`, stable `ETag` | The ETag identifies the file version |
+| Caching | `Cache-Control: max-age=86400`, `Last-Modified` | `Last-Modified` identifies the file version |
 
 No server-side change, no new storage. Everything happens on the phone.
 
@@ -41,9 +43,9 @@ Each phase is shippable on its own and gets its own implementation plan and PR.
 
 ### Watch page (all phases)
 
-- **Slim sticky top bar:** back arrow + truncated title (+ existing menu). Replaces the
-  "Back to VOD Diary" button that currently sits above the video
-  (`VideoDetailView.tsx:52-60`).
+- **Back arrow in the existing sticky header:** on `/watch`, the header (already sticky) shows a
+  back arrow before the wordmark. This replaces the "Back to VOD Diary" button that currently
+  sits above the video (`VideoDetailView.tsx:52-60`), with no second bar taking vertical space.
 - Video player (unchanged Vidstack).
 - **Listen:** a full-width primary button directly under the video, with a minimum height of
   56px.
@@ -103,11 +105,11 @@ Each unit has one job and can be tested without the others.
 
 | Unit | Job | Depends on |
 |---|---|---|
-| `range-fetch.ts` | **The only code that touches HTTP for audio.** `fetchRange(url, start, end, {signal, etag})`: per-attempt timeout, retries, response validation (see Failure handling). | `fetch` |
-| `mp4-index.ts` | Find `moov` via small reads of top-level box headers. Fetch `moov`, parse the audio track (codec config + sample table), and produce an **AudioIndex**: `{etag, durationSec, codec, audioSpecificConfig, chunks: [{offset, size, firstSample, startSec, durSec}], samples: [{size, durTicks}]}` (compact typed arrays). Handles `moov` at the start or the end, and `stco` or `co64`. | `range-fetch`, MP4 library |
-| `index-cache.ts` | Persist the AudioIndex in IndexedDB keyed by `videoHash`, validated by `etag`. ~100 KB per VOD, so the 23.6 MB `moov` is fetched once per VOD per phone. | IndexedDB |
+| `range-fetch.ts` | **The only code that touches HTTP for audio.** `fetchRange(url, start, end, {signal, expectedLastModified})`: per-attempt timeout, retries, response validation (see Failure handling). | `fetch` |
+| `mp4-index.ts` | Find `moov` via small reads of top-level box headers. Fetch `moov`, parse the audio track (codec config + sample table), and produce an **AudioIndex**: `lastModified`, timescale, duration, codec, AudioSpecificConfig, 16-bit sample sizes, `stts` runs, and *runs* (maximal byte-contiguous sample groups: first sample, count, offset, size, start tick) as typed arrays. Handles `moov` at the start or the end, and `stco` or `co64`. | `range-fetch`, MP4 library |
+| `index-cache.ts` | Persist the AudioIndex in IndexedDB keyed by `videoHash`. About 2 MB per VOD, dominated by 997k 16-bit sample sizes, and pruned to the 10 most recent VODs. So the 23.6 MB `moov` is fetched once per VOD per phone. A `file-changed` error deletes the entry. | IndexedDB |
 | `fmp4.ts` | Build a fragmented MP4 init segment (audio track only) and media segments (`moof`+`mdat`) from raw AAC samples. **No re-encoding.** Pure function: bytes in, bytes out. | MP4 library or hand-written |
-| `chunk-source.ts` | `getChunks(range)` returns sample bytes, from the offline store (Phase 2) or the network via `range-fetch`, with bounded concurrency (default 6, tunable). | `range-fetch`, `offline-store` |
+| `chunk-source.ts` (P2) | `getChunks(range)` returns sample bytes, from the offline store or the network via `range-fetch`. Phase 1 has no offline store, so the engine calls `range-fetch` directly with bounded concurrency (default 6); this seam is introduced with Phase 2. | `range-fetch`, `offline-store` |
 | `listen-engine.ts` | Owns one `<audio>` + `MediaSource`. Buffer-ahead target 180 s with a low-water mark of 60 s, eviction behind the playhead, seek handling, play/pause/rate, status events. A seek starts a new **generation**: in-flight work for older generations is aborted and its results are dropped. | `fmp4`, `chunk-source` |
 | `media-session.ts` | Metadata (title, artwork = thumbnail), handlers for play/pause/seekbackward/seekforward (30 s)/seekto, and `setPositionState({duration, position, playbackRate})` on every rate change, seek and play. | `navigator.mediaSession` |
 | `positions.ts` | Per-VOD position + global speed in `localStorage`. Throttled writes, read for diary markers. | `localStorage` |
@@ -125,7 +127,19 @@ instead of the network, so there is one playback path, not two.
 the video is paused and its source removed (`removeAttribute('src'); load()`) so it stops
 fetching. The reverse sets the video's `currentTime` and disposes the engine.
 
-### Library choice (first task of Phase 1)
+### Library choice: decided 2026-11-08, hand-written
+
+A prototype of the hand-written `moov` parser and fMP4 writer was run before planning:
+- **Correctness:** it matched `ffprobe` sample offsets, sizes and durations exactly on moov-at-end
+  and faststart fixtures.
+- **Playback:** its output played through MSE in Playwright Chromium and real Chrome, as one
+  buffered range, at 1.5×, and with seeking.
+- **Speed:** it parsed the real 23.6 MB `moov` in 67 ms.
+
+It meets criterion 1 by construction, so no library is added. The criteria below are kept as the
+record of why.
+
+#### Original criteria
 
 A short timeboxed spike decides between **`mediabunny`**, **`mp4box.js`** and a small
 **hand-written** `moov` parser + fMP4 writer. Selection criteria, in order:
@@ -150,22 +164,28 @@ failed runs are designed in, not bolted on.
 
 ### Every range request (`range-fetch`)
 
-- **Timeout per attempt:** 15 s (TTFB is ~1.5 s, so 10× headroom), via an `AbortController`
+- **Idle timeout per attempt:** 15 s with no bytes (TTFB is ~1.5 s, so 10× headroom), via an `AbortController`
   chained to the caller's signal. A caller abort is **not** retried and **not** reported as
   an error.
 - **Retries:** up to 5 attempts, exponential backoff 1 s → 16 s with ±30% jitter.
-  - **Retriable:** network `TypeError`, timeout, 408, 429 (honour `Retry-After`), 5xx.
-  - **Fatal:** 404/410 (VOD gone), 416, a CORS failure on the *first* request, or a malformed
-    response.
-- **Validation before reading the body:** the status must be **206**, `Content-Range` must
-  match the requested start and end, and the total must equal the indexed file size.
+  - **Retriable:** network `TypeError` (which also covers CORS failures, because browsers make
+    the two indistinguishable), idle timeout, 408, 429, 5xx, and wrong or short body length.
+    `Retry-After` is not CORS-readable, so 429 uses the normal backoff.
+  - **Fatal:** 404/410 (VOD gone), 416, other 4xx, and a 200 instead of a 206.
+  - **Exhausted:** after the last retry, the error is `exhausted`, which the UI shows as
+    **Retry**, not as a dead end.
+- **Validation before reading the body:** the status must be **206** and `Content-Length` must
+  equal the requested length. `Content-Range` isn't CORS-readable.
   - **A 200 means the server ignored the range and is about to send 27 GB**: abort at once
     and treat it as fatal (`FileChangedOrRangeUnsupported`).
   - After reading, the body length must equal the requested length; a short read is
     retriable.
-- **Version pinning:** each request sends `If-Range: <etag from the index>`. If the file
-  changed, the server answers 200, which the rule above catches. The cached index is then
-  invalidated and Listen rebuilds it once.
+- **Version pinning:** each response's `Last-Modified` must equal the one recorded when the
+  index was built. A mismatch is fatal `file-changed`: the body is cancelled, the cached index
+  is deleted, and the card says to reopen Listen. (`If-Range` would be better, but it triggers
+  a CORS preflight the server rejects.)
+- **Idle timeout, not total timeout:** the 15 s timer resets on every body chunk, so a 1 MB
+  piece on a slow connection isn't killed while bytes are still arriving.
 - **Offline:** when `navigator.onLine === false`, don't burn retries. Park the request and
   resume on the `online` event or a `navigator.connection` `change` event.
 
@@ -182,8 +202,8 @@ failed runs are designed in, not bolted on.
 - **`QuotaExceededError` on append:** evict everything more than 30 s behind the playhead and
   retry once. If it fails again, lower the buffer-ahead target and log it.
 - **Fatal errors** (VOD gone, non-AAC audio, no audio track, `moov` unparseable): a plain
-  message on the audio card and the Watch button still works. A toast goes through the
-  existing `useToast`.
+  message in the audio card's live status region, with Retry, and the Watch button still
+  works. There's no extra toast; the card is where you're already looking.
 - **Cleanup:** on unmount, route change or switching to Watch, abort all fetches, call
   `MediaSource.endOfStream`/detach, revoke the object URL, clear Media Session handlers and
   release the Wake Lock. No orphaned network activity after leaving the page.
@@ -203,7 +223,7 @@ failed runs are designed in, not bolted on.
   doesn't evict.
 - **Startup reconciliation** (each app load, cheap): `.part` files with no manifest are
   deleted. Manifests whose file is missing are reset. `downloading` entries with no live job
-  become `paused`. Entries for VODs whose ETag changed are marked stale and offered for
+  become `paused`. Entries whose VOD's `Last-Modified` changed are marked stale and offered for
   deletion.
 - **Screen Wake Lock** is held while a download runs and released on finish, failure or
   pause, because Android throttles background tabs.
