@@ -409,6 +409,87 @@ phone-network failures from a seeded random generator, so runs are reproducible:
 - **Fail visibly:** the retries must not hide a permanent failure. After the limits, the UI says
   what happened and offers Retry or Resume.
 
+## Phase 3b: installable offline app (2026-11-09)
+
+**Goal:** airplane mode → open the app from the home screen → the diary shows the VODs saved on
+the phone → Listen plays. Approved by Lee 2026-11-09, with the offline diary showing **only saved
+VODs** (no cached diary pages, no API cache).
+
+### Why it doesn't work today
+
+- The worker has no `fetch` handler, so with no signal the site itself doesn't load.
+- `/watch` and the diary read every VOD from Supabase. A download manifest keeps only the title,
+  URL and thumbnail URL, and `supabaseFetch` *waits* for `online` when offline, so both pages
+  would sit on "Loading" forever.
+
+### App shell (`lib/offline/`, worker)
+
+- **Precache the whole static export** (1.9 MB, ~70 files). `postbuild` runs
+  `build-sw.mjs --shell out`: it lists `out/`, hashes the contents into a version, and bundles
+  `out/sw.js` with that list. `public/sw.js` (dev) gets an empty list, and an empty list means
+  **no `fetch` handler at all**, so dev and HMR are untouched.
+- **Install** fetches every shell file with `cache: 'reload'` into `shell-<version>` and requires
+  a `200`; anything else fails the install and the old worker stays in charge.
+- **Activate** keeps the current and the previous shell cache, and deletes older ones. GitHub
+  Pages removes old chunks on every deploy, so a tab still open on the old version needs them.
+- **Rules (pure, unit-tested `planFetch`):**
+  - not a GET, or any `Range` header → not handled (the browser does it);
+  - `archive.wubby.tv` and Supabase REST → not handled;
+  - a VOD thumbnail (Supabase storage `…/thumbnail.webp`) → the `thumbs` cache first, else the
+    network (not cached: only downloads cache thumbnails);
+  - a page navigation, or a shell `.html`/`.txt` → network first with a **3 s** timeout, then the
+    cached page (`/watch?id=…` → `watch.html`; unknown paths → `404.html`);
+  - `_next/static/**` and other shell files → cache first, then network;
+  - **nothing with a status other than 200 is ever stored or served from a cache** (no `206`).
+- The page registers the worker on every load (it was only registered on Download).
+
+### Saved VOD details
+
+- `DownloadManifest.video?: Video`, a snapshot of the row, stored when a download starts or
+  resumes. No IndexedDB version bump (it's a field on an existing record).
+- The thumbnail goes into the `thumbs` Cache (CORS fetch first; if that fails, an opaque one).
+  Deleting a download deletes it.
+- **Backfill:** on app load while online, manifests without `video` fetch their row once. Opening
+  a saved VOD's `/watch` online refreshes its snapshot.
+
+### Offline screens
+
+- **`/watch`:** a saved snapshot renders at once, before the API answers; the API still runs and
+  only refreshes the stored snapshot (it never swaps the displayed video). Offline with no
+  snapshot → "You're offline · this VOD isn't saved on your phone" with Retry, not "Loading".
+- **Diary:** when the browser is offline, or the load failed with a network error, the list is
+  replaced by **"You're offline · saved on your phone"**: the downloads as ordinary cards (from
+  their snapshots). Back online, the live diary returns by itself.
+
+### Installing
+
+- `app/manifest.ts` (static): name "The Wubby Archive", short name "Wubby Archive", `display:
+  standalone`, start URL and scope under the basePath, theme/background `#0e0d0b`, icons
+  192/512 and a maskable 512 (italic green "W" on near-black, in `public/icons/`).
+- **"Install app"** in the hamburger menu, shown only when Chrome fires `beforeinstallprompt`.
+- **Inside the installed app** (`display-mode: standalone`) a card opens `/watch` in the same
+  window instead of a new tab.
+
+### Hard constraints
+
+- **Never cache or serve a `206`, and never touch a `Range` request** (the Next 16.0.7 blank-tab
+  incident).
+- **Never intercept the archive:** offline audio comes from IndexedDB, as in Phase 2.
+- **Online behaviour is unchanged:** fresh pages within 3 s, no stale diary data, no API cache.
+- **Background Fetch keeps working:** the worker's existing download handlers are untouched.
+- **A broken deploy can't strand the phone:** a failed precache leaves the old worker running.
+
+### Testing
+
+- Unit: `planFetch` rules (206, Range, archive, thumbnails, navigations), shell install/activate
+  against a fake Cache API, snapshot save/backfill, `/watch` and diary offline fallbacks.
+- E2E `tests/offline.spec.ts` on `pixel-chrome`: a **production build** served at the real
+  `/wubbyParasocialWorkbench/` path, download a fixture VOD, go offline, reload, open the saved
+  VOD from the offline diary, and Listen plays with zero network; plus the manifest is
+  installable.
+- **What it can't cover** (phone checklist rows 20–24): installing to the home screen, opening it
+  in airplane mode, the icon and splash, and picking up a new deploy.
+
 ## Out of scope
 
 - Re-encoding audio to a lower bitrate (the floor is the source's 162 kbps AAC, ~73 MB/h).
