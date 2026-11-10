@@ -384,6 +384,8 @@ describe('VodDiaryScreen — offline (Phase 3b)', () => {
     expect(await screen.findByText('Saved stream')).toBeInTheDocument();
     expect(screen.queryByText('Half saved')).toBeNull();
     expect(screen.getByText(/1 unfinished download needs signal/)).toBeInTheDocument();
+    // No date range or search offline: neither could load anything
+    expect(screen.queryByRole('button', { name: 'Open search' })).toBeNull();
     onLine.mockRestore();
     saved.manifests = [];
   });
@@ -403,6 +405,7 @@ describe('VodDiaryScreen — offline (Phase 3b)', () => {
     await act(async () => void window.dispatchEvent(new Event('online')));
     expect(await screen.findByText('Live stream')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Saved on your phone' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
     onLine.mockRestore();
     saved.manifests = [];
   });
