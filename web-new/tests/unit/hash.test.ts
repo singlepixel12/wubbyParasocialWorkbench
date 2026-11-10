@@ -70,15 +70,15 @@ describe('computeVideoHash', () => {
   });
 
   it('should throw error for invalid URL (null)', async () => {
-    await expect(computeVideoHash(null as any)).rejects.toThrow();
+    await expect(computeVideoHash(null as never)).rejects.toThrow();
   });
 
   it('should throw error for invalid URL (undefined)', async () => {
-    await expect(computeVideoHash(undefined as any)).rejects.toThrow();
+    await expect(computeVideoHash(undefined as never)).rejects.toThrow();
   });
 
   it('should throw error for non-string input', async () => {
-    await expect(computeVideoHash(123 as any)).rejects.toThrow('Invalid video URL');
+    await expect(computeVideoHash(123 as never)).rejects.toThrow('Invalid video URL');
   });
 
   it('should handle very long URLs', async () => {
@@ -158,15 +158,15 @@ describe('isValidHash', () => {
   });
 
   it('should return false for non-string input', () => {
-    expect(isValidHash(123 as any)).toBe(false);
+    expect(isValidHash(123 as never)).toBe(false);
   });
 
   it('should return false for null', () => {
-    expect(isValidHash(null as any)).toBe(false);
+    expect(isValidHash(null as never)).toBe(false);
   });
 
   it('should return false for undefined', () => {
-    expect(isValidHash(undefined as any)).toBe(false);
+    expect(isValidHash(undefined as never)).toBe(false);
   });
 
   it('should return false for hash with special characters', () => {

@@ -18,11 +18,11 @@ import { toast } from 'sonner';
 // Mock sonner
 vi.mock('sonner', () => ({
   toast: {
-    error: vi.fn((msg, opts) => 'toast-error-id'),
-    warning: vi.fn((msg, opts) => 'toast-warning-id'),
-    success: vi.fn((msg, opts) => 'toast-success-id'),
-    info: vi.fn((msg, opts) => 'toast-info-id'),
-    loading: vi.fn((msg, opts) => 'toast-loading-id'),
+    error: vi.fn(() => 'toast-error-id'),
+    warning: vi.fn(() => 'toast-warning-id'),
+    success: vi.fn(() => 'toast-success-id'),
+    info: vi.fn(() => 'toast-info-id'),
+    loading: vi.fn(() => 'toast-loading-id'),
     dismiss: vi.fn(),
   },
 }));
