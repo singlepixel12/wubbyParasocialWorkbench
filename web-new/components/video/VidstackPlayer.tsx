@@ -8,9 +8,10 @@
  */
 import { logger } from '@/lib/utils/logger';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useToast } from '@/lib/hooks/useToast';
 import { useTouchGestures } from '@/lib/hooks/useTouchGestures';
+import { addSubtitles } from '@/lib/video/subtitles';
 
 /** Pinned: an unversioned CDN URL let the player change under us. Bump deliberately. */
 export const VIDSTACK_CDN = 'https://cdn.jsdelivr.net/npm/vidstack@0.6.15';
@@ -38,8 +39,6 @@ interface VidstackPlayerProps {
   className?: string;
   onError?: (error: Error) => void;
   enableSubtitles?: boolean;
-  /** Storage key for Vidstack position tracking (usually video hash) */
-  storageKey?: string;
   /** Video title for Media Session API (lock screen controls) */
   title?: string;
   /** Artist/Channel name for Media Session API */
@@ -64,7 +63,6 @@ export function VidstackPlayer({
   className = 'video-player-box',
   onError,
   enableSubtitles = true,
-  storageKey,
   title,
   artist = 'PayMoneyWubby',
   startTime = 0,
@@ -76,17 +74,11 @@ export function VidstackPlayer({
     hasVideoUrl: !!videoUrl,
     hasSubtitleUrl: !!subtitleUrl,
     enableSubtitles,
-    hasStorageKey: !!storageKey,
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<HTMLElement | null>(null);
-  const { showError, showWarning } = useToast();
-
-  // Track watch time for 30-second threshold before enabling storage
-  const [hasWatched30Seconds, setHasWatched30Seconds] = useState(false);
-  const watchTimeRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
+  const { showError } = useToast();
 
   // Enable touch gestures for mobile (drag down = PiP, drag up = fullscreen)
   useTouchGestures(playerRef, {
@@ -239,34 +231,6 @@ export function VidstackPlayer({
     // Create media outlet
     const mediaOutlet = document.createElement('media-outlet');
 
-    // Add subtitle track if URL provided (track goes INSIDE media-outlet)
-    if (subtitleUrl && enableSubtitles) {
-      logger.log('Adding subtitle track:', subtitleUrl);
-
-      const trackEl = document.createElement('track');
-      trackEl.id = 'subtitle-track';
-      trackEl.src = subtitleUrl;
-      trackEl.kind = 'subtitles';
-      trackEl.srclang = 'en';
-      trackEl.label = 'English';
-      trackEl.setAttribute('default', '');
-
-      // Track load/error events
-      trackEl.addEventListener('load', () => {
-        logger.log('✅ Subtitle track loaded successfully');
-      });
-
-      trackEl.addEventListener('error', (e) => {
-        logger.error('❌ Subtitle track failed to load:', e);
-        showWarning('Subtitles may not be available for this video');
-      });
-
-      // IMPORTANT: Track must be INSIDE media-outlet, not before it!
-      mediaOutlet.appendChild(trackEl);
-    } else {
-      logger.log('No subtitles - creating player without tracks');
-    }
-
     // Create the community skin
     const skin = document.createElement('media-community-skin');
 
@@ -293,91 +257,24 @@ export function VidstackPlayer({
       checkVideoAndSetPoster();
     }
 
-    // Restore saved position after player is ready (do this AFTER subtitles are set up)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const playerElement = newPlayer as any;
-    const restoreSavedPosition = () => {
-      if (!storageKey) return;
 
-      try {
-        const saved = localStorage.getItem(`vds-${storageKey}`);
-        if (saved) {
-          const position = JSON.parse(saved);
-          const age = Date.now() - position.timestamp;
-
-          // Only restore if position was saved within last 60 days
-          if (age < 60 * 24 * 60 * 60 * 1000) {
-            logger.log(`🔄 Restoring position: ${Math.floor(position.currentTime)}s`);
-
-            // Wait for duration to be available (Vidstack uses state.duration, not duration directly)
-            const attemptRestore = () => {
-              const duration = playerElement.state?.duration || playerElement.duration;
-              if (duration && duration > 0) {
-                playerElement.currentTime = position.currentTime;
-                logger.log(`✅ Position restored to ${Math.floor(position.currentTime)}s`);
-              }
-            };
-
-            const duration = playerElement.state?.duration || playerElement.duration;
-            if (duration && duration > 0) {
-              attemptRestore();
-            } else {
-              playerElement.addEventListener('loaded-metadata', attemptRestore, { once: true });
-              playerElement.addEventListener('duration-change', attemptRestore, { once: true });
-            }
-          }
-        }
-      } catch (error) {
-        logger.warn('Failed to restore playback position', error);
-      }
-    };
-
-    // Enable subtitles when player is ready (use event listener instead of setTimeout)
+    // Subtitles: registered once playback loads (opening /watch still downloads nothing); Vidstack
+    // fetches and draws them (see lib/video/subtitles.ts for why not a <track>).
+    const subtitles = new AbortController();
+    let subtitleBlob: string | null = null;
     if (subtitleUrl && enableSubtitles) {
-      // Listen for the 'can-play' event which indicates player is ready
-      const enableSubtitlesOnReady = () => {
-        logger.log('🎬 Player ready, attempting to enable subtitles...');
-
-        if (playerElement.textTracks && playerElement.textTracks.length > 0) {
-          logger.log(`Found ${playerElement.textTracks.length} text tracks`);
-
-          for (let i = 0; i < playerElement.textTracks.length; i++) {
-            const track = playerElement.textTracks[i];
-            logger.log(`Track ${i}:`, {
-              language: track.language,
-              label: track.label,
-              mode: track.mode,
-              kind: track.kind
-            });
-
-            // Enable the English subtitle track
-            if (track.kind === 'subtitles' && (track.language === 'en' || track.label === 'English')) {
-              track.mode = 'showing';
-              logger.log(`✅ Enabled track ${i} (${track.label})`);
-            }
-          }
-        } else {
-          logger.warn('⚠️ No text tracks found on player');
-        }
-
-        // Restore position AFTER subtitles are enabled
-        restoreSavedPosition();
-      };
-
-      // Try multiple events to ensure we catch when the player is ready
-      playerElement.addEventListener('can-play', enableSubtitlesOnReady, { once: true });
-      playerElement.addEventListener('loaded-metadata', enableSubtitlesOnReady, { once: true });
-
-      // Fallback: also try after a delay in case events don't fire
-      setTimeout(() => {
-        if (playerElement.textTracks && playerElement.textTracks.length > 0) {
-          enableSubtitlesOnReady();
-        }
-      }, 2000);
-    } else {
-      // No subtitles, restore position directly when player is ready
-      playerElement.addEventListener('loaded-metadata', restoreSavedPosition, { once: true });
-      playerElement.addEventListener('can-play', restoreSavedPosition, { once: true });
+      newPlayer.addEventListener('can-play', () => {
+        addSubtitles(newPlayer, subtitleUrl, subtitles.signal)
+          .then((blobUrl) => {
+            subtitleBlob = blobUrl;
+            logger.log(blobUrl ? '✅ Subtitles added' : 'No subtitles for this VOD');
+          })
+          .catch((err) => {
+            if (!subtitles.signal.aborted) logger.warn('Subtitles failed to load', err);
+          });
+      }, { once: true });
     }
 
     // Set up Media Session API for background playback and lock screen controls
@@ -446,6 +343,8 @@ export function VidstackPlayer({
     // Cleanup function
     return () => {
       logger.log('🧹 Cleaning up player');
+      subtitles.abort();
+      if (subtitleBlob) URL.revokeObjectURL(subtitleBlob);
       const player = containerRef.current?.querySelector('media-player');
       if (player) {
         player.remove();
@@ -453,105 +352,7 @@ export function VidstackPlayer({
       playerRef.current = null; // Clear ref
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoUrl, subtitleUrl, poster, className, enableSubtitles, showWarning]);
-
-  // Track watch time and enable manual position saving after 30 seconds
-  useEffect(() => {
-    if (!storageKey || !containerRef.current) {
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const player = containerRef.current.querySelector('media-player') as any;
-    if (!player) {
-      return;
-    }
-
-    logger.log('⏱️ Starting watch time tracking for storage (30s threshold)');
-
-    const savePosition = () => {
-      if (!player.currentTime || !hasWatched30Seconds) return;
-
-      const position = {
-        currentTime: player.currentTime,
-        duration: player.duration || 0,
-        timestamp: Date.now(),
-      };
-
-      try {
-        localStorage.setItem(`vds-${storageKey}`, JSON.stringify(position));
-        logger.debug(`💾 Saved position: ${Math.floor(position.currentTime)}s`);
-      } catch (error) {
-        logger.warn('Failed to save playback position', error);
-      }
-    };
-
-    const handleTimeUpdate = () => {
-      if (!player.currentTime) return;
-
-      // Track actual watch time (not just playback position)
-      const currentTime = player.currentTime;
-      const timeDiff = currentTime - lastTimeRef.current;
-
-      // Only count forward playback (prevent seeking backward from adding time)
-      if (timeDiff > 0 && timeDiff < 2) {
-        watchTimeRef.current += timeDiff;
-      }
-
-      lastTimeRef.current = currentTime;
-
-      // Check if 30 seconds watched (first time)
-      if (watchTimeRef.current >= 30 && !hasWatched30Seconds) {
-        logger.log(`✅ 30 seconds watched! Enabling position saving with key: vds-${storageKey}`);
-        setHasWatched30Seconds(true);
-      }
-
-      // Save position every 10 seconds after threshold crossed
-      if (hasWatched30Seconds && Math.floor(currentTime) % 10 === 0) {
-        savePosition();
-      }
-    };
-
-    const handlePlay = () => {
-      if (!lastTimeRef.current && player.currentTime) {
-        lastTimeRef.current = player.currentTime;
-      }
-    };
-
-    const handlePause = () => {
-      savePosition();
-    };
-
-    const handleSeeked = () => {
-      // Update lastTimeRef to current position after seeking
-      lastTimeRef.current = player.currentTime;
-    };
-
-    // Add event listeners
-    player.addEventListener('time-update', handleTimeUpdate);
-    player.addEventListener('play', handlePlay);
-    player.addEventListener('pause', handlePause);
-    player.addEventListener('seeked', handleSeeked);
-
-    // Note: Position restoration is handled in the player recreation effect (lines 162-242)
-    // after subtitle setup completes, to avoid conflicts with player recreation
-
-    return () => {
-      savePosition(); // Save one last time on cleanup
-      player.removeEventListener('time-update', handleTimeUpdate);
-      player.removeEventListener('play', handlePlay);
-      player.removeEventListener('pause', handlePause);
-      player.removeEventListener('seeked', handleSeeked);
-    };
-  }, [storageKey, hasWatched30Seconds]);
-
-  // Reset watch time tracking when video changes
-  useEffect(() => {
-    watchTimeRef.current = 0;
-    lastTimeRef.current = 0;
-    setHasWatched30Seconds(false);
-    logger.log('🔄 Reset watch time tracking for new video');
-  }, [videoUrl]);
+  }, [videoUrl, subtitleUrl, poster, className, enableSubtitles]);
 
   // Load Vidstack CSS and JS from CDN
   useEffect(() => {
