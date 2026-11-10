@@ -71,9 +71,14 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 
 ### 3. Video Player
 - Vidstack player with custom community skin; `/watch?id=HASH` is the only player route
-- Subtitle/transcript support (VTT files from Supabase)
+- **Subtitles** (`lib/video/subtitles.ts`): on `can-play` the `.vtt` is fetched with CORS and
+  handed to Vidstack's own `player.textTracks.add()` as a same-origin `blob:` URL; Vidstack draws
+  it in `<media-captions>` (CC button). Not a `<track>` in `<media-outlet>`: in 0.6.15 the
+  `<video>` renders inside Vidstack's `<shadow-root>` element, so that track never showed, and
+  Vidstack's native `<track>` mirror of a cross-origin URL is blocked without `crossorigin` on
+  the 27 GB video. Newer VODs often have no `.vtt` yet (storage answers 400): no CC, no error.
 - Position: `/watch` saves and resumes through `lib/listen/positions` (shared with Listen;
-  see below). Vidstack's own `storageKey`/`vds-` saving is unused.
+  see below). The old Vidstack `vds-` saving was deleted (2026-11-10).
 - Media Session API (lock screen controls, background playback)
 - Touch gestures (mobile only): drag up = fullscreen, drag down = PiP
 - **Start time:** set through `<media-player>`, never the raw `<video>`. Vidstack writes its
@@ -196,6 +201,7 @@ web-new/
 ├── lib/
 │   ├── api/
 │   │   └── supabase.ts           # API client (see API Functions)
+│   ├── video/subtitles.ts        # .vtt → Vidstack's track list as a blob: URL
 │   ├── offline/                  # Phase 3b: shell-rules (pure), shell-cache, thumbs, saved-vods, install-prompt
 │   ├── listen/                   # Listen mode — relative imports only (esbuild-bundled by scripts)
 │   │   ├── range-fetch.ts        # The ONLY audio HTTP: bounded ranges, retries, validation
@@ -216,7 +222,6 @@ web-new/
 │   │   ├── date-range.ts         # Whole-local-day ranges, query bounds, URL day params
 │   │   ├── video-helpers.ts      # Format/extract utilities (extractHook, etc.)
 │   │   ├── logger.ts             # Environment-aware logging
-│   │   └── storage-cleanup.ts    # Vidstack position cleanup
 │   └── constants.ts              # SUPABASE_URL, shared constants
 ├── types/
 │   ├── video.ts                  # Video / Platform interfaces ('twitch'|'kick'|'both'|'unknown')
@@ -397,18 +402,14 @@ Other design details:
    - **Done:** opening `/watch` downloads nothing. The player uses `load="custom"` and loads
      on the first tap or Enter/Space (or at once when Watch is pressed in Listen). It was
      ~31 MB per page open.
-   - **Dead code:** the old `vds-` position keys and `cleanupOldPlaybackPositions` are unused
-     now; delete them in a cleanup.
-   - **Subtitles:** the `.vtt` `<track>` is blocked as a cross-origin load ("Unsafe attempt to
-     load URL"), likely a missing `crossorigin` attribute.
 3. **Search can't find by tag or summary** — the server `or=` only matches title/URL; the
    client tag check can only narrow. Prerequisite for tag search (item 4).
-4. **Lint not clean** - `tsc` is clean as of 2026-11-08 and must stay so (Next ≥16.4's
-   `next build` type-checks test files too, so a test type error now breaks the deploy).
-   ESLint still reports 13 errors: 9 pre-existing `no-explicit-any`, plus 4 surfaced by
-   the 16.4 lint plugins — `react-hooks/set-state-in-effect` (`VidstackPlayer.tsx:455`,
-   `VodDiaryScreen.tsx:82`) and `react-hooks/immutability` (`useTouchGestures.ts:66,75`,
-   functions used before declaration). Lint doesn't gate the build.
+4. **Keep lint and `tsc` clean** - both at 0 errors as of 2026-11-10; keep them there (Next
+   ≥16.4's `next build` type-checks test files too, so a test type error breaks the deploy).
+   ESLint has 13 warnings left, all known: 9 unused vars in the stale E2E specs (item 1),
+   2 deliberate `exhaustive-deps` suppressions in `VidstackPlayer`, `<img>` (item 8), and
+   `app/error.tsx`'s `location.href` assign. Lint doesn't gate the build. The generated
+   `public/sw.js` is in the ESLint ignores.
 
 ### MEDIUM Priority
 5. **Tag Search** - Tags are clickable but only log a TODO via `logger.debug` in
@@ -468,7 +469,8 @@ interface Video {
   - `downloads`: one manifest per download (state, per-run done bitmap, bytes, last
     listened).
   - `audio-runs`: stored run bytes, key `${hash}:${run padded to 6}`.
-- `vds-{hash}` - legacy Vidstack position key, no longer written
+- `vds-{hash}` - legacy Vidstack position key; nothing reads or writes it now (old ones may
+  linger in a browser's localStorage, harmless)
 - Cache Storage (Phase 3b): `shell-<version>` (app shell; current + previous kept),
   `shell-meta` (which versions), `wubby-thumbs` (thumbnails of downloaded VODs)
 
@@ -484,7 +486,7 @@ npm run test:coverage   # coverage report
 ```
 - Located in `tests/unit/` (Listen in `tests/unit/listen/`, fixtures in
   `tests/fixtures/listen/`, made by `npm run fixtures:listen`)
-- 247 tests, all passing. `range-fetch.test.ts` covers every retriable/fatal branch;
+- 358 tests, all passing (2026-11-10). `range-fetch.test.ts` covers every retriable/fatal branch;
   `mp4-index.test.ts` matches ffprobe sample-for-sample, including a synthetic `co64`. `date-range.test.ts` pins `process.env.TZ` (Sydney + New York).
   `VodDiaryScreen.test.tsx` mocks `next/navigation` with a store backed by jsdom's URL. `createMockVideo` (`tests/test-utils.tsx`) includes a
   `videoHash` by default — that's what makes a card navigable. Pass
@@ -515,6 +517,9 @@ npm run test:all        # vitest + playwright
   - **Where it runs:** Listen and API on `pixel`, downloads on `pixel-chrome`. Each test gets
     6 minutes, and the whole suite takes ~10 min.
   - **Use it to prove a retry change**, not a single happy-path run.
+- **Don't run `player-gestures.spec` alongside Listen/download specs:** it streams real
+  archive video, and on a shared machine that starves Listen's index load ("Preparing audio…"
+  times out) and a download's cancel timing. Each passes on its own (checked 2026-11-10).
 - **`tests/listen-download.spec.ts`** (3 tests) runs only on the **`pixel-chrome`** project,
   which is real Chrome via `channel: 'chrome'`. Playwright's bundled Chromium accepts a
   Background Fetch but never completes it. Run it with
