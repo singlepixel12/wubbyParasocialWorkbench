@@ -81,6 +81,16 @@ export default function WatchPage() {
     };
   }, [id, attempt]);
 
+  // Offline, or the archive unreachable: try again by itself when the signal comes back, the way
+  // the diary does, instead of waiting for a Retry tap.
+  const waitingForNetwork = error?.kind === 'offline' || error?.kind === 'network';
+  useEffect(() => {
+    if (!waitingForNetwork) return;
+    const again = () => setAttempt((n) => n + 1);
+    window.addEventListener('online', again);
+    return () => window.removeEventListener('online', again);
+  }, [waitingForNetwork]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -95,6 +105,7 @@ export default function WatchPage() {
         <div className="space-y-4 text-center">
           <h1 className="font-display text-2xl md:text-3xl text-foreground">{error.kind === 'offline' ? "You're offline" : 'Connection problem'}</h1>
           <p className="text-muted-foreground">{error.message}</p>
+          {error.kind === 'offline' ? <p className="text-sm text-ink-muted">It opens by itself when you&apos;re back online.</p> : null}
           <Button type="button" onClick={() => setAttempt((n) => n + 1)}>
             Retry
           </Button>

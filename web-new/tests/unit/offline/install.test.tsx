@@ -3,7 +3,8 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMockVideo } from '../../test-utils';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ back: vi.fn() }) }));
+vi.mock('@/lib/listen/downloads-store', () => ({ useDownloads: () => [] }));
 
 import { VideoCard } from '@/components/vod-diary/VideoCard';
 import { Header } from '@/components/Header';
@@ -42,7 +43,18 @@ describe('Install app (menu)', () => {
     await act(async () => void window.dispatchEvent(offer));
     expect(offer.defaultPrevented).toBe(true); // no mini-infobar; it lives in the menu
 
-    await userEvent.click(await screen.findByRole('button', { name: /install app/i }));
+    // First in the menu, above the pages: it's the one thing worth doing once.
+    const install = await screen.findByRole('button', { name: /install app/i });
+    expect(install.compareDocumentPosition(screen.getByRole('link', { name: /VOD Diary/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(install);
     expect(prompt).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('app manifest', () => {
+  it('does not lock the installed app to portrait (fullscreen video must be able to rotate)', async () => {
+    const { default: manifest } = await import('@/app/manifest');
+    expect(manifest().orientation).toBeUndefined();
+    expect(manifest()).toMatchObject({ name: 'The Wubby Archive', display: 'standalone' });
   });
 });

@@ -33,7 +33,11 @@ export const viewport: Viewport = {
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+// GitHub Pages; relative metadata URLs (Open Graph) resolve against it.
+const SITE = "https://singlepixel12.github.io";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   applicationName: "The Wubby Archive",
   appleWebApp: { capable: true, title: "Wubby Archive", statusBarStyle: "black-translucent" },
   icons: {
@@ -41,26 +45,24 @@ export const metadata: Metadata = {
     apple: `${BASE}/icons/apple-touch-icon.png`,
   },
   title: {
-    default: "Wubby Parasocial Workbench",
-    template: "%s | Wubby Parasocial Workbench",
+    default: "The Wubby Archive",
+    template: "%s | The Wubby Archive",
   },
   description:
-    "A web-based tool for analyzing and working with parasocial content from Wubby's streams. Video transcription, VOD diary management, and content analysis.",
+    "Wubby's VODs with AI summaries and tags, a player with subtitles, and audio you can download and listen to with no signal.",
   keywords: ["wubby", "vod", "transcript", "archive", "twitch", "kick"],
   openGraph: {
-    title: "Wubby Parasocial Workbench",
-    description:
-      "Analyze Wubby stream content with video transcription, VOD diary, and content analysis tools.",
-    url: "https://your-domain.com",
-    siteName: "Wubby Parasocial Workbench",
+    title: "The Wubby Archive",
+    description: "Wubby's VODs with AI summaries and tags, and audio you can take offline.",
+    url: `${BASE}/`,
+    siteName: "The Wubby Archive",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary",
-    title: "Wubby Parasocial Workbench",
-    description:
-      "Analyze Wubby stream content with video transcription, VOD diary, and content analysis tools.",
+    title: "The Wubby Archive",
+    description: "Wubby's VODs with AI summaries and tags, and audio you can take offline.",
   },
   robots: {
     index: true,

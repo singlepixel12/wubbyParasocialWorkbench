@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { startDownload, cancelDownload, preflight } from '@/lib/listen/downloads';
-import { getManifest, putManifest } from '@/lib/listen/offline-store';
+import { startDownload, cancelDownload, preflight, removeDownload, autoResume } from '@/lib/listen/downloads';
+import { getManifest, putManifest, saveRuns } from '@/lib/listen/offline-store';
+import { putCachedIndex } from '@/lib/listen/index-cache';
 import { newManifest, markDone } from '@/lib/listen/download-model';
 import type { AudioIndex } from '@/lib/listen/types';
 
@@ -60,6 +61,50 @@ describe('cancelDownload', () => {
     await cancelDownload('h');
     expect(bgFetch.get).toHaveBeenCalledWith('listen:h:2');
     expect(abort).toHaveBeenCalled();
+  });
+});
+
+describe('removeDownload', () => {
+  it('aborts the running background fetch before deleting, so Chrome stops downloading', async () => {
+    await putManifest(newManifest({ ...vod, index: idx, now: 1 }));
+    const order: string[] = [];
+    const abort = vi.fn(async () => { order.push('abort'); expect(await getManifest('h')).not.toBeNull(); return true; });
+    bgFetch.getIds.mockResolvedValue(['listen:h:2']);
+    bgFetch.get.mockResolvedValue({ id: 'listen:h:2', abort });
+    await removeDownload('h');
+    expect(abort).toHaveBeenCalled();
+    expect(await getManifest('h')).toBeNull();
+    // The worker's abort handler arrives after the delete: it must store nothing.
+    expect(await saveRuns('h', [{ run: 0, bytes: new Uint8Array(10) }], idx.runSize)).toBeNull();
+  });
+
+  it('still deletes when there is no worker or nothing running', async () => {
+    await putManifest(newManifest({ ...vod, index: idx, now: 1 }));
+    (navigator.serviceWorker.getRegistration as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('no worker'));
+    await removeDownload('h');
+    expect(await getManifest('h')).toBeNull();
+  });
+});
+
+describe('autoResume', () => {
+  it('records the round against the stored manifest, not the stale copy the scheduler saw', async () => {
+    const stale = { ...newManifest({ ...vod, index: idx, now: 1 }), state: 'paused' as const, reason: 'connection lost' };
+    await putManifest(stale);
+    await putCachedIndex('h', idx);
+    await saveRuns('h', [{ run: 1, bytes: new Uint8Array(20) }], idx.runSize, 2); // the worker saved more meanwhile
+    expect(await autoResume(stale)).toBe(true);
+    const m = await getManifest('h');
+    expect(m?.done[1]).toBe(1);
+    expect(m).toMatchObject({ state: 'downloading', bytesAtLastAutoRetry: 20, autoRetries: 1 });
+    expect((bgFetch.fetch.mock.calls[0][1] as Request[]).map((r) => r.headers.get('range'))).toEqual(['bytes=100-109', 'bytes=2000-2029']);
+  });
+
+  it('does nothing for a download deleted (or resumed elsewhere) before its timer fired', async () => {
+    const stale = { ...newManifest({ ...vod, index: idx, now: 1 }), state: 'paused' as const };
+    await putCachedIndex('h', idx);
+    expect(await autoResume(stale)).toBe(false); // never stored = deleted
+    expect(await getManifest('h')).toBeNull();
+    expect(bgFetch.fetch).not.toHaveBeenCalled();
   });
 });
 

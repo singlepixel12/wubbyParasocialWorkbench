@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 const api = vi.hoisted(() => ({
   getWubbySummaryByHash: vi.fn(),
@@ -70,5 +70,24 @@ describe('WatchPage — offline (Phase 3b)', () => {
     expect(await screen.findByRole('heading', { name: /you.re offline/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     expect(api.getWubbySummaryByHash).not.toHaveBeenCalled();
+  });
+
+  it('offline and not saved: opens by itself when the signal comes back', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    api.getWubbySummaryByHash.mockResolvedValue({ title: 'Back Online Pizzas' });
+    render(<WatchPage />);
+    expect(await screen.findByRole('heading', { name: /you.re offline/i })).toBeInTheDocument();
+    expect(screen.getByText(/opens by itself/i)).toBeInTheDocument();
+    onLine.mockReturnValue(true);
+    act(() => void window.dispatchEvent(new Event('online')));
+    expect(await screen.findByRole('heading', { name: 'Back Online Pizzas' })).toBeInTheDocument();
+  });
+
+  it('a connection problem also retries by itself on "online"', async () => {
+    api.getWubbySummaryByHash.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce({ title: 'Recovered Pizzas' });
+    render(<WatchPage />);
+    expect(await screen.findByText(/couldn.t reach the archive/i)).toBeInTheDocument();
+    act(() => void window.dispatchEvent(new Event('online')));
+    expect(await screen.findByRole('heading', { name: 'Recovered Pizzas' })).toBeInTheDocument();
   });
 });

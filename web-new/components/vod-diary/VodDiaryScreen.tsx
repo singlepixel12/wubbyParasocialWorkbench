@@ -33,6 +33,9 @@ import { cn } from '@/lib/utils';
 import { DownloadsChip } from '@/components/listen/DownloadsChip';
 import { OfflineShelf } from '@/components/vod-diary/OfflineShelf';
 import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
+import { useDownloads } from '@/lib/listen/downloads-store';
+import { WifiOff } from 'lucide-react';
+import { diaryKey, peekDiarySnapshot, saveDiarySnapshot, SNAPSHOT_REFRESH_AFTER_MS } from '@/components/vod-diary/diary-snapshot';
 
 /** Diary page size. "Load more" fetches the next page of the same filters. */
 const PAGE_SIZE = 50;
@@ -73,10 +76,15 @@ export function VodDiaryScreen() {
   // Opening a shared `?q=` link shows the search box with the term in it
   const [isSearchVisible, setIsSearchVisible] = useState(() => qParam.length > 0);
 
+  // Back from /watch in the same window (installed app, downloads sheet): start from what was on
+  // screen, every loaded page included, instead of page 1 at the top.
+  const filterKey = diaryKey(searchTerm, fromParam, toParam);
+  const [restored] = useState(() => peekDiarySnapshot(filterKey));
+
   // Data states
-  const [videos, setVideos] = useState<Video[]>([]);
+  const [videos, setVideos] = useState<Video[]>(() => restored?.videos ?? []);
   // Rows matching the date filter across all pages (null: search mode, or unknown)
-  const [total, setTotal] = useState<number | null>(null);
+  const [total, setTotal] = useState<number | null>(() => restored?.total ?? null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   // Cancels an in-flight "Load more" when the filters change under it
@@ -92,7 +100,11 @@ export function VodDiaryScreen() {
   // back the pending load finishes and the live diary returns by itself.
   const online = useOnlineStatus();
   const [networkFailed, setNetworkFailed] = useState(false);
-  const showShelf = !online || networkFailed;
+  // Offline, the shelf replaces the list (its cards couldn't open anyway). Online but the archive
+  // unreachable, results already on screen stay, with a notice; only an empty diary gets the shelf.
+  const showShelf = !online || (networkFailed && videos.length === 0);
+  const staleResults = online && networkFailed && videos.length > 0;
+  const savedCount = useDownloads().filter((m) => m.state === 'ready').length;
   const wasOnline = useRef(online);
   useEffect(() => {
     // Back online after a failed load: try again without a tap.
@@ -104,7 +116,15 @@ export function VodDiaryScreen() {
   // AbortController and the cleanup aborts it, so a slow, superseded response
   // (e.g. a search for "co" landing after one for "cooking") can never
   // overwrite the results of the newer query.
+  // The restored filters skip their first load (the results are already here). Compared by key,
+  // not a run-once flag, so StrictMode's double effect can't load over the restored pages.
+  const skipLoadKey = useRef<string | null>(restored ? `${filterKey}#0` : null);
+
   useEffect(() => {
+    const runKey = `${filterKey}#${reloadToken}`;
+    if (skipLoadKey.current === runKey) return;
+    skipLoadKey.current = null;
+
     const controller = new AbortController();
     const { signal } = controller;
 
@@ -170,7 +190,62 @@ export function VodDiaryScreen() {
       // A "Load more" for the old filters must not append to the new results
       loadMoreController.current?.abort();
     };
-  }, [dateRange, searchTerm, isSearchMode, reloadToken, showError]);
+  }, [dateRange, searchTerm, isSearchMode, reloadToken, showError, filterKey]);
+
+  // A restored list that's been away a while: add any VODs uploaded since, at the top.
+  useEffect(() => {
+    if (!restored || isSearchMode || Date.now() - restored.at < SNAPSHOT_REFRESH_AFTER_MS) return;
+    const controller = new AbortController();
+    fetchRecentVideosPage({ limit: PAGE_SIZE, fromDate: dateRange.from || null, toDate: dateRange.to || null, signal: controller.signal })
+      .then((page) => {
+        if (controller.signal.aborted) return;
+        setVideos((prev) => {
+          const seen = new Set(prev.map((v) => v.url));
+          const fresh = page.videos.filter((v) => !seen.has(v.url));
+          return fresh.length ? [...fresh, ...prev] : prev;
+        });
+        setTotal(page.total);
+      })
+      .catch(() => undefined); // the restored list stands
+    return () => controller.abort();
+    // Once, for the restored filters only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Put the scroll back where it was. Next scrolls a new page to the top after it mounts (and the
+  // page transition delays the mount), so try a few times, and stop as soon as the user scrolls.
+  useEffect(() => {
+    if (!restored?.scrollY) return;
+    let userMoved = false;
+    const stop = () => (userMoved = true);
+    window.addEventListener('touchstart', stop, { passive: true });
+    window.addEventListener('wheel', stop, { passive: true });
+    const timers = [0, 80, 250, 500].map((ms) =>
+      setTimeout(() => {
+        if (!userMoved) window.scrollTo({ top: restored.scrollY, behavior: 'auto' });
+      }, ms),
+    );
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener('touchstart', stop);
+      window.removeEventListener('wheel', stop);
+    };
+  }, [restored]);
+
+  // Keep what's on screen, for the next time this screen mounts in this document.
+  const latest = useRef({ key: filterKey, videos, total, scrollY: 0, live: false });
+  useEffect(() => {
+    latest.current = { ...latest.current, key: filterKey, videos, total, live: !loading && videos.length > 0 };
+  }, [filterKey, videos, total, loading]);
+  useEffect(() => {
+    const onScroll = () => (latest.current.scrollY = window.scrollY);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      const l = latest.current;
+      if (l.live) saveDiarySnapshot({ key: l.key, videos: l.videos, total: l.total, scrollY: l.scrollY, at: Date.now() });
+    };
+  }, []);
 
   // Fetch the next page of the current date filter and append it
   const loadMore = useCallback(async () => {
@@ -272,7 +347,13 @@ export function VodDiaryScreen() {
       {/* Editorial masthead */}
       {/* The issue number is the honest record count for the range — every
           matching VOD, not just the page loaded so far */}
-      <Masthead edition="VOD Diary" count={total ?? videos.length} dateLabel={dateLabel} extra={<DownloadsChip />} />
+      {/* On the shelf, the issue number counts what's on the shelf, and there is no date range */}
+      <Masthead
+        edition={showShelf ? 'Offline shelf' : 'VOD Diary'}
+        count={showShelf ? savedCount : (total ?? videos.length)}
+        dateLabel={showShelf ? undefined : dateLabel}
+        extra={<DownloadsChip />}
+      />
 
       {/* Filters: hidden offline, where neither a date range nor a search can load anything */}
       {!showShelf && (
@@ -302,8 +383,26 @@ export function VodDiaryScreen() {
         </div>
       )}
 
+      {staleResults && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-y border-rule py-3">
+          <p className="flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+            <WifiOff className="h-3.5 w-3.5" aria-hidden />
+            Can&apos;t reach the archive · showing what was already loaded
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setReloadToken((n) => n + 1)}
+            className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent-green hover:text-foreground"
+          >
+            Try again
+          </Button>
+        </div>
+      )}
+
       {showShelf ? (
-        <OfflineShelf onRetry={() => setReloadToken((n) => n + 1)} />
+        <OfflineShelf reason={online ? 'unreachable' : 'offline'} onRetry={() => setReloadToken((n) => n + 1)} />
       ) : (
         /* Video list */
         <VideoList

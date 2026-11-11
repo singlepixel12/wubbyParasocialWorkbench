@@ -14,7 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: `${BASE}/`,
     scope: `${BASE}/`,
     display: 'standalone',
-    orientation: 'portrait',
+    // No `orientation`: the installed app follows the phone's auto-rotate, so fullscreen video can
+    // turn landscape. ('portrait' locked the whole app, the player included.)
     background_color: '#0e0d0b',
     theme_color: '#0e0d0b',
     icons: [

@@ -52,4 +52,11 @@ describe('handleBackgroundFetchEnd', () => {
     await handleBackgroundFetchEnd('success', reg([record(0)]), d as never);
     expect(d.setState).toHaveBeenCalledWith('h', 'paused', 'audio index missing; reopen the VOD');
   });
+
+  it('says nothing for a download deleted while it ran (its runs were not stored)', async () => {
+    const d = deps();
+    d.saveRuns.mockResolvedValue(null as never);
+    d.getManifest.mockResolvedValue(null as never);
+    expect(await handleBackgroundFetchEnd('abort', reg([record(0)]), d as never)).toBeNull();
+  });
 });

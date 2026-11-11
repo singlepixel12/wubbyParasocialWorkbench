@@ -3,10 +3,12 @@
 /**
  * VideoDetailView — /watch. Video by default; Listen swaps the player for an audio-only card
  * that streams just the AAC runs (see lib/listen). Back navigation lives in the sticky Header.
+ * Offline, the video can't play (it streams from the archive, and the player itself loads from a
+ * CDN), so a poster that says so stands in for it and Listen leads.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Tag, Calendar, FileText } from 'lucide-react';
+import { Tag, Calendar, FileText, WifiOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Video } from '@/types/video';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +20,9 @@ import { DownloadButton } from '@/components/listen/DownloadButton';
 import { ListenEngine } from '@/lib/listen/listen-engine';
 import { formatClock, isFinished, readPosition, readRate, resumeTime, writePosition, writeRate } from '@/lib/listen/positions';
 import { useSavedPosition } from '@/lib/listen/useSavedPosition';
+import { useDownloads } from '@/lib/listen/downloads-store';
+import { progress, type DownloadManifest } from '@/lib/listen/download-model';
+import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
 import type { PlaybackRate } from '@/lib/listen/types';
 import { formatDateDisplay, extractOriginalTitle } from '@/lib/utils/video-helpers';
 import { SUPABASE_URL } from '@/lib/constants';
@@ -28,6 +33,32 @@ interface VideoDetailViewProps {
 
 const videoVariants = { initial: { opacity: 0, scale: 0.98 }, animate: { opacity: 1, scale: 1, transition: { duration: 0.3 } } };
 const metadataVariants = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0, transition: { delay: 0.15, duration: 0.3 } } };
+
+/** The line under Listen: what Listen will cost, given what's saved on the phone. */
+function listenCaption(download: DownloadManifest | undefined, online: boolean): string {
+  if (download?.state === 'ready') return 'Saved on your phone · Listen uses no data';
+  const pct = download ? Math.round(progress(download) * 100) : 0;
+  if (!online) return pct > 0 ? `${pct}% saved on your phone · the rest needs a connection` : 'Listen needs a connection';
+  return pct > 0 ? `${pct}% saved on your phone · the rest streams at about 73 MB per hour` : 'Listen streams audio only · about 73 MB per hour';
+}
+
+/** Stands in for the player offline: the poster, and what does work. */
+function OfflinePoster({ poster, saved }: { poster?: string; saved: boolean }) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-black" role="img" aria-label="Video needs a connection">
+      {poster ? (
+        // eslint-disable-next-line @next/next/no-img-element -- served from the offline thumbnail cache, not next/image
+        <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 grayscale" />
+      ) : null}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-t from-black/80 via-black/40 to-black/10 px-6 text-center">
+        <WifiOff className="h-6 w-6 text-ink-muted" aria-hidden />
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-ink-muted">Offline</p>
+        <p className="font-display text-lg text-foreground md:text-xl">Video needs a connection</p>
+        {saved ? <p className="text-sm text-foreground/70">The audio is on your phone. Listen plays with no signal.</p> : null}
+      </div>
+    </div>
+  );
+}
 
 export function VideoDetailView({ video }: VideoDetailViewProps) {
   const hash = video.videoHash;
@@ -43,6 +74,11 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
   const videoTime = useRef({ t: 0, d: 0 });
   const lastVideoSave = useRef(0);
   const saved = useSavedPosition(hash);
+  const online = useOnlineStatus();
+  const download = useDownloads().find((m) => m.hash === hash);
+  // A video already playing keeps its player if the signal drops (it may have buffered ahead);
+  // only a player that never started gives way to the offline poster.
+  const [videoStarted, setVideoStarted] = useState(false);
 
   // Disposing on change/unmount stops all audio fetching when leaving Listen or the page.
   useEffect(() => () => engine?.dispose(), [engine]);
@@ -56,6 +92,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
     // A paused video sitting at its initial ~0.1 s is not "where you got to": only trust the
     // video's time once it has actually played, or been moved past the first few seconds.
     if (paused && t < 5) return;
+    if (!paused && !videoStarted) setVideoStarted(true);
     videoTime.current = { t, d };
     const now = Date.now();
     if (hash && now - lastVideoSave.current >= 5000) {
@@ -95,6 +132,8 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
       <motion.div className="w-full" variants={videoVariants} initial="initial" animate="animate">
         {engine && hash ? (
           <AudioCard engine={engine} hash={hash} thumbnailUrl={video.thumbnailUrl} onWatch={backToWatch} onRateChange={changeRate} />
+        ) : !online && !videoStarted ? (
+          <OfflinePoster poster={video.thumbnailUrl} saved={download?.state === 'ready'} />
         ) : (
           <VidstackPlayer
             videoUrl={video.url}
@@ -116,7 +155,7 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
             <SpeedToggle rate={rate} onChange={changeRate} className="w-full" />
             <DownloadButton vod={{ hash, url: video.url, title: video.title, thumbnailUrl: video.thumbnailUrl, video }} />
           </div>
-          <p className="font-mono text-xs text-ink-muted">Listen streams audio only · about 73 MB per hour</p>
+          <p className="font-mono text-xs text-ink-muted">{listenCaption(download, online)}</p>
         </div>
       )}
 
@@ -124,9 +163,10 @@ export function VideoDetailView({ video }: VideoDetailViewProps) {
         <div className="space-y-2">
           <h1 className="font-display text-2xl leading-tight text-foreground md:text-3xl">{video.title}</h1>
           {originalTitle && (
-            <div className="flex items-center gap-2 text-sm text-ink-muted">
-              <FileText className="h-4 w-4" />
-              <span className="font-mono">{originalTitle}</span>
+            <div className="flex min-w-0 items-start gap-2 text-sm text-ink-muted">
+              <FileText className="mt-0.5 h-4 w-4 shrink-0" />
+              {/* Archive filenames can be one unbroken token: wrap anywhere rather than widen the page. */}
+              <span className="min-w-0 break-all font-mono">{originalTitle}</span>
             </div>
           )}
         </div>
