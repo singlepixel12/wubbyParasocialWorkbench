@@ -51,7 +51,10 @@ export function DownloadButton({ vod }: { vod: VodRef }) {
     }
   };
 
-  const pct = Math.round(100 * (live ?? (mine ? progress(mine) : 0)));
+  // Chrome's live reading only while a round runs; after it ends (cancel, pause, a watchdog
+  // restart), what's saved. The last reading lingered: a quick cancel showed "Resume · 0%" on 64%.
+  const liveNow = mine?.state === 'downloading' ? live : null;
+  const pct = Math.round(100 * (liveNow ?? (mine ? progress(mine) : 0)));
 
   let control: ReactNode;
   if (mine?.state === 'ready') {

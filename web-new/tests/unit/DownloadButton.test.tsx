@@ -71,4 +71,19 @@ describe('DownloadButton', () => {
     rerender(<DownloadButton vod={vod} />);
     expect(screen.getByText(/saved offline/i)).toBeInTheDocument();
   });
+
+  it('once a round ends, shows what is saved, not the last live reading from Chrome', async () => {
+    // Chrome's first reading of a round is often 0 bytes; a quick cancel used to leave "Resume · 0%"
+    // on a download that had 64% saved.
+    api.watchProgress.mockImplementation(((_h: string, cb: (done: number, total: number) => void) => {
+      cb(0, 100);
+      return () => {};
+    }) as never);
+    state.manifests = [{ hash: 'h', state: 'downloading', bytesDone: 0, bytesTotal: 100 }];
+    const { rerender } = render(<DownloadButton vod={vod} />);
+    await waitFor(() => expect(screen.getByText('0%')).toBeInTheDocument());
+    state.manifests = [{ hash: 'h', state: 'paused', bytesDone: 64, bytesTotal: 100, reason: 'cancelled' }];
+    rerender(<DownloadButton vod={vod} />);
+    expect(screen.getByRole('button', { name: 'Resume download, 64% saved' })).toBeInTheDocument();
+  });
 });

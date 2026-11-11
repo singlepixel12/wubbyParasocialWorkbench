@@ -29,6 +29,8 @@ const PROFILES = {
   // Accept the request and never answer or close: a round that stays alive with no bytes moving,
   // the way a locked phone on battery saver held one at 10% overnight.
   hang: [['hang', 1]],
+  // Every request 1-3 s late but healthy: a slow download that keeps moving.
+  slow: [['latency', 1]],
 };
 let profile = profileArg;
 
