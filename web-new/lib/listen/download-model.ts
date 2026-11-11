@@ -28,6 +28,11 @@ export interface DownloadManifest {
   bytesAtLastAutoRetry?: number;
   /** The VOD's row (summary, tags, date), so /watch and the diary work offline (Phase 3b). */
   video?: Video;
+  /**
+   * Set by the page's watchdog just before it aborts a stuck round, so the worker pauses it as
+   * stalled (auto-resumes) rather than cancelled (waits for the user). A new round clears it.
+   */
+  restartRequested?: boolean;
 }
 
 /**
@@ -49,6 +54,27 @@ export function autoResumeDelay(m: DownloadManifest, now: number): number | null
   const rounds = roundsWithoutProgress(m);
   if (rounds >= AUTO_RESUME_DELAYS_MS.length) return null;
   return Math.max(0, m.updatedAt + AUTO_RESUME_DELAYS_MS[rounds] - now);
+}
+
+/**
+ * A round can sit alive in Chrome with no bytes moving: an S22 on battery saver, locked overnight,
+ * held one at 10% until morning, and auto-resume never saw it (it only handles paused rounds).
+ * With the app open, visible and online, no new bytes for this long means: restart the round.
+ * Chrome's own retries inside a round wait ~30 s, so this is several of those.
+ */
+export const STALL_RESTART_MS = 2 * 60_000;
+/** The paused reason of a round the watchdog restarted. Not 'cancelled', so it auto-resumes. */
+export const STALLED_REASON = 'stalled; restarting';
+
+export interface ProgressSample {
+  downloaded: number;
+  since: number;
+}
+
+/** Feed the round's `downloaded` in; stalled once it hasn't moved for `limit` ms. Pure. */
+export function trackStall(prev: ProgressSample | undefined, downloaded: number, now: number, limit = STALL_RESTART_MS): { sample: ProgressSample; stalled: boolean } {
+  if (!prev || downloaded !== prev.downloaded) return { sample: { downloaded, since: now }, stalled: false };
+  return { sample: prev, stalled: now - prev.since >= limit };
 }
 
 /** The manifest as an auto-resume round starts. */

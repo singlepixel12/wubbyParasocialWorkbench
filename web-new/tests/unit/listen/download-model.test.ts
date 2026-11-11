@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   newManifest, missingRuns, markDone, progress, totals, planForCap, runFromRange, rangeForRun,
   bgFetchId, hashFromBgFetchId, CAP_BYTES, autoResumeDelay, recordAutoResume, AUTO_RESUME_DELAYS_MS, type DownloadManifest,
+  trackStall, STALL_RESTART_MS, STALLED_REASON,
 } from '@/lib/listen/download-model';
 import type { AudioIndex } from '@/lib/listen/types';
 
@@ -119,5 +120,30 @@ describe('auto-resume after a failed round (flaky network)', () => {
     m = recordAutoResume({ ...m, state: 'paused' }, 2000);
     expect(autoResumeDelay({ ...m, state: 'paused', updatedAt: 5000 }, 5000)).toBe(AUTO_RESUME_DELAYS_MS[2]);
     expect(autoResumeDelay({ ...m, state: 'paused', updatedAt: 5000, bytesDone: 900 }, 5000)).toBe(AUTO_RESUME_DELAYS_MS[0]);
+  });
+});
+
+// A round can sit alive in Chrome with no progress (an S22 on battery saver, locked overnight, held
+// one at 10% until morning). The watchdog restarts it; these are its rules.
+describe('stalled rounds', () => {
+  it('a round whose bytes stop moving for STALL_RESTART_MS is stalled', () => {
+    let t = trackStall(undefined, 100, 0);
+    expect(t.stalled).toBe(false);
+    t = trackStall(t.sample, 100, STALL_RESTART_MS - 1);
+    expect(t.stalled).toBe(false);
+    t = trackStall(t.sample, 100, STALL_RESTART_MS);
+    expect(t.stalled).toBe(true);
+  });
+
+  it('any new bytes restart the clock', () => {
+    let t = trackStall(undefined, 100, 0);
+    t = trackStall(t.sample, 101, STALL_RESTART_MS - 1);
+    t = trackStall(t.sample, 101, STALL_RESTART_MS + 1);
+    expect(t.stalled).toBe(false);
+  });
+
+  it('a round restarted for stalling auto-resumes (unlike a user cancel)', () => {
+    const m = { ...base(), state: 'paused', reason: STALLED_REASON, updatedAt: 1000 } as DownloadManifest;
+    expect(autoResumeDelay(m, 1000)).toBe(AUTO_RESUME_DELAYS_MS[0]);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { handleBackgroundFetchEnd, type BgRegistrationLike } from '@/lib/listen/sw-handlers';
-import { rangeForRun } from '@/lib/listen/download-model';
+import { rangeForRun, STALLED_REASON } from '@/lib/listen/download-model';
 import type { AudioIndex } from '@/lib/listen/types';
 
 const idx = { runOffset: Float64Array.of(1000, 9000, 20000), runSize: Uint32Array.of(3, 4, 5), lastModified: 'LM' } as unknown as AudioIndex;
@@ -58,5 +58,21 @@ describe('handleBackgroundFetchEnd', () => {
     d.saveRuns.mockResolvedValue(null as never);
     d.getManifest.mockResolvedValue(null as never);
     expect(await handleBackgroundFetchEnd('abort', reg([record(0)]), d as never)).toBeNull();
+  });
+});
+
+describe('handleBackgroundFetchEnd: a watchdog restart is not a user cancel', () => {
+  it('an abort the watchdog asked for pauses as stalled, so auto-resume picks it up', async () => {
+    const d = deps();
+    d.saveRuns.mockResolvedValue({ hash: 'h', title: 'T', state: 'downloading', done: new Uint8Array(3), restartRequested: true } as never);
+    await handleBackgroundFetchEnd('abort', reg([record(0)]), d as never);
+    expect(d.setState).toHaveBeenCalledWith('h', 'paused', STALLED_REASON);
+  });
+
+  it('a stalled round with nothing new to save still pauses as stalled', async () => {
+    const d = deps();
+    d.getManifest.mockResolvedValue({ hash: 'h', title: 'T', restartRequested: true } as never);
+    await handleBackgroundFetchEnd('abort', reg([]), d as never);
+    expect(d.setState).toHaveBeenCalledWith('h', 'paused', STALLED_REASON);
   });
 });

@@ -1,7 +1,7 @@
 // Page side of offline downloads: register the worker, check space, start/resume/cancel a
 // Background Fetch, reconcile on load, auto-delete finished VODs. The worker saves results.
 import { bgFetchOf, type BgFetchRegistration } from './background-fetch';
-import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun, recordAutoResume, type DownloadManifest } from './download-model';
+import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun, recordAutoResume, trackStall, type DownloadManifest, type ProgressSample } from './download-model';
 import { getCachedIndex } from './index-cache';
 import { deleteDownload, getManifest, listManifests, notifyChanged, reconcile, updateManifest } from './offline-store';
 import { isFinished, readPosition } from './positions';
@@ -61,7 +61,7 @@ export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.n
   const manifest = (await updateManifest(vod.hash, (existing) => {
     const stored = existing ? { ...existing, video: vod.video ?? existing.video } : newManifest({ ...vod, index, now });
     const m = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
-    return { ...m, state: 'downloading', reason: undefined, updatedAt: now };
+    return { ...m, state: 'downloading', reason: undefined, restartRequested: undefined, updatedAt: now };
   }))!;
   void cacheThumbnail(vod.thumbnailUrl); // best effort, for the offline diary
   const missing = missingRuns(manifest);
@@ -147,6 +147,54 @@ export async function reconcileDownloads(): Promise<void> {
   } catch {
     // Nothing stored or no worker yet.
   }
+}
+
+/** Progress baselines per VOD, only ever sampled while the app is visible. */
+const stallSamples = new Map<string, ProgressSample>();
+
+/** Forget the baselines: call when the app becomes visible again (it saw nothing while hidden). */
+export function resetStallWatch(): void {
+  stallSamples.clear();
+}
+
+/** A download that only just started may not have its registration yet; leave it this long. */
+const RECONCILE_GRACE_MS = 60_000;
+
+/**
+ * One watchdog look, while the app is open, visible and online (DownloadsAutoResume):
+ * - a "downloading" VOD whose background fetch is gone becomes paused, so a bar never sits frozen
+ *   on a fetch that no longer exists (and auto-resume can pick it up);
+ * - a live round with no new bytes for STALL_RESTART_MS is aborted with `restartRequested` set.
+ *   The worker saves what finished and pauses it as stalled, and auto-resume starts a fresh round
+ *   for only the missing runs.
+ * Returns the VODs it restarted.
+ */
+export async function watchdogTick(now = Date.now()): Promise<string[]> {
+  const reg = await navigator.serviceWorker?.getRegistration(`${BASE}/`);
+  const bg = bgFetchOf(reg);
+  if (!bg) return [];
+  const ids = await bg.getIds();
+  for (const hash of await reconcile(ids, now, RECONCILE_GRACE_MS)) notifyChanged(hash);
+
+  const liveHashes = new Set<string>();
+  const restarted: string[] = [];
+  for (const id of ids) {
+    const hash = hashFromBgFetchId(id);
+    if (!hash) continue;
+    liveHashes.add(hash);
+    const live = await bg.get(id);
+    if (!live) continue;
+    const { sample, stalled } = trackStall(stallSamples.get(hash), live.downloaded, now);
+    stallSamples.set(hash, sample);
+    if (!stalled) continue;
+    stallSamples.delete(hash);
+    const m = await updateManifest(hash, (cur) => (cur ? { ...cur, restartRequested: true } : null));
+    if (!m) continue; // deleted meanwhile
+    await live.abort().catch(() => false);
+    restarted.push(hash);
+  }
+  for (const hash of [...stallSamples.keys()]) if (!liveHashes.has(hash)) stallSamples.delete(hash);
+  return restarted;
 }
 
 /**

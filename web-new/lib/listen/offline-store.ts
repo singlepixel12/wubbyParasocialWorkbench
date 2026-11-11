@@ -112,11 +112,20 @@ export async function touchListened(hash: string, now = Date.now()): Promise<voi
   await updateManifest(hash, (m) => (m ? { ...m, lastListenedAt: now } : null));
 }
 
-/** On app load: anything "downloading" without a live background fetch is really paused. */
-export async function reconcile(activeIds: readonly string[], now = Date.now()): Promise<void> {
+/**
+ * Anything "downloading" without a live background fetch is really paused. `minAgeMs` spares one
+ * that only just started (its registration may not exist yet). Returns the hashes it changed.
+ */
+export async function reconcile(activeIds: readonly string[], now = Date.now(), minAgeMs = 0): Promise<string[]> {
   const live = new Set(activeIds.map(hashFromBgFetchId).filter(Boolean));
+  const changed: string[] = [];
   for (const { hash } of await listManifests()) {
     if (live.has(hash)) continue;
-    await updateManifest(hash, (m) => (m?.state === 'downloading' ? { ...m, state: 'paused', reason: m.reason ?? 'interrupted', updatedAt: now } : null));
+    const before = await getManifest(hash);
+    const after = await updateManifest(hash, (m) =>
+      m?.state === 'downloading' && now - m.updatedAt >= minAgeMs ? { ...m, state: 'paused', reason: m.reason ?? 'interrupted', updatedAt: now } : null,
+    );
+    if (after && after.state !== before?.state) changed.push(hash);
   }
+  return changed;
 }
