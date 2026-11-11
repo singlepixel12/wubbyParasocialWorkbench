@@ -12,6 +12,10 @@ import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 
+// A download, a cancel and a resume take well over Playwright's default 30 s test timeout; without
+// this the 180 s waits below never get to run.
+test.describe.configure({ timeout: 300_000 });
+
 const FIXTURES = path.resolve(__dirname, 'fixtures/listen');
 const PORT = 4320;
 const MEDIA_URL = `http://localhost:${PORT}/e2e-12min.mp4`;
@@ -62,7 +66,8 @@ test('downloads in the background, then Listen plays with zero network', async (
 });
 
 test('cancel keeps what finished; resume completes it', async ({ page }) => {
-  // Slow every audio run down so there's time to cancel mid-download.
+  // Slows only the page's own requests (the audio index load). Background Fetch requests bypass
+  // Playwright routing, so the round runs at full speed; the cancel still lands partway through.
   await page.context().route(MEDIA_URL, async (route) => {
     await new Promise((r) => setTimeout(r, 150));
     return route.continue();
