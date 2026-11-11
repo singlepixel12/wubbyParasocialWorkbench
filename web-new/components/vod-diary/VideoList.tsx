@@ -52,7 +52,6 @@ export const VideoList = memo(function VideoList({
     } else {
       // Reset immediately when we have videos - this is intentional
       // to prevent stale empty state from showing
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDelayElapsed(false);
     }
 

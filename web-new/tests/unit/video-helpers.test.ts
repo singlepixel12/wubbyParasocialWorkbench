@@ -2,7 +2,7 @@
  * Unit tests for video-helpers utility functions
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { differenceInCalendarDays } from 'date-fns';
 import {
   getLocaleFormat,
@@ -248,7 +248,7 @@ describe('formatSummaryText', () => {
   });
 
   it('should return default text for non-string input', () => {
-    const formatted = formatSummaryText(123 as any);
+    const formatted = formatSummaryText(123 as never);
     expect(formatted).toBe('- This vod has no summary -');
   });
 });

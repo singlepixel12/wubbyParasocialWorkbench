@@ -15,7 +15,7 @@
  * see app/page.tsx.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { Video } from '@/types/video';
@@ -45,11 +45,15 @@ function formatDateLabel(date: Date): string {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+/** No external store to watch: only tells hydration (false) from the client (true). */
+const subscribeNever = () => () => {};
+
 export function VodDiaryScreen() {
   const searchParams = useSearchParams();
 
-  // Client-only rendering flag (prevents SSR hydration issues with Radix UI Popover)
-  const [isMounted, setIsMounted] = useState(false);
+  // Client-only rendering flag (prevents SSR hydration issues with Radix UI Popover): false in
+  // the static HTML and during hydration, true on the client after it
+  const isMounted = useSyncExternalStore(subscribeNever, () => true, () => false);
 
   // Filters — derived from the URL, never mirrored into state
   const qParam = searchParams.get('q') ?? '';
@@ -79,11 +83,6 @@ export function VodDiaryScreen() {
   const loadMoreController = useRef<AbortController | null>(null);
 
   const { showError } = useToast();
-
-  // Set mounted flag after client-side hydration
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   // Bumped by the error toast's Retry to re-run the load with the *current* filters
   const [reloadToken, setReloadToken] = useState(0);
@@ -275,31 +274,33 @@ export function VodDiaryScreen() {
           matching VOD, not just the page loaded so far */}
       <Masthead edition="VOD Diary" count={total ?? videos.length} dateLabel={dateLabel} extra={<DownloadsChip />} />
 
-      {/* Filters section */}
-      <div className={cn(
-        "flex gap-4 items-center",
-        isSearchVisible ? "w-screen -mx-4 px-4 md:w-full md:mx-0 md:px-0" : "justify-end"
-      )}>
-        {/* Date Range Picker - Hide entire div when search is visible */}
-        {!isSearchVisible && (
-          <div className="flex-1 md:flex-none md:w-[280px]">
-            {isMounted ? (
-              <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
-            ) : (
-              <div className="h-10 bg-muted animate-pulse rounded-md" />
-            )}
-          </div>
-        )}
+      {/* Filters: hidden offline, where neither a date range nor a search can load anything */}
+      {!showShelf && (
+        <div className={cn(
+          "flex gap-4 items-center",
+          isSearchVisible ? "w-screen -mx-4 px-4 md:w-full md:mx-0 md:px-0" : "justify-end"
+        )}>
+          {/* Date Range Picker - Hide entire div when search is visible */}
+          {!isSearchVisible && (
+            <div className="flex-1 md:flex-none md:w-[280px]">
+              {isMounted ? (
+                <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+              ) : (
+                <div className="h-10 bg-muted animate-pulse rounded-md" />
+              )}
+            </div>
+          )}
 
-        {/* Search - Full width when visible */}
-        <SearchInput
-          onSearch={handleSearch}
-          initialValue={qParam}
-          isVisible={isSearchVisible}
-          onToggle={setIsSearchVisible}
-          className={isSearchVisible ? 'flex-1 w-full' : ''}
-        />
-      </div>
+          {/* Search - Full width when visible */}
+          <SearchInput
+            onSearch={handleSearch}
+            initialValue={qParam}
+            isVisible={isSearchVisible}
+            onToggle={setIsSearchVisible}
+            className={isSearchVisible ? 'flex-1 w-full' : ''}
+          />
+        </div>
+      )}
 
       {showShelf ? (
         <OfflineShelf onRetry={() => setReloadToken((n) => n + 1)} />
