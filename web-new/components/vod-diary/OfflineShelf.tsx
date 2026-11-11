@@ -12,7 +12,11 @@ import { Button } from '@/components/ui/button';
  * /watch, and Listen plays from the phone). Only finished downloads; a partial one needs signal
  * to finish, so it's counted, not listed.
  */
-export function OfflineShelf({ onRetry }: { onRetry: () => void }) {
+/**
+ * `reason`: no signal at all, or a signal but the archive unreachable (lie-fi, an outage). The
+ * shelf is the same; only the kicker says which, so "You're offline" is never said on Wi-Fi.
+ */
+export function OfflineShelf({ onRetry, reason = 'offline' }: { onRetry: () => void; reason?: 'offline' | 'unreachable' }) {
   const manifests = useDownloads();
   const { videos, partial } = useMemo(() => {
     const ready = manifests.filter((m) => m.state === 'ready').sort((a, b) => b.lastListenedAt - a.lastListenedAt);
@@ -24,7 +28,7 @@ export function OfflineShelf({ onRetry }: { onRetry: () => void }) {
       <div className="space-y-2 border-y border-rule py-4">
         <p className="flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent-green">
           <WifiOff className="h-3.5 w-3.5" aria-hidden />
-          You&apos;re offline
+          {reason === 'offline' ? <>You&apos;re offline</> : <>Can&apos;t reach the archive</>}
         </p>
         <h2 id="offline-shelf-title" className="font-display text-2xl text-foreground">
           Saved on your phone

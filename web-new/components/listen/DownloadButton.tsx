@@ -4,12 +4,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CheckCircle2, Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { backgroundFetchSupported } from '@/lib/listen/background-fetch';
-import { cancelDownload, onMobileData, preflight, startDownload, watchProgress, type VodRef } from '@/lib/listen/downloads';
+import { cancelDownload, onMobileData, preflight, removeDownload, startDownload, watchProgress, type VodRef } from '@/lib/listen/downloads';
 import { progress } from '@/lib/listen/download-model';
 import { useDownloads } from '@/lib/listen/downloads-store';
 import { getCachedIndex, putCachedIndex } from '@/lib/listen/index-cache';
 import { loadAudioIndex } from '@/lib/listen/index-loader';
-import { deleteDownload } from '@/lib/listen/offline-store';
 
 const gb = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.round(b / 1e6)} MB`);
 
@@ -120,7 +119,7 @@ export function DownloadButton({ vod }: { vod: VodRef }) {
               type="button"
               size="sm"
               onClick={async () => {
-                for (const h of prompt.suggest) await deleteDownload(h);
+                for (const h of prompt.suggest) await removeDownload(h);
                 await begin(true);
               }}
             >

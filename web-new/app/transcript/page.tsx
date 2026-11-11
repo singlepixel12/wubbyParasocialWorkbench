@@ -53,7 +53,7 @@ export default function TranscriptPage() {
   useEffect(() => {
     if (video) {
       logger.log('Updating document title:', video.title);
-      document.title = `${video.title} - Transcript | Wubby Parasocial Workbench`;
+      document.title = `${video.title} - Transcript | The Wubby Archive`;
     }
   }, [video]);
 
@@ -206,7 +206,7 @@ export default function TranscriptPage() {
     setVideo(null);
     setHasSubtitle(null);
     setHasThumbnail(null);
-    document.title = 'Get Transcript | Wubby Parasocial Workbench';
+    document.title = 'Get Transcript | The Wubby Archive';
   };
 
   return (

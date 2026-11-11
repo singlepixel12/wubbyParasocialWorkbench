@@ -3,7 +3,7 @@
 import { bgFetchOf, type BgFetchRegistration } from './background-fetch';
 import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun, recordAutoResume, type DownloadManifest } from './download-model';
 import { getCachedIndex } from './index-cache';
-import { deleteDownload, getManifest, listManifests, notifyChanged, putManifest, reconcile } from './offline-store';
+import { deleteDownload, getManifest, listManifests, notifyChanged, reconcile, updateManifest } from './offline-store';
 import { isFinished, readPosition } from './positions';
 import type { AudioIndex } from './types';
 import type { Video } from '../../types/video';
@@ -57,12 +57,14 @@ export async function preflight(hash: string, index: AudioIndex) {
  */
 export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now(), { manual = false } = {}): Promise<void> {
   await navigator.storage?.persist?.().catch(() => false);
-  const existing = await getManifest(vod.hash);
-  const stored = existing ? { ...existing, video: vod.video ?? existing.video } : newManifest({ ...vod, index, now });
-  const manifest = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
+  // One transaction: the worker may still be saving an earlier round into this manifest.
+  const manifest = (await updateManifest(vod.hash, (existing) => {
+    const stored = existing ? { ...existing, video: vod.video ?? existing.video } : newManifest({ ...vod, index, now });
+    const m = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
+    return { ...m, state: 'downloading', reason: undefined, updatedAt: now };
+  }))!;
   void cacheThumbnail(vod.thumbnailUrl); // best effort, for the offline diary
   const missing = missingRuns(manifest);
-  await putManifest({ ...manifest, state: 'downloading', reason: undefined, updatedAt: now });
   notifyChanged(vod.hash);
   try {
     const bg = bgFetchOf(await ensureWorker());
@@ -75,7 +77,7 @@ export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.n
     });
   } catch (err) {
     const reason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    await putManifest({ ...manifest, state: 'paused', reason, updatedAt: Date.now() });
+    await updateManifest(vod.hash, (m) => (m ? { ...m, state: 'paused', reason, updatedAt: Date.now() } : null));
     notifyChanged(vod.hash);
     throw err;
   }
@@ -93,6 +95,21 @@ async function liveRegistration(hash: string): Promise<BgFetchRegistration | und
 export async function cancelDownload(hash: string): Promise<void> {
   const live = await liveRegistration(hash);
   if (live) await live.abort();
+}
+
+/**
+ * Delete a download, stopping it first if it's still running. Without the abort, Chrome kept
+ * downloading (up to ~400 MB) after the row was gone. The worker's abort handler then finds no
+ * manifest and stores nothing (saveRuns).
+ */
+export async function removeDownload(hash: string): Promise<void> {
+  try {
+    const live = await liveRegistration(hash);
+    if (live) await live.abort();
+  } catch {
+    // No worker or no Background Fetch: nothing is running.
+  }
+  await deleteDownload(hash);
 }
 
 /**
@@ -140,8 +157,21 @@ export async function autoResume(m: DownloadManifest): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
   const index = await getCachedIndex(m.hash);
   if (!index) return false;
-  await putManifest(recordAutoResume(m, Date.now()));
+  // Recorded against the stored manifest, not the (possibly stale) one the scheduler saw.
+  const current = await updateManifest(m.hash, (cur) => (cur?.state === 'paused' ? recordAutoResume(cur, Date.now()) : null));
+  if (current?.state !== 'paused') return false; // deleted, or resumed elsewhere meanwhile
   await startDownload({ hash: m.hash, url: m.url, title: m.title, thumbnailUrl: m.thumbnailUrl, video: m.video }, index);
+  return true;
+}
+
+/**
+ * Resume by hand from the downloads list (the user tapped Resume): restarts the auto-resume
+ * schedule. False when the audio index isn't cached any more; opening the VOD rebuilds it.
+ */
+export async function resumeDownload(m: DownloadManifest): Promise<boolean> {
+  const index = await getCachedIndex(m.hash);
+  if (!index) return false;
+  await startDownload({ hash: m.hash, url: m.url, title: m.title, thumbnailUrl: m.thumbnailUrl, video: m.video }, index, Date.now(), { manual: true });
   return true;
 }
 
@@ -158,10 +188,11 @@ export async function autoDeleteIfFinished(hash: string): Promise<boolean> {
 export async function rememberVodDetails(video: Video): Promise<void> {
   if (!video.videoHash) return;
   try {
-    const m = await getManifest(video.videoHash);
+    // Only the details change; `done` and `state` are whatever is stored now (the worker may be
+    // saving this very download: the "Saved for offline" notification opens this page).
+    const m = await updateManifest(video.videoHash, (cur) => (cur ? { ...cur, video, thumbnailUrl: video.thumbnailUrl ?? cur.thumbnailUrl } : null));
     if (!m) return;
-    await putManifest({ ...m, video, thumbnailUrl: video.thumbnailUrl ?? m.thumbnailUrl });
-    await cacheThumbnail(video.thumbnailUrl ?? m.thumbnailUrl);
+    await cacheThumbnail(m.thumbnailUrl);
   } catch {
     // Not stored: it still works online, and the next visit tries again.
   }

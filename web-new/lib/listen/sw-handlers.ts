@@ -68,6 +68,7 @@ export async function handleBackgroundFetchEnd(
   await flush();
 
   const manifest = last ?? (await deps.getManifest(hash));
+  if (!manifest) return null; // deleted while it downloaded: nothing was stored, nothing to say
   const title = manifest?.title ?? '';
   const complete = (last as { state?: string } | null)?.state === 'ready';
   if (!complete) {

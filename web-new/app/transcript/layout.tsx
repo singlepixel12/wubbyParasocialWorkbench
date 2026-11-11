@@ -5,16 +5,16 @@ export const metadata: Metadata = {
   description:
     'Extract and view video transcripts from Wubby stream VODs. Load subtitles, view formatted transcripts with timestamps, and navigate video content.',
   openGraph: {
-    title: 'Get Transcript | Wubby Parasocial Workbench',
+    title: 'Get Transcript | The Wubby Archive',
     description:
       'Extract and view video transcripts from Wubby stream VODs with timestamps.',
-    url: 'https://your-domain.com/transcript',
-    siteName: 'Wubby Parasocial Workbench',
+    url: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/transcript`,
+    siteName: 'The Wubby Archive',
     type: 'website',
   },
   twitter: {
     card: 'summary',
-    title: 'Get Transcript | Wubby Parasocial Workbench',
+    title: 'Get Transcript | The Wubby Archive',
     description:
       'Extract and view video transcripts from Wubby stream VODs with timestamps.',
   },

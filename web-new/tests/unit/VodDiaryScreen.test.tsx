@@ -24,6 +24,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMockVideo, renderWithProviders } from '../test-utils';
+import { clearDiarySnapshot } from '@/components/vod-diary/diary-snapshot';
 
 const api = vi.hoisted(() => ({
   fetchRecentVideos: vi.fn(),
@@ -112,6 +113,7 @@ async function openSearchAndType(term: string) {
 
 beforeEach(() => {
   nav.navigate('/');
+  clearDiarySnapshot(); // module memory: one test's unmount must not restore into the next
   vi.clearAllMocks();
   api.fetchRecentVideos.mockResolvedValue([]);
   api.searchVideos.mockResolvedValue([]);
@@ -415,5 +417,81 @@ describe('VodDiaryScreen — offline (Phase 3b)', () => {
     renderWithProviders(<VodDiaryScreen />);
     await userEvent.click(await screen.findByRole('button', { name: 'Try the archive again' }));
     expect(await screen.findByText('Back again')).toBeInTheDocument();
+  });
+
+  it("offline, the masthead counts the shelf and drops the week's date range", async () => {
+    saved.manifests = [savedVod, partialVod];
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    api.fetchRecentVideos.mockReturnValue(new Promise(() => undefined));
+    renderWithProviders(<VodDiaryScreen />);
+    await screen.findByRole('heading', { name: 'Saved on your phone' });
+    const masthead = screen.getByRole('banner');
+    expect(masthead).toHaveTextContent('No. 01'); // one finished download, not "No. 00"
+    expect(masthead).toHaveTextContent('Offline shelf');
+    expect(masthead.textContent).not.toMatch(/\d{1,2} [A-Z][a-z]{2}/); // no "10 Nov – 16 Nov"
+    expect(screen.getByText("You're offline")).toBeInTheDocument();
+    onLine.mockRestore();
+    saved.manifests = [];
+  });
+
+  it("online but the archive unreachable: never says 'You're offline'", async () => {
+    api.fetchRecentVideos.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderWithProviders(<VodDiaryScreen />);
+    expect(await screen.findByText("Can't reach the archive")).toBeInTheDocument();
+    expect(screen.queryByText("You're offline")).toBeNull();
+  });
+
+  it('a failed reload keeps the results already on screen, with a notice and Try again', async () => {
+    api.fetchRecentVideos
+      .mockResolvedValueOnce([createMockVideo({ title: 'Already loaded' })])
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValue([createMockVideo({ title: 'Fresh again' })]);
+    renderWithProviders(<VodDiaryScreen />);
+    expect(await screen.findByText('Already loaded')).toBeInTheDocument();
+    await act(async () => nav.navigate('/?from=2026-09-01&to=2026-09-30'));
+    expect(await screen.findByText(/showing what was already loaded/i)).toBeInTheDocument();
+    expect(screen.getByText('Already loaded')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Saved on your phone' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Fresh again')).toBeInTheDocument();
+    expect(screen.queryByText(/showing what was already loaded/i)).toBeNull();
+  });
+});
+
+// Installed app: a card opens /watch in the same window, so the diary unmounts. Coming back must
+// find it as it was, not page 1 at the top.
+describe('VodDiaryScreen — back from /watch in the same window', () => {
+  const page = (n: number, from = 0) => Array.from({ length: n }, (_, i) => createMockVideo({ title: `VOD ${from + i}`, url: `https://a/${from + i}.mp4` }));
+
+  it('comes back with every loaded page and the scroll position, without reloading', async () => {
+    api.fetchRecentVideos.mockResolvedValueOnce({ videos: page(2), total: 4 }).mockResolvedValueOnce({ videos: page(2, 2), total: 4 });
+    const first = renderWithProviders(<VodDiaryScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: /^Load 2 more$/ }));
+    expect(await screen.findByText('VOD 3')).toBeInTheDocument();
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 1234 });
+    window.dispatchEvent(new Event('scroll'));
+    first.unmount();
+
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    api.fetchRecentVideos.mockClear();
+    renderWithProviders(<VodDiaryScreen />);
+    expect(screen.getByText('VOD 0')).toBeInTheDocument();
+    expect(screen.getByText('VOD 3')).toBeInTheDocument();
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ top: 1234, behavior: 'auto' }));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.fetchRecentVideos).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
+  });
+
+  it('different filters start fresh', async () => {
+    api.fetchRecentVideos.mockResolvedValueOnce({ videos: page(2), total: 2 });
+    const first = renderWithProviders(<VodDiaryScreen />);
+    expect(await screen.findByText('VOD 1')).toBeInTheDocument();
+    first.unmount();
+    nav.navigate('/?from=2026-09-01&to=2026-09-30');
+    api.fetchRecentVideos.mockResolvedValueOnce({ videos: [createMockVideo({ title: 'September' })], total: 1 });
+    renderWithProviders(<VodDiaryScreen />);
+    expect(await screen.findByText('September')).toBeInTheDocument();
+    expect(screen.queryByText('VOD 1')).toBeNull();
   });
 });
