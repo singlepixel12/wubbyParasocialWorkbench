@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { startDownload, cancelDownload, preflight, removeDownload, autoResume } from '@/lib/listen/downloads';
+import { startDownload, cancelDownload, preflight, removeDownload, autoResume, watchdogTick, resetStallWatch } from '@/lib/listen/downloads';
 import { getManifest, putManifest, saveRuns } from '@/lib/listen/offline-store';
 import { putCachedIndex } from '@/lib/listen/index-cache';
-import { newManifest, markDone } from '@/lib/listen/download-model';
+import { newManifest, markDone, STALL_RESTART_MS } from '@/lib/listen/download-model';
 import type { AudioIndex } from '@/lib/listen/types';
 
 const idx = {
@@ -136,5 +136,62 @@ describe('watchProgress', () => {
     expect(seen.at(-1)).toBe(35); // 10 stored + 25 this round
     stop();
     vi.useRealTimers();
+  });
+});
+
+describe('watchdogTick (download stuck in Chrome)', () => {
+  const t0 = 1_000_000;
+  const live = (downloaded: number) => {
+    const abort = vi.fn(async () => true);
+    bgFetch.getIds.mockResolvedValue(['listen:h:2']);
+    bgFetch.get.mockResolvedValue({ id: 'listen:h:2', downloaded, abort });
+    return abort;
+  };
+
+  beforeEach(() => resetStallWatch());
+
+  it('restarts a live round with no new bytes for STALL_RESTART_MS, marked as a restart (not a cancel)', async () => {
+    await putManifest({ ...newManifest({ ...vod, index: idx, now: 1 }), state: 'downloading' });
+    const abort = live(6);
+    expect(await watchdogTick(t0)).toEqual([]); // first look: the baseline
+    expect(await watchdogTick(t0 + STALL_RESTART_MS - 1)).toEqual([]);
+    expect(abort).not.toHaveBeenCalled();
+    expect(await watchdogTick(t0 + STALL_RESTART_MS)).toEqual(['h']);
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect((await getManifest('h'))?.restartRequested).toBe(true);
+  });
+
+  it('leaves a round alone while its bytes keep moving', async () => {
+    await putManifest({ ...newManifest({ ...vod, index: idx, now: 1 }), state: 'downloading' });
+    const abort = live(6);
+    await watchdogTick(t0);
+    bgFetch.get.mockResolvedValue({ id: 'listen:h:2', downloaded: 7, abort });
+    await watchdogTick(t0 + STALL_RESTART_MS);
+    await watchdogTick(t0 + STALL_RESTART_MS + 1000);
+    expect(abort).not.toHaveBeenCalled();
+  });
+
+  it('after resetStallWatch (the page was hidden) it waits a full STALL_RESTART_MS again', async () => {
+    await putManifest({ ...newManifest({ ...vod, index: idx, now: 1 }), state: 'downloading' });
+    const abort = live(6);
+    await watchdogTick(t0);
+    resetStallWatch();
+    await watchdogTick(t0 + STALL_RESTART_MS);
+    expect(abort).not.toHaveBeenCalled();
+  });
+
+  it('a "downloading" manifest whose fetch is gone becomes paused, unless it only just started', async () => {
+    await putManifest({ ...newManifest({ ...vod, index: idx, now: t0 - 120_000 }), state: 'downloading' });
+    bgFetch.getIds.mockResolvedValue([]);
+    await watchdogTick(t0 - 119_000); // started a second ago: the registration may not exist yet
+    expect((await getManifest('h'))?.state).toBe('downloading');
+    await watchdogTick(t0);
+    expect(await getManifest('h')).toMatchObject({ state: 'paused', reason: 'interrupted' });
+  });
+
+  it('a new round clears the restart flag, so a later cancel from the notification stays a cancel', async () => {
+    await putManifest({ ...newManifest({ ...vod, index: idx, now: 1 }), state: 'paused', restartRequested: true });
+    await startDownload(vod, idx);
+    expect((await getManifest('h'))?.restartRequested).toBeUndefined();
   });
 });

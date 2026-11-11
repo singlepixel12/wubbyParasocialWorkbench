@@ -108,6 +108,13 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
   15 min, restarting the schedule whenever a round saved bytes (`AUTO_RESUME_DELAYS_MS`). A
   user's cancel never resumes on its own.
 - **Background Fetch** retries inside a round, but eventually fails it.
+- **A round can also stay alive with no bytes moving** (Lee's S22, battery saver on, locked
+  overnight: stuck at 10% until morning). While the app is visible and online, a watchdog
+  (`watchdogTick`, every 30 s) restarts a round with no new bytes for 2 min: it aborts with
+  `restartRequested`, the worker pauses it as `stalled; restarting` (not `cancelled`), and
+  auto-resume fetches the rest. It also turns a "downloading" whose fetch has gone into
+  "paused". It can't make a locked phone download: that is Android's call (Chrome's battery
+  setting, power saving). `chaos.spec` reproduces the stuck round with the proxy's `hang`.
 - **Cross-origin limits:** only `cache-control`, `content-length`, `content-type` and
   `last-modified` are readable on archive responses, and `If-Range` is blocked by preflight.
 - **Design and measured numbers:** `docs/superpowers/specs/2026-11-08-listen-mode-design.md`.

@@ -7,7 +7,8 @@
  * - 25 s stalls, longer than our 15 s idle timeout;
  * - 503 and 429 responses;
  * - 1–3 s of latency;
- * - full outages.
+ * - full outages;
+ * - hung connections that never answer and never close.
  * It's seeded, so a failure reproduces. The Supabase API is stubbed per test with dropped requests
  * and outages. Listen and API tests run on `pixel`; download tests run on `pixel-chrome`, because
  * Background Fetch needs real Chrome.
@@ -179,6 +180,26 @@ test('a download survives a 30 s outage in the middle and finishes when the netw
   await expect(page.getByText(/saved offline/i)).toHaveCount(0);
   await chaos('clean');
   await expect(page.getByText(/saved offline/i)).toBeVisible({ timeout: 240_000 });
+});
+
+test('a round stuck with no bytes moving is restarted by the watchdog and finishes', async ({ page }, info) => {
+  onChrome(info.project.name);
+  test.setTimeout(480_000); // the watchdog waits STALL_RESTART_MS (2 min) of no progress
+  await stubApi(page);
+  await chaos('clean');
+  await page.goto(`/watch?id=${HASH}`);
+  await page.getByRole('button', { name: 'Download for offline' }).click();
+  await expect(page.getByRole('button', { name: /cancel download/i })).toBeVisible({ timeout: 60_000 });
+  // Every request Chrome makes in the next 20 s hangs for good (sockets open, nothing sent), so the
+  // round stays alive with its bytes frozen. New connections after that are clean again, but
+  // Chrome is stuck waiting on the hung ones, which is what the phone showed overnight.
+  await chaos('hang');
+  await page.waitForTimeout(20_000);
+  await chaos('clean');
+  // The watchdog notices, aborts the round as a restart (not a cancel), and auto-resume finishes it.
+  await expect(page.getByText(/Paused: stalled; restarting/)).toBeVisible({ timeout: 240_000 });
+  await expect(page.getByText(/saved offline/i)).toBeVisible({ timeout: 180_000 });
+  expect((await faults()).faults.hang ?? 0).toBeGreaterThan(0);
 });
 
 test('Download tapped during a 30 s outage still finishes once the network returns', async ({ page }, info) => {

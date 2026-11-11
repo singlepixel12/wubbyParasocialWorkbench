@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const api = vi.hoisted(() => ({
   getWubbySummaryByHash: vi.fn(),
@@ -79,7 +79,11 @@ describe('WatchPage — offline (Phase 3b)', () => {
     expect(await screen.findByRole('heading', { name: /you.re offline/i })).toBeInTheDocument();
     expect(screen.getByText(/opens by itself/i)).toBeInTheDocument();
     onLine.mockReturnValue(true);
-    act(() => void window.dispatchEvent(new Event('online')));
+    // The listener attaches in an effect after the error renders: keep sending until it reloads.
+    await waitFor(() => {
+      window.dispatchEvent(new Event('online'));
+      expect(api.getWubbySummaryByHash).toHaveBeenCalled();
+    });
     expect(await screen.findByRole('heading', { name: 'Back Online Pizzas' })).toBeInTheDocument();
   });
 
@@ -87,7 +91,10 @@ describe('WatchPage — offline (Phase 3b)', () => {
     api.getWubbySummaryByHash.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce({ title: 'Recovered Pizzas' });
     render(<WatchPage />);
     expect(await screen.findByText(/couldn.t reach the archive/i)).toBeInTheDocument();
-    act(() => void window.dispatchEvent(new Event('online')));
+    await waitFor(() => {
+      window.dispatchEvent(new Event('online'));
+      expect(api.getWubbySummaryByHash).toHaveBeenCalledTimes(2);
+    });
     expect(await screen.findByRole('heading', { name: 'Recovered Pizzas' })).toBeInTheDocument();
   });
 });

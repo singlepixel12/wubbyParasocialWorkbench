@@ -22,7 +22,7 @@ Automated tests can't prove these. Run them on the phone before trusting a Liste
 | 7 | Reopen the VOD later: Listen shows "from h:mm:ss" and resumes there; the diary card shows "Resume …" | |
 | 8 | Tap targets are easy one-handed; the status line is readable outdoors | |
 | 9 | Listen → Watch → Listen keeps the timestamp both ways | |
-| 10 | **Download** a long VOD on Wi-Fi, lock the phone: Android's notification shows progress and it completes (~1 h for 6 h of audio) | |
+| 10 | **Download** a long VOD on Wi-Fi, lock the phone: Android's notification shows progress and it completes (~1 h for 6 h of audio) | ❌ 2026-11-10, S22 with battery saver on: stuck at 10% overnight. Retry with the settings below |
 | 11 | Close Chrome mid-download: it keeps going (or resumes) and finishes; reopening shows "Saved offline" | |
 | 12 | Cancel from the notification: the watch page shows "Resume · x%", and Resume finishes it | |
 | 13 | Airplane mode with the site already open: a downloaded VOD plays via Listen ("Playing from your phone · 0 MB used") | |
@@ -37,6 +37,17 @@ Automated tests can't prove these. Run them on the phone before trusting a Liste
 | 22 | **Airplane mode**, swipe the app away, open it from the home screen: the diary shows "Saved on your phone"; a saved VOD opens with its summary and Listen plays | |
 | 23 | Airplane mode: a VOD that isn't saved says "You're offline" with Retry (never "Loading" forever); back on signal, the live diary returns by itself | |
 | 24 | **After a deploy:** open the app online, close and reopen it: the new version shows; an app left open on the old version keeps working | |
+
+**Row 10 on a Samsung (S22).** Chrome's background downloads run at Chrome's default
+priority, which Android may hold while the phone is locked. Before an overnight download:
+- Settings → Battery → **Power saving off**.
+- Settings → Apps → Chrome → Battery → **Unrestricted**.
+- Settings → Battery → Background usage limits: Chrome is **not** in Sleeping or Deep sleeping apps.
+- To see what happened next morning: before starting, plug into the laptop, `chrome://inspect`,
+  inspect the site → Application → Background services → **Background fetch → Record**. It
+  keeps logging for 3 days with DevTools closed. `chrome://download-internals` on the phone
+  shows whether Chrome thinks a download is running, paused or waiting.
+- If it's stuck when you open the app, leave it open for ~2 min: the watchdog restarts it.
 
 If check 1 or 2 fails, the background-playback approach (MSE in a locked tab) is the problem.
 Stop and revisit the design; the fallback is a Blob-backed `<audio src>` built from the same

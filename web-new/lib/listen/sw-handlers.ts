@@ -1,6 +1,6 @@
 // What the service worker does when a background fetch ends. Kept free of worker globals so it
 // can be unit-tested; scripts/sw/service-worker.js only wires events to it.
-import { hashFromBgFetchId, runFromRange, type DownloadManifest } from './download-model';
+import { hashFromBgFetchId, runFromRange, STALLED_REASON, type DownloadManifest } from './download-model';
 import { getCachedIndex } from './index-cache';
 import { getManifest, notifyChanged, saveRuns, setState } from './offline-store';
 import type { AudioIndex } from './types';
@@ -18,7 +18,7 @@ export interface SwDeps {
   saveRuns: (hash: string, entries: { run: number; bytes: Uint8Array }[], runSize: ArrayLike<number>) => Promise<Pick<DownloadManifest, 'hash' | 'title' | 'state' | 'done'> | null>;
   setState: (hash: string, state: 'paused', reason: string) => Promise<void>;
   notify: (hash: string) => void;
-  getManifest: (hash: string) => Promise<Pick<DownloadManifest, 'hash' | 'title'> | null>;
+  getManifest: (hash: string) => Promise<Pick<DownloadManifest, 'hash' | 'title' | 'restartRequested'> | null>;
 }
 
 const defaultDeps: SwDeps = { getIndex: getCachedIndex, saveRuns, setState, notify: notifyChanged, getManifest };
@@ -72,7 +72,9 @@ export async function handleBackgroundFetchEnd(
   const title = manifest?.title ?? '';
   const complete = (last as { state?: string } | null)?.state === 'ready';
   if (!complete) {
-    const reason = kind === 'abort' ? 'cancelled' : kind === 'fail' ? 'connection lost' : `${failed} parts failed; resume to retry them`;
+    // An abort is the user's cancel, unless the page's watchdog asked for it (a stuck round).
+    const restart = (manifest as Pick<DownloadManifest, 'restartRequested'>).restartRequested === true;
+    const reason = kind === 'abort' ? (restart ? STALLED_REASON : 'cancelled') : kind === 'fail' ? 'connection lost' : `${failed} parts failed; resume to retry them`;
     await deps.setState(hash, 'paused', reason);
   }
   deps.notify(hash);

@@ -3,7 +3,7 @@
 // failing run can be reproduced exactly.
 //
 // usage: node tests/support/chaos-proxy.mjs <listenPort> <targetPort> [profile=flaky] [seed=1]
-// change profile at runtime:  GET /__chaos?profile=clean|flaky|brutal|offline
+// change profile at runtime:  GET /__chaos?profile=clean|flaky|brutal|offline|hang
 // read counters:              GET /__chaos/stats
 //
 // Fault kinds:
@@ -26,6 +26,9 @@ const PROFILES = {
   // Half the requests fail outright.
   brutal: [['reset-early', 0.15], ['reset-mid', 0.15], ['http-503', 0.12], ['stall', 0.05], ['latency', 0.1], ['http-429', 0.03]],
   offline: [['reset-early', 1]],
+  // Accept the request and never answer or close: a round that stays alive with no bytes moving,
+  // the way a locked phone on battery saver held one at 10% overnight.
+  hang: [['hang', 1]],
 };
 let profile = profileArg;
 
@@ -67,6 +70,7 @@ http
     if (fault) stats.faults[fault] = (stats.faults[fault] ?? 0) + 1;
 
     if (fault === 'reset-early') return req.socket.destroy();
+    if (fault === 'hang') return; // silent forever
     if (fault === 'http-503' || fault === 'http-429') {
       res.writeHead(fault === 'http-503' ? 503 : 429, cors);
       return res.end('chaos');
