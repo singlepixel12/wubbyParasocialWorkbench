@@ -493,7 +493,7 @@ npm run test:coverage   # coverage report
 ```
 - Located in `tests/unit/` (Listen in `tests/unit/listen/`, fixtures in
   `tests/fixtures/listen/`, made by `npm run fixtures:listen`)
-- 358 tests, all passing (2026-11-10). `range-fetch.test.ts` covers every retriable/fatal branch;
+- 406 tests, all passing (2026-11-13). `range-fetch.test.ts` covers every retriable/fatal branch;
   `mp4-index.test.ts` matches ffprobe sample-for-sample, including a synthetic `co64`. `date-range.test.ts` pins `process.env.TZ` (Sydney + New York).
   `VodDiaryScreen.test.tsx` mocks `next/navigation` with a store backed by jsdom's URL. `createMockVideo` (`tests/test-utils.tsx`) includes a
   `videoHash` by default — that's what makes a card navigable. Pass
