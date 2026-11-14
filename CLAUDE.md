@@ -554,12 +554,14 @@ npm run test:all        # vitest + playwright
 
 ---
 
-**Last Updated:** 2026-11-09
+**Last Updated:** 2026-11-14
 **Status:** Core complete. Listen mode Phase 1 (audio-only streaming, 1.5×, resume,
 lock-screen controls) shipped and passed Lee's phone checklist. `/watch` downloads nothing
 until you tap. Phase 2 (background downloads) shipped. Phase 3a hardened every network path
 for flaky mobile networks: API retries, Listen self-recovery, download auto-resume, and a chaos
 E2E suite. Phase 3b made it an installable offline app (app-shell caching, saved VOD details,
-offline diary). Real-phone checks are pending for 2, 3a and 3b. Unit suite green, `tsc` clean;
+offline diary). Since then: subtitles fixed, lint at 0 errors, a stuck-download watchdog,
+and the unit suite no longer skips `supabase.test.ts`. Real-phone checks: rows 1–9 (Phase 1)
+passed; row 10 failed once on the S22 (battery saver) and needs a retry; rows 11–24 pending. Unit suite green, `tsc` clean;
 Listen, download, chaos and offline E2E green on `pixel` / `pixel-chrome`. The older E2E suite
 is largely stale.

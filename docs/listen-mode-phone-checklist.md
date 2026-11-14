@@ -13,15 +13,15 @@ Automated tests can't prove these. Run them on the phone before trusting a Liste
 
 | # | Check | Pass? |
 |---|-------|-------|
-| 1 | Listen, 1.5×, lock the screen for 15 min: audio never stops | |
-| 2 | Switch to another app for 5 min: audio continues | |
-| 3 | Notification shows title + thumbnail; play/pause and ±30 s work | |
-| 4 | Lock-screen seek bar moves at 1.5× speed; still 1.5× after pause/resume from the lock screen | |
-| 5 | Data: Settings → Network → Data usage → Chrome, before/after 30 min at 1.5× ≈ 25–40 MB (plus a one-off ~24 MB the first time a VOD is opened) | |
-| 6 | Airplane mode for 30 s mid-listen: audio continues from the buffer, "Reconnecting…" shows, then recovers | |
-| 7 | Reopen the VOD later: Listen shows "from h:mm:ss" and resumes there; the diary card shows "Resume …" | |
-| 8 | Tap targets are easy one-handed; the status line is readable outdoors | |
-| 9 | Listen → Watch → Listen keeps the timestamp both ways | |
+| 1 | Listen, 1.5×, lock the screen for 15 min: audio never stops | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 2 | Switch to another app for 5 min: audio continues | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 3 | Notification shows title + thumbnail; play/pause and ±30 s work | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 4 | Lock-screen seek bar moves at 1.5× speed; still 1.5× after pause/resume from the lock screen | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 5 | Data: Settings → Network → Data usage → Chrome, before/after 30 min at 1.5× ≈ 25–40 MB (plus a one-off ~24 MB the first time a VOD is opened) | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 6 | Airplane mode for 30 s mid-listen: audio continues from the buffer, "Reconnecting…" shows, then recovers | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 7 | Reopen the VOD later: Listen shows "from h:mm:ss" and resumes there; the diary card shows "Resume …" | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 8 | Tap targets are easy one-handed; the status line is readable outdoors | ✅ 2026-11-08 (deployed site, Lee's phone) |
+| 9 | Listen → Watch → Listen keeps the timestamp both ways | ✅ 2026-11-08 (deployed site, Lee's phone) |
 | 10 | **Download** a long VOD on Wi-Fi, lock the phone: Android's notification shows progress and it completes (~1 h for 6 h of audio) | ❌ 2026-11-10, S22 with battery saver on: stuck at 10% overnight. Retry with the settings below |
 | 11 | Close Chrome mid-download: it keeps going (or resumes) and finishes; reopening shows "Saved offline" | |
 | 12 | Cancel from the notification: the watch page shows "Resume · x%", and Resume finishes it | |
