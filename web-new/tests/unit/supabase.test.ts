@@ -11,16 +11,17 @@
  *   superseded request is cancelled (jsdom/undici stand in for it here).
  */
 
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-type Api = typeof import('@/lib/api/supabase');
-let api: Api;
-
-beforeAll(async () => {
-  // The module throws at import time without the anon key
+// The module throws at import time without the anon key. vi.hoisted runs before the import
+// below, so the module loads with the file, not inside a beforeAll: a dynamic import there
+// counted against the 10 s hook timeout, and in a full single-thread run it took longer, so
+// all of this file's tests were skipped (2026-11-13).
+vi.hoisted(() => {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
-  api = await import('@/lib/api/supabase');
 });
+
+import * as api from '@/lib/api/supabase';
 
 const fetchMock = vi.fn();
 
