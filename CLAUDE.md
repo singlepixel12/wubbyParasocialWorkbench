@@ -106,7 +106,8 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
   gets 8 attempts.
 - **Downloads auto-resume:** a round that failed resumes after 3 s, 10 s, 30 s and up to
   15 min, restarting the schedule whenever a round saved bytes (`AUTO_RESUME_DELAYS_MS`). A
-  user's cancel never resumes on its own.
+  user's cancel never resumes on its own, and **nothing auto-resumes on mobile data**: Download
+  and Resume ask first, so an automatic round waits for Wi-Fi (a connection change re-checks).
 - **Background Fetch** retries inside a round, but eventually fails it.
 - **A round can also stay alive with no bytes moving** (Lee's S22, battery saver on, locked
   overnight: stuck at 10% until morning). While the app is visible and online, a watchdog
@@ -123,8 +124,17 @@ API contract change that would break it). Cleanups, lint sweeps, dependency bump
 - **Downloads (Phase 2):** **Download** on `/watch` saves a VOD's audio to the phone using
   Chrome's **Background Fetch**. It keeps going with the phone locked or Chrome closed, and
   takes ~55 min for 6 h.
-  - **One registration per VOD:** the page starts it with a bounded Range request per
-    missing run.
+  - **One registration per part, ≤ 4,000 runs each** (`MAX_REQUESTS_PER_FETCH`): the page
+    starts them all at once, a bounded Range request per missing run. Chrome's `matchAll()`
+    **silently returns no records above ~8,000 requests** (measured 2026-11-21: OK at 8,500 and
+    empty at 9,000 with a short URL, empty at 8,000 with a 254-char one), and the worker reads
+    records with it: a 12 h VOD (~10,850 runs) in one fetch downloaded 880 MB and saved nothing.
+    So a 6 h VOD is 2 parts, a 12 h one 3. Chrome runs parts **one after another**, so the
+    watchdog and progress use the sum of all parts; cancel/delete abort every part; the worker
+    pauses the VOD only once no other part of it is live, and cancelling one part (each has its
+    own Android notification) aborts the rest. Ids are `listen:<hash>:<now>-<k>`.
+  - **No records but bytes downloaded** pauses with `NO_RECORDS_REASON`, which never
+    auto-resumes (another round would lose the same bytes).
   - **The service worker saves results:** `scripts/sw/service-worker.js` →
     `lib/listen/sw-handlers.ts`. It saves to IndexedDB on success, fail or abort, so a cancel
     keeps what finished and Resume fetches only what's missing.
@@ -493,7 +503,7 @@ npm run test:coverage   # coverage report
 ```
 - Located in `tests/unit/` (Listen in `tests/unit/listen/`, fixtures in
   `tests/fixtures/listen/`, made by `npm run fixtures:listen`)
-- 406 tests, all passing (2026-11-13). `range-fetch.test.ts` covers every retriable/fatal branch;
+- 427 tests, all passing (2026-11-21). `range-fetch.test.ts` covers every retriable/fatal branch;
   `mp4-index.test.ts` matches ffprobe sample-for-sample, including a synthetic `co64`. `date-range.test.ts` pins `process.env.TZ` (Sydney + New York).
   `VodDiaryScreen.test.tsx` mocks `next/navigation` with a store backed by jsdom's URL. `createMockVideo` (`tests/test-utils.tsx`) includes a
   `videoHash` by default — that's what makes a card navigable. Pass
@@ -527,6 +537,9 @@ npm run test:all        # vitest + playwright
 - **Don't run `player-gestures.spec` alongside Listen/download specs:** it streams real
   archive video, and on a shared machine that starves Listen's index load ("Preparing audio…"
   times out) and a download's cancel timing. Each passes on its own (checked 2026-11-10).
+- **`tests/listen-download-parts.spec.ts`** (2 tests, `pixel-chrome`, ~17 min): a 12,492-run
+  download (`npm run fixtures:listen -- many`, ~10 MB) runs as 4 parts, saves every run, plays
+  with zero network, and a cancel stops every part and keeps what finished.
 - **`tests/listen-download.spec.ts`** (3 tests) runs only on the **`pixel-chrome`** project,
   which is real Chrome via `channel: 'chrome'`. Playwright's bundled Chromium accepts a
   Background Fetch but never completes it. Run it with

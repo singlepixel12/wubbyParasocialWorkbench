@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { startDownload, cancelDownload, preflight, removeDownload, autoResume, watchdogTick, resetStallWatch } from '@/lib/listen/downloads';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { startDownload, cancelDownload, preflight, removeDownload, autoResume, watchdogTick, resetStallWatch, watchProgress } from '@/lib/listen/downloads';
 import { getManifest, putManifest, saveRuns } from '@/lib/listen/offline-store';
 import { putCachedIndex } from '@/lib/listen/index-cache';
 import { newManifest, markDone, STALL_RESTART_MS } from '@/lib/listen/download-model';
@@ -32,7 +32,7 @@ describe('startDownload', () => {
   it('starts one background fetch with a bounded Range request per missing run', async () => {
     await startDownload(vod, idx);
     const [id, requests, opts] = bgFetch.fetch.mock.calls[0];
-    expect(id).toMatch(/^listen:h:\d+$/);
+    expect(id).toMatch(/^listen:h:\d+-0$/);
     expect((requests as Request[]).map((r) => r.headers.get('range'))).toEqual(['bytes=100-109', 'bytes=900-919', 'bytes=2000-2029']);
     expect(opts.downloadTotal).toBe(60);
     expect((await getManifest('h'))?.state).toBe('downloading');
@@ -193,5 +193,114 @@ describe('watchdogTick (download stuck in Chrome)', () => {
     await putManifest({ ...newManifest({ ...vod, index: idx, now: 1 }), state: 'paused', restartRequested: true });
     await startDownload(vod, idx);
     expect((await getManifest('h'))?.restartRequested).toBeUndefined();
+  });
+});
+
+describe('downloads in parts (Chrome matchAll() returns nothing above ~8,000 requests)', () => {
+  // 9,000 one-byte runs: three parts of 3,000.
+  const N = 9000;
+  const big = {
+    ...idx,
+    runOffset: Float64Array.from({ length: N }, (_, i) => i * 10),
+    runSize: Uint32Array.from({ length: N }, () => 1),
+    runFirst: new Uint32Array(N), runCount: new Uint32Array(N), runStartTicks: new Float64Array(N),
+  } as AudioIndex;
+  const bigVod = { hash: 'big', url: 'https://a/long.mp4', title: 'Twelve hours' };
+  const part = (id: string, downloaded = 0) => ({ id, downloaded, abort: vi.fn(async () => true) });
+
+  it('registers one Background Fetch per part of at most 4,000 runs, covering every run once', async () => {
+    await startDownload(bigVod, big, 77);
+    const calls = bgFetch.fetch.mock.calls;
+    expect(calls.map((c) => c[0])).toEqual(['listen:big:77-0', 'listen:big:77-1', 'listen:big:77-2']);
+    expect(calls.map((c) => (c[1] as Request[]).length)).toEqual([3000, 3000, 3000]);
+    expect(calls.map((c) => c[2].title)).toEqual(['Wubby Archive · Twelve hours (1/3)', 'Wubby Archive · Twelve hours (2/3)', 'Wubby Archive · Twelve hours (3/3)']);
+    expect(calls.map((c) => c[2].downloadTotal)).toEqual([3000, 3000, 3000]);
+    const ranges = new Set(calls.flatMap((c) => (c[1] as Request[]).map((r) => r.headers.get('range'))));
+    expect(ranges.size).toBe(N);
+    expect((await getManifest('big'))?.state).toBe('downloading');
+  });
+
+  it('a VOD under the limit is still one fetch with the plain title', async () => {
+    await startDownload(vod, idx, 5);
+    expect(bgFetch.fetch).toHaveBeenCalledTimes(1);
+    expect(bgFetch.fetch.mock.calls[0][2].title).toBe('Wubby Archive · T');
+  });
+
+  it('if a later part fails to register, the parts already started are aborted and it pauses with the error', async () => {
+    const first = part('listen:big:77-0');
+    bgFetch.fetch.mockResolvedValueOnce(first).mockRejectedValueOnce(new DOMException('no room', 'QuotaExceededError'));
+    await expect(startDownload(bigVod, big, 77)).rejects.toThrow();
+    expect(first.abort).toHaveBeenCalled();
+    expect(await getManifest('big')).toMatchObject({ state: 'paused', reason: expect.stringMatching(/QuotaExceededError/) });
+  });
+
+  it('nothing left to fetch: ready at once, no fetch started', async () => {
+    await putManifest(markDone(newManifest({ ...vod, index: idx, now: 1 }), [0, 1, 2], idx.runSize, 2));
+    await startDownload(vod, idx);
+    expect(bgFetch.fetch).not.toHaveBeenCalled();
+    expect((await getManifest('h'))?.state).toBe('ready');
+  });
+
+  it('cancel and delete stop every part of that VOD, and only that VOD', async () => {
+    const parts = [part('listen:big:7-0'), part('listen:big:7-1'), part('listen:other:3-0')];
+    bgFetch.getIds.mockResolvedValue(parts.map((p) => p.id));
+    bgFetch.get.mockImplementation(async (id: string) => parts.find((p) => p.id === id));
+    await cancelDownload('big');
+    expect(parts.map((p) => p.abort.mock.calls.length)).toEqual([1, 1, 0]);
+    await removeDownload('big');
+    expect(parts.map((p) => p.abort.mock.calls.length)).toEqual([2, 2, 0]);
+  });
+
+  it('progress adds up every live part on top of what is stored', async () => {
+    await putManifest({ ...markDone(newManifest({ ...bigVod, index: big, now: 1 }), [0, 1, 2, 3], big.runSize, 2), state: 'downloading' });
+    const parts = [part('listen:big:7-0', 100), part('listen:big:7-1', 250)];
+    bgFetch.getIds.mockResolvedValue(parts.map((p) => p.id));
+    bgFetch.get.mockImplementation(async (id: string) => parts.find((p) => p.id === id));
+    const seen: [number, number][] = [];
+    const stop = watchProgress('big', (d, t) => seen.push([d, t]), 10);
+    await vi.waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    stop();
+    expect(seen[0]).toEqual([4 + 100 + 250, N]);
+  });
+
+  it('the watchdog treats the parts as one download: stalled only when their total stops, then aborts all', async () => {
+    resetStallWatch();
+    await putManifest({ ...newManifest({ ...bigVod, index: big, now: 1 }), state: 'downloading' });
+    const a = part('listen:big:7-0', 10);
+    const b = part('listen:big:7-1', 20);
+    bgFetch.getIds.mockResolvedValue([a.id, b.id]);
+    bgFetch.get.mockImplementation(async (id: string) => [a, b].find((p) => p.id === id));
+    const t0 = 5_000_000;
+    await watchdogTick(t0);
+    a.downloaded = 15; // one part still moving: not stalled
+    expect(await watchdogTick(t0 + STALL_RESTART_MS)).toEqual([]);
+    expect(await watchdogTick(t0 + 2 * STALL_RESTART_MS)).toEqual(['big']);
+    expect([a.abort.mock.calls.length, b.abort.mock.calls.length]).toEqual([1, 1]);
+    expect((await getManifest('big'))?.restartRequested).toBe(true);
+  });
+});
+
+describe('autoResume never spends mobile data unasked', () => {
+  afterEach(() => {
+    delete (navigator as unknown as Record<string, unknown>).connection;
+  });
+
+  it('skips on a cellular connection and leaves the download paused for Wi-Fi', async () => {
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { type: 'cellular' } });
+    await putCachedIndex('h', idx);
+    const m = { ...newManifest({ ...vod, index: idx, now: 1 }), state: 'paused' as const, reason: 'connection lost' };
+    await putManifest(m);
+    expect(await autoResume(m)).toBe(false);
+    expect(bgFetch.fetch).not.toHaveBeenCalled();
+    expect((await getManifest('h'))?.state).toBe('paused');
+  });
+
+  it('on Wi-Fi it resumes as before', async () => {
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { type: 'wifi' } });
+    await putCachedIndex('h', idx);
+    const m = { ...newManifest({ ...vod, index: idx, now: 1 }), state: 'paused' as const, reason: 'connection lost' };
+    await putManifest(m);
+    expect(await autoResume(m)).toBe(true);
+    expect(bgFetch.fetch).toHaveBeenCalled();
   });
 });

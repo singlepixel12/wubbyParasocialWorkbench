@@ -50,7 +50,7 @@ function roundsWithoutProgress(m: DownloadManifest): number {
 
 /** ms until this paused download should auto-resume; null = never (cancelled, done, or out of rounds). */
 export function autoResumeDelay(m: DownloadManifest, now: number): number | null {
-  if (m.state !== 'paused' || m.reason === 'cancelled') return null;
+  if (m.state !== 'paused' || m.reason === 'cancelled' || m.reason === NO_RECORDS_REASON) return null;
   const rounds = roundsWithoutProgress(m);
   if (rounds >= AUTO_RESUME_DELAYS_MS.length) return null;
   return Math.max(0, m.updatedAt + AUTO_RESUME_DELAYS_MS[rounds] - now);
@@ -65,6 +65,12 @@ export function autoResumeDelay(m: DownloadManifest, now: number): number | null
 export const STALL_RESTART_MS = 2 * 60_000;
 /** The paused reason of a round the watchdog restarted. Not 'cancelled', so it auto-resumes. */
 export const STALLED_REASON = 'stalled; restarting';
+/**
+ * Chrome downloaded bytes but handed the worker no records, so nothing could be saved. Never
+ * auto-resumed: another round would download the same bytes and lose them the same way (a 12 h
+ * VOD did that with up to 8 rounds of 880 MB before downloads were split into parts).
+ */
+export const NO_RECORDS_REASON = "Chrome didn't hand over the downloaded audio; tap Resume to try again";
 
 export interface ProgressSample {
   downloaded: number;
@@ -176,6 +182,26 @@ export function runFromRange(index: AudioIndex, header: string | null): number {
 
 const PREFIX = 'listen:';
 export const bgFetchId = (hash: string, now = Date.now()) => `${PREFIX}${hash}:${now}`;
+/** One part of a round: `listen:<hash>:<now>-<k>` (hashFromBgFetchId reads it the same way). */
+export const partBgFetchId = (hash: string, now: number, part: number) => `${PREFIX}${hash}:${now}-${part}`;
+
+/**
+ * Most requests in one Background Fetch. Chrome's `matchAll()` silently returns no records above
+ * ~8,000 (measured 2026-11-21 in Chrome: OK at 8,500 and empty at 9,000 with a 76-char archive URL;
+ * OK at 7,000 and empty at 8,000 with a 254-char one). The worker reads records with it, so a
+ * 12 h VOD (~10,850 runs) in one fetch saved nothing. Half the lowest limit seen, for long titles.
+ */
+export const MAX_REQUESTS_PER_FETCH = 4000;
+
+/** Split runs into the fewest parts of at most `max`, sized evenly (10,855 → 3 × ≤3,619). */
+export function splitIntoParts<T>(items: readonly T[], max = MAX_REQUESTS_PER_FETCH): T[][] {
+  if (!items.length) return [];
+  const parts = Math.ceil(items.length / max);
+  const size = Math.ceil(items.length / parts);
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
 export function hashFromBgFetchId(id: string): string | null {
   if (!id.startsWith(PREFIX)) return null;
   const rest = id.slice(PREFIX.length);
