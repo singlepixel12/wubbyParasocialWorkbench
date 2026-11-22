@@ -2,6 +2,7 @@
 //   node scripts/make-listen-fixtures.mjs        -> tiny (committed) + e2e (gitignored)
 //   node scripts/make-listen-fixtures.mjs tiny   -> tiny only
 //   node scripts/make-listen-fixtures.mjs e2e    -> e2e only
+//   node scripts/make-listen-fixtures.mjs many   -> e2e-many-runs only (> 8,000 audio runs, gitignored)
 // tiny*.mp4 mirror the real VODs' layout: moov at the END (ffmpeg's default), H.264 + AAC-LC 48 kHz stereo.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,13 +20,32 @@ const audioPackets = (file) =>
   ).packets.map((p) => ({ pos: Number(p.pos), size: Number(p.size), duration: Number(p.duration) }));
 const only = process.argv[2];
 
-if (only !== 'e2e') {
+if (only === undefined || only === 'tiny') {
   ff('-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
     '-t', '12', '-c:v', 'libx264', '-b:v', '100k', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-ac', '2', at('tiny.mp4'));
   ff('-i', at('tiny.mp4'), '-c', 'copy', '-movflags', '+faststart', at('tiny-faststart.mp4'));
   ff('-i', at('tiny.mp4'), '-c', 'copy', '-an', at('tiny-noaudio.mp4'));
   fs.writeFileSync(at('tiny.audio-packets.json'), JSON.stringify(audioPackets(at('tiny.mp4'))));
   console.log('tiny fixtures written');
+}
+
+if (only === 'many') {
+  // A download bigger than Chrome's matchAll() limit (~8,000 requests), like a 12 h VOD's ~10,850
+  // runs, but small and quick: 10 minutes cut into ~40 ms audio runs (a few AAC frames each).
+  const out = at('e2e-many-runs.mp4');
+  if (!fs.existsSync(out)) {
+    ff('-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=330:sample_rate=48000',
+      '-t', '600', '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', '60k', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '64k', '-ac', '2', '-chunk_duration', '40000', out);
+  }
+  let runs = 0;
+  let end = -1;
+  for (const p of audioPackets(out)) {
+    if (p.pos !== end) runs++;
+    end = p.pos + p.size;
+  }
+  console.log(`e2e-many-runs: ${(fs.statSync(out).size / 1e6).toFixed(1)} MB, ${runs} audio runs`);
+  process.exit(0);
 }
 
 if (only !== 'tiny') {

@@ -213,6 +213,16 @@ failed runs are designed in, not bolted on.
 
 ### Downloads: revised 2026-11-08, Background Fetch
 
+> **2026-11-21: parts.** 12 h VODs (55–66 GB files; 48 MB `moov`; ~10,850 runs; ~880 MB of
+> audio) broke the "one registration per VOD" design below. Chrome's
+> `BackgroundFetchRegistration.matchAll()` returns `[]`, with no error, above ~8,000 requests
+> (desktop Chrome: OK at 8,500 / empty at 9,000 with a 76-char URL; OK at 7,000 / empty at 8,000
+> with a 254-char one), so the worker saved nothing (a cancel at 10.5 MB kept 0 runs) and the
+> success path auto-resumed the full 880 MB up to 8 times. A download is now one registration
+> per part of at most 4,000 runs, all started at once; Chrome runs them one after another. The
+> worker pauses only when no part of the VOD is still live; an empty `matchAll()` with bytes
+> downloaded pauses with a reason that never auto-resumes; auto-resume never runs on mobile data.
+
 Lee chose **true background download** over a foreground download that needs the screen on.
 The OPFS + `download-job` + Wake Lock design above is superseded by this.
 

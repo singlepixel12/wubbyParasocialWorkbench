@@ -1,7 +1,7 @@
 // Page side of offline downloads: register the worker, check space, start/resume/cancel a
 // Background Fetch, reconcile on load, auto-delete finished VODs. The worker saves results.
 import { bgFetchOf, type BgFetchRegistration } from './background-fetch';
-import { bgFetchId, hashFromBgFetchId, missingRuns, newManifest, planForCap, rangeForRun, recordAutoResume, trackStall, type DownloadManifest, type ProgressSample } from './download-model';
+import { hashFromBgFetchId, missingRuns, newManifest, partBgFetchId, planForCap, rangeForRun, recordAutoResume, splitIntoParts, trackStall, type DownloadManifest, type ProgressSample } from './download-model';
 import { getCachedIndex } from './index-cache';
 import { deleteDownload, getManifest, listManifests, notifyChanged, reconcile, updateManifest } from './offline-store';
 import { isFinished, readPosition } from './positions';
@@ -54,6 +54,11 @@ export async function preflight(hash: string, index: AudioIndex) {
 /**
  * Start (or resume) the background download of every missing run.
  * `manual`: the user tapped Download/Resume, which restarts the auto-resume schedule.
+ *
+ * One Background Fetch per part of at most MAX_REQUESTS_PER_FETCH runs (Chrome's matchAll()
+ * returns nothing above ~8,000, so a 12 h VOD in one fetch saved nothing). All parts start now, so
+ * the download still runs with the phone locked; the worker pauses the VOD only once no part of it
+ * is still running.
  */
 export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.now(), { manual = false } = {}): Promise<void> {
   await navigator.storage?.persist?.().catch(() => false);
@@ -61,40 +66,58 @@ export async function startDownload(vod: VodRef, index: AudioIndex, now = Date.n
   const manifest = (await updateManifest(vod.hash, (existing) => {
     const stored = existing ? { ...existing, video: vod.video ?? existing.video } : newManifest({ ...vod, index, now });
     const m = manual ? { ...stored, autoRetries: 0, bytesAtLastAutoRetry: undefined } : stored;
-    return { ...m, state: 'downloading', reason: undefined, restartRequested: undefined, updatedAt: now };
+    // Nothing left to fetch (every run is stored): it's simply ready, no round to start.
+    const state = missingRuns(m).length ? 'downloading' : 'ready';
+    return { ...m, state, reason: undefined, restartRequested: undefined, updatedAt: now };
   }))!;
+  if (manifest.state === 'ready') {
+    notifyChanged(vod.hash);
+    return;
+  }
   void cacheThumbnail(vod.thumbnailUrl); // best effort, for the offline diary
   const missing = missingRuns(manifest);
   notifyChanged(vod.hash);
+  const registered: BgFetchRegistration[] = [];
   try {
     const bg = bgFetchOf(await ensureWorker());
     if (!bg) throw new Error('Background downloads are not supported in this browser');
-    const requests = missing.map((r) => new Request(vod.url, { headers: { Range: rangeForRun(index, r) }, mode: 'cors' }));
-    await bg.fetch(bgFetchId(vod.hash, now), requests, {
-      title: `Wubby Archive · ${vod.title}`,
-      icons: vod.thumbnailUrl ? [{ src: vod.thumbnailUrl, sizes: '512x288', type: 'image/webp' }] : [],
-      downloadTotal: remainingBytes(index, missing),
-    });
+    const parts = splitIntoParts(missing);
+    for (const [k, runs] of parts.entries()) {
+      const requests = runs.map((r) => new Request(vod.url, { headers: { Range: rangeForRun(index, r) }, mode: 'cors' }));
+      registered.push(
+        await bg.fetch(partBgFetchId(vod.hash, now, k), requests, {
+          title: parts.length > 1 ? `Wubby Archive · ${vod.title} (${k + 1}/${parts.length})` : `Wubby Archive · ${vod.title}`,
+          icons: vod.thumbnailUrl ? [{ src: vod.thumbnailUrl, sizes: '512x288', type: 'image/webp' }] : [],
+          downloadTotal: remainingBytes(index, runs),
+        }),
+      );
+    }
   } catch (err) {
     const reason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    // Pause first: the worker keeps a pause it finds in place, so the aborts below (which save
+    // whatever finished) don't turn this into "cancelled" or start another part's round.
     await updateManifest(vod.hash, (m) => (m ? { ...m, state: 'paused', reason, updatedAt: Date.now() } : null));
+    await Promise.all(registered.map((r) => r.abort().catch(() => false)));
     notifyChanged(vod.hash);
     throw err;
   }
 }
 
-async function liveRegistration(hash: string): Promise<BgFetchRegistration | undefined> {
+/** Every live part of this VOD's download (one per MAX_REQUESTS_PER_FETCH runs). */
+async function liveRegistrations(hash: string): Promise<BgFetchRegistration[]> {
   const reg = await navigator.serviceWorker?.getRegistration(`${BASE}/`);
   const bg = bgFetchOf(reg);
-  if (!bg) return undefined;
-  const id = (await bg.getIds()).find((i) => hashFromBgFetchId(i) === hash);
-  return id ? bg.get(id) : undefined;
+  if (!bg) return [];
+  const ids = (await bg.getIds()).filter((i) => hashFromBgFetchId(i) === hash);
+  const live = await Promise.all(ids.map((id) => bg.get(id)));
+  return live.filter((r): r is BgFetchRegistration => !!r);
 }
 
-/** Cancel: the worker's abort handler saves what finished and marks it paused. */
+const abortAll = (parts: BgFetchRegistration[]) => Promise.all(parts.map((p) => p.abort().catch(() => false)));
+
+/** Cancel: every part stops; the worker's abort handler saves what finished and marks it paused. */
 export async function cancelDownload(hash: string): Promise<void> {
-  const live = await liveRegistration(hash);
-  if (live) await live.abort();
+  await abortAll(await liveRegistrations(hash));
 }
 
 /**
@@ -104,8 +127,7 @@ export async function cancelDownload(hash: string): Promise<void> {
  */
 export async function removeDownload(hash: string): Promise<void> {
   try {
-    const live = await liveRegistration(hash);
-    if (live) await live.abort();
+    await abortAll(await liveRegistrations(hash));
   } catch {
     // No worker or no Background Fetch: nothing is running.
   }
@@ -122,10 +144,11 @@ export function watchProgress(hash: string, onProgress: (done: number, total: nu
   let stopped = false;
   const tick = async () => {
     try {
-      const [live, m] = await Promise.all([liveRegistration(hash), getManifest(hash)]);
-      if (stopped || !live || !m) return;
-      // This round covers only the missing runs; add what earlier rounds already stored.
-      onProgress(m.bytesDone + live.downloaded, m.bytesTotal);
+      const [live, m] = await Promise.all([liveRegistrations(hash), getManifest(hash)]);
+      if (stopped || !live.length || !m) return;
+      // This round covers only the missing runs; add what earlier rounds (and finished parts of
+      // this one) already stored. A finished part leaves the live list as its bytes reach bytesDone.
+      onProgress(Math.min(m.bytesTotal, m.bytesDone + live.reduce((a, p) => a + p.downloaded, 0)), m.bytesTotal);
     } catch {
       // The next tick tries again.
     }
@@ -176,21 +199,26 @@ export async function watchdogTick(now = Date.now()): Promise<string[]> {
   const ids = await bg.getIds();
   for (const hash of await reconcile(ids, now, RECONCILE_GRACE_MS)) notifyChanged(hash);
 
-  const liveHashes = new Set<string>();
-  const restarted: string[] = [];
+  // All parts of a VOD count as one download: it's stalled when their summed bytes stop moving.
+  const partsByHash = new Map<string, BgFetchRegistration[]>();
   for (const id of ids) {
     const hash = hashFromBgFetchId(id);
     if (!hash) continue;
-    liveHashes.add(hash);
     const live = await bg.get(id);
     if (!live) continue;
-    const { sample, stalled } = trackStall(stallSamples.get(hash), live.downloaded, now);
+    partsByHash.set(hash, [...(partsByHash.get(hash) ?? []), live]);
+  }
+  const liveHashes = new Set(partsByHash.keys());
+  const restarted: string[] = [];
+  for (const [hash, parts] of partsByHash) {
+    const downloaded = parts.reduce((a, p) => a + p.downloaded, 0);
+    const { sample, stalled } = trackStall(stallSamples.get(hash), downloaded, now);
     stallSamples.set(hash, sample);
     if (!stalled) continue;
     stallSamples.delete(hash);
     const m = await updateManifest(hash, (cur) => (cur ? { ...cur, restartRequested: true } : null));
     if (!m) continue; // deleted meanwhile
-    await live.abort().catch(() => false);
+    await abortAll(parts);
     restarted.push(hash);
   }
   for (const hash of [...stallSamples.keys()]) if (!liveHashes.has(hash)) stallSamples.delete(hash);
@@ -199,10 +227,14 @@ export async function watchdogTick(now = Date.now()): Promise<string[]> {
 
 /**
  * One automatic round for a download paused by a failure (see AUTO_RESUME_DELAYS_MS).
- * Skips quietly when offline or when the index is gone (the user can still Resume by hand).
+ * Skips quietly when offline, on mobile data, or when the index is gone (the user can still
+ * Resume by hand).
  */
 export async function autoResume(m: DownloadManifest): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  // Never spend mobile data unasked: Download and Resume ask first, so an automatic round waits
+  // for Wi-Fi (DownloadsAutoResume looks again when the connection changes).
+  if (onMobileData()) return false;
   const index = await getCachedIndex(m.hash);
   if (!index) return false;
   // Recorded against the stored manifest, not the (possibly stale) one the scheduler saw.

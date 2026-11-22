@@ -38,6 +38,12 @@ Automated tests can't prove these. Run them on the phone before trusting a Liste
 | 23 | Airplane mode: a VOD that isn't saved says "You're offline" with Retry (never "Loading" forever); back on signal, the live diary returns by itself | |
 | 24 | **After a deploy:** open the app online, close and reopen it: the new version shows; an app left open on the old version keeps working | |
 
+**12 h VODs (since 2026-11-21).** A 12 h VOD is ~880 MB of audio and downloads as 3 parts:
+Android shows three notifications, "… (1/3)", "(2/3)", "(3/3)", which run one after another
+(~2 h in all at the archive's ~110 KB/s). Cancelling any one of them stops the whole download.
+Two 12 h VODs fill most of the 2 GB cap. A paused download no longer resumes by itself on mobile
+data: it waits for Wi-Fi, or tap Resume.
+
 **Row 10 on a Samsung (S22).** Chrome's background downloads run at Chrome's default
 priority, which Android may hold while the phone is locked. Before an overnight download:
 - Settings → Battery → **Power saving off**.

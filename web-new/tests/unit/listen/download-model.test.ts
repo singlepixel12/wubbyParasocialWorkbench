@@ -3,6 +3,7 @@ import {
   newManifest, missingRuns, markDone, progress, totals, planForCap, runFromRange, rangeForRun,
   bgFetchId, hashFromBgFetchId, CAP_BYTES, autoResumeDelay, recordAutoResume, AUTO_RESUME_DELAYS_MS, type DownloadManifest,
   trackStall, STALL_RESTART_MS, STALLED_REASON,
+  splitIntoParts, partBgFetchId, MAX_REQUESTS_PER_FETCH, NO_RECORDS_REASON,
 } from '@/lib/listen/download-model';
 import type { AudioIndex } from '@/lib/listen/types';
 
@@ -145,5 +146,33 @@ describe('stalled rounds', () => {
   it('a round restarted for stalling auto-resumes (unlike a user cancel)', () => {
     const m = { ...base(), state: 'paused', reason: STALLED_REASON, updatedAt: 1000 } as DownloadManifest;
     expect(autoResumeDelay(m, 1000)).toBe(AUTO_RESUME_DELAYS_MS[0]);
+  });
+});
+
+describe('downloads in parts', () => {
+  const runs = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+  it('splits into the fewest parts of at most MAX_REQUESTS_PER_FETCH, evenly', () => {
+    expect(MAX_REQUESTS_PER_FETCH).toBeLessThanOrEqual(4000);
+    expect(splitIntoParts(runs(179)).map((p) => p.length)).toEqual([179]); // a short VOD: one fetch
+    expect(splitIntoParts(runs(4000)).map((p) => p.length)).toEqual([4000]);
+    expect(splitIntoParts(runs(5340)).map((p) => p.length)).toEqual([2670, 2670]); // ~6 h
+    expect(splitIntoParts(runs(10855)).map((p) => p.length)).toEqual([3619, 3619, 3617]); // 12 h
+    expect(splitIntoParts([])).toEqual([]);
+  });
+
+  it('keeps every run exactly once, in order', () => {
+    expect(splitIntoParts(runs(10855)).flat()).toEqual(runs(10855));
+  });
+
+  it('part ids still name their VOD', () => {
+    const id = partBgFetchId('abc', 123, 2);
+    expect(id).toBe('listen:abc:123-2');
+    expect(hashFromBgFetchId(id)).toBe('abc');
+  });
+
+  it('never auto-resumes a round whose records Chrome lost (it would lose them again)', () => {
+    const m = { ...newManifest({ hash: 'h', title: 't', url: 'u', index: idx, now: 0 }), state: 'paused' as const, reason: NO_RECORDS_REASON, updatedAt: 0 };
+    expect(autoResumeDelay(m, 10)).toBeNull();
   });
 });

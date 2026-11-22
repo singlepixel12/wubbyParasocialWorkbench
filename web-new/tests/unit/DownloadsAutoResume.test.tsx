@@ -51,6 +51,21 @@ describe('DownloadsAutoResume', () => {
     await act(() => vi.advanceTimersByTimeAsync(10)); // the re-render scheduled a 0 ms timer (3 s already passed)
     expect(api.autoResume).toHaveBeenCalledTimes(1);
   });
+
+  it('tries again when the connection changes (a round skipped on mobile data resumes on Wi-Fi)', async () => {
+    const connection = new EventTarget();
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: connection });
+    state.manifests = [paused()];
+    render(<DownloadsAutoResume />);
+    await act(() => vi.advanceTimersByTimeAsync(3_100));
+    expect(api.autoResume).toHaveBeenCalledTimes(1); // it ran, and (on mobile data) declined
+    await act(async () => {
+      connection.dispatchEvent(new Event('change'));
+    });
+    await act(() => vi.advanceTimersByTimeAsync(10));
+    expect(api.autoResume).toHaveBeenCalledTimes(2);
+    delete (navigator as unknown as Record<string, unknown>).connection;
+  });
 });
 
 describe('DownloadsAutoResume: watchdog for a round stuck in Chrome', () => {

@@ -41,9 +41,17 @@ for (const [type, kind] of [['backgroundfetchsuccess', 'success'], ['backgroundf
   self.addEventListener(type, (event) => {
     event.waitUntil(
       (async () => {
-        const result = await handleBackgroundFetchEnd(kind, event.registration);
+        const bg = self.registration.backgroundFetch;
+        const result = await handleBackgroundFetchEnd(kind, event.registration, {
+          // A download is several parts (one Background Fetch each); see lib/listen/sw-handlers.ts.
+          liveIds: () => bg.getIds(),
+          abortParts: async (ids) => {
+            await Promise.all(ids.map(async (id) => (await bg.get(id))?.abort().catch(() => false)));
+          },
+        });
         if (result && typeof event.updateUI === 'function') {
-          const title = result.state === 'ready' ? `Saved for offline: ${result.title}` : `Download paused: ${result.title}`;
+          const title =
+            result.state === 'ready' ? `Saved for offline: ${result.title}` : result.state === 'downloading' ? `Part downloaded: ${result.title}` : `Download paused: ${result.title}`;
           await event.updateUI({ title }).catch(() => undefined);
         }
       })(),
